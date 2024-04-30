@@ -1,0 +1,11 @@
+[workspace]
+members = ["reef_interpreter", "reef_node_native"]
+resolver = "2"
+
+[workspace.package]
+version = "0.0.1"
+authors = []
+description = "Fault-tolerant distributed Wasm runtime"
+repository = "https://github.com/reef-runtime/reef"
+
+[workspace.dependencies]

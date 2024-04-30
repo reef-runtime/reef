@@ -27,7 +27,7 @@
 
           buildInputs = with pkgs; [
             (rustToolchain.override {
-              extensions = ["rust-std" "rust-analyzer"];
+              extensions = ["rust-src" "rust-std" "rust-analyzer"];
             })
 
             go_1_21
