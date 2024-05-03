@@ -1,0 +1,7 @@
+{"level":"error","msg":"Could not list jobs: executing query failed: dial tcp: lookup reef: no such host","time":"2024-05-01T16:09:03+02:00"}
+{"level":"error","msg":"Could not list jobs: executing query failed: dial tcp: lookup reef: no such host","time":"2024-05-01T16:14:35+02:00"}
+{"level":"error","msg":"Could not list jobs: executing query failed: dial tcp: lookup reef: no such host","time":"2024-05-01T16:14:46+02:00"}
+{"level":"error","msg":"Could not list jobs: executing query failed: dial tcp [::1]:5432: connect: connection refused","time":"2024-05-01T16:15:20+02:00"}
+{"level":"error","msg":"Could not list jobs: executing query failed: pq: unknown response for startup: 'i'","time":"2024-05-01T16:15:47+02:00"}
+{"level":"error","msg":"Could not list jobs: executing query failed: pq: unknown response for startup: 'i'","time":"2024-05-01T16:23:24+02:00"}
+{"level":"error","msg":"Could not list jobs: executing query failed: dial tcp [::1]:5432: connect: connection refused","time":"2024-05-01T17:16:45+02:00"}

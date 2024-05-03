@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  db:
+    container_name: reef-db
+    image: postgres:14.1-alpine
+    restart: always
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - "POSTGRES_USER=${REEF_DB_USERNAME}"
+      - "POSTGRES_PASSWORD=${REEF_DB_PASSWORD}"
+      - "POSTGRES_DB=${REEF_DB_NAME}"
+    ports:
+      - "${REEF_DB_PORT}:5432"
+
+volumes:
+  db-data:
