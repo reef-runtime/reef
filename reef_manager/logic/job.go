@@ -2,13 +2,14 @@ package logic
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"time"
 
 	"github.com/reef-runtime/reef/reef_manager/database"
 )
 
 type JobSubmission struct {
-	// TODO: add other required fields.
+	// TODO: add other required fields (referenced code + dataset)
 	Name string `json:"name"`
 }
 
@@ -32,12 +33,13 @@ func (j queuedJob) IsHigherThan(other prioritizable) bool {
 	return j.submittedAt().Before(otherJob.submittedAt())
 }
 
-func SubmitJob(submission JobSubmission) (newID [sha256.Size]byte, err error) {
+func SubmitJob(submission JobSubmission) (newID string, err error) {
 	now := time.Now().Local()
 
 	// Create a hash for the ID.
 	// TODO: use correct hash input.
-	newID = sha256.Sum256([]byte{0xde, 0xad, 0xbe, 0xef})
+	idBinary := sha256.Sum256(append([]byte(now.String()), []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}...))
+	newID = hex.EncodeToString(idBinary[0:len(idBinary)])
 
 	if err = database.AddJob(database.Job{
 		ID:        newID,
@@ -45,7 +47,7 @@ func SubmitJob(submission JobSubmission) (newID [sha256.Size]byte, err error) {
 		Submitted: now,
 		Status:    database.StatusQueued,
 	}); err != nil {
-		return [sha256.Size]byte{}, err
+		return "", err
 	}
 
 	return newID, nil

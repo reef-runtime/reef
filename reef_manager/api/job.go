@@ -1,8 +1,6 @@
 package api
 
 import (
-	"crypto/sha256"
-
 	"github.com/gofiber/fiber/v2"
 	"github.com/reef-runtime/reef/reef_manager/database"
 	"github.com/reef-runtime/reef/reef_manager/logic"
@@ -22,7 +20,7 @@ func GetJobs(c *fiber.Ctx) error {
 //
 
 type JobIDResponse struct {
-	ID [sha256.Size]byte `json:"id"`
+	ID string `json:"id"`
 }
 
 func SubmitJob(c *fiber.Ctx) error {

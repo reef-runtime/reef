@@ -44,6 +44,14 @@ func (j *JobQueue) Pop() (job database.Job, found bool) {
 	return item.(*queuedItem[prioritizable]).Inner.(queuedJob).Job, true
 }
 
+func (j *JobQueue) IsEmpty() bool {
+	return j.len == 0
+}
+
+func (j *JobQueue) Len() uint64 {
+	return j.len
+}
+
 //
 // Internal code of the priority queue.
 //

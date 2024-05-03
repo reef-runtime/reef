@@ -1,7 +1,7 @@
 CREATE TABLE
 IF NOT EXISTS
 job(
-    id   BYTEA,
+    id   VARCHAR(64),
     name TEXT,
     submitted TIMESTAMP WITH TIME ZONE,
     status SMALLINT,

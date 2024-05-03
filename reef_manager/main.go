@@ -41,6 +41,7 @@ func main() {
 	})
 
 	app.Get("/api/jobs", api.GetJobs)
+	app.Post("/api/jobs/submit", api.SubmitJob)
 
 	logger.Debugf("Starting web server on port %d...", WEB_PORT)
 	log.Fatal(app.Listen(":" + fmt.Sprint(WEB_PORT)))

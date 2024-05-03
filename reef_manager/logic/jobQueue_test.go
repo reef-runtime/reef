@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/reef-runtime/reef/reef_manager/database"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestJobQueue(t *testing.T) {
@@ -21,7 +22,7 @@ func TestJobQueue(t *testing.T) {
 		{
 			ID:        [32]byte{123, 45, 67, 13},
 			Name:      "Mine some Coin",
-			Submitted: baseSubmit.Add(time.Hour * 3),
+			Submitted: baseSubmit.Add(time.Hour * 2),
 			Status:    database.StatusQueued,
 		},
 		{
@@ -34,33 +35,14 @@ func TestJobQueue(t *testing.T) {
 
 	jobs := NewJobQueue()
 
-	// i := 0
-	// for idx, elem := range items {
-	// 	pq[i] = &Item{
-	// 		value:    value,
-	// 		priority: priority,
-	// 		index:    i,
-	// 	}
-	// 	i++
-	// }
-
-	// Insert a new item and then modify its priority.
-	// item := &Item{
-	// 	value:    "orange",
-	// 	priority: 1,
-	// }
-
 	for _, elem := range items {
 		jobs.Push(elem)
 	}
 
-	// pq.update(item, item.value, 5)
-
-	// Take the items out; they arrive in decreasing priority order.
-	// for pq.Len() > 0 {
-	// 	item := heap.Pop(&pq).(*queuedItem[prioritizable]).Inner.(queuedJob)
-	// 	fmt.Printf("name=%s | %v | %v", item.Job.Name, item.Job.ID, item.Job.Submitted)
-	// }
+	assert.False(t, jobs.IsEmpty())
+	assert.Equal(t, jobs.Len(), uint64(len(items)))
+	results := make([]database.Job, 0)
+	count := jobs.Len()
 
 	for {
 		job, exists := jobs.Pop()
@@ -68,6 +50,18 @@ func TestJobQueue(t *testing.T) {
 			break
 		}
 
-		fmt.Printf("JOB: %b\n", job.ID)
+		fmt.Printf("[test] Job ID: %b\n", job.ID)
+
+		results = append(results, job)
+		count--
+
+		assert.Equal(t, jobs.Len(), count)
 	}
+
+	assert.Len(t, results, len(items))
+	assert.Equal(t, results[0].Name, "Mine some Coin")
+	assert.Equal(t, results[1].Name, "Calculate Fibonacci")
+	assert.Equal(t, results[2].Name, "Analyze weather data")
+	assert.True(t, jobs.IsEmpty())
+	assert.Equal(t, jobs.Len(), uint64(0))
 }
