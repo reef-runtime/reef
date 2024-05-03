@@ -5,7 +5,13 @@ meta {
 }
 
 post {
-  url: 
-  body: none
+  url: {{url}}/api/jobs/submit
+  body: json
   auth: none
+}
+
+body:json {
+  {
+    "name": "Bruno test job"
+  }
 }
