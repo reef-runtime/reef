@@ -1,0 +1,36 @@
+meta {
+  name: Abort Job [not found]
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{url}}/api/jobs/abort
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "id": ""
+  }
+}
+
+tests {
+  test("Status unprocessable entity", function() {
+      expect(res.status).to.equal(422);
+  });
+   
+  test("Error Body", function() {
+      expect(res.body.error).to.equal('job does not exist or is not in <queued> state');
+  });
+}
+
+docs {
+  # Aborting a Job
+  
+  ## Requirements
+  
+  - This only works if the job is in the `queued` state.
+  - Otherwise, this endpoint will return the same error as if the job was not found at all.
+}

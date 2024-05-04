@@ -1,0 +1,37 @@
+meta {
+  name: Abort Job
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{url}}/api/jobs/abort
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    //"id": "<job-id-here>"
+    "id": "ad735f1661686529286fc6bbc66546af35a3a844030454cfa273f1e82d88dd07"
+  }
+}
+
+tests {
+  test("Status unprocessable entity", function() {
+      expect(res.status).to.equal(200);
+  });
+   
+  test("Error Body", function() {
+      expect(res.body.message).to.equal('aborted job');
+  });
+}
+
+docs {
+  # Aborting a Job
+  
+  ## Requirements
+  
+  - This only works if the job is in the `queued` state.
+  - Otherwise, this endpoint will return the same error as if the job was not found at all.
+}
