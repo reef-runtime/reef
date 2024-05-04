@@ -6,7 +6,7 @@ services:
     image: postgres:14.1-alpine
     restart: always
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - reef-db-data:/var/lib/postgresql/data
       - /etc/localtime:/etc/localtime:ro
     environment:
       - "POSTGRES_USER=${REEF_DB_USERNAME}"
@@ -16,4 +16,4 @@ services:
       - "${REEF_DB_PORT}:5432"
 
 volumes:
-  db-data:
+  reef-db-data:

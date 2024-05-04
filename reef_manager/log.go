@@ -8,7 +8,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const LOG_LEVEL_ENV_VAR = "REEF_LOG_LEVEV"
+const LOG_LEVEL_DEFAULT = logrus.TraceLevel
+const LOG_LEVEL_ENV_VAR = "REEF_LOG_LEVEL"
 
 func newLogger() *logrus.Logger {
 	logLevel := LOG_LEVEL_DEFAULT

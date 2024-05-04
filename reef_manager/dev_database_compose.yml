@@ -33,7 +33,7 @@ services:
       - MYSQL_USER="${REEF_DB_USERNAME}"
       - MYSQL_PASSWORD="${REEF_DB_USERNAME}"
     ports:
-      - 3330:3306
+      - "${REEF_DB_PORT_DEV}:3306"
     volumes:
       - testing-data:/var/lib/mysql
 

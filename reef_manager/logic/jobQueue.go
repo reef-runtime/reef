@@ -44,6 +44,28 @@ func (j *JobQueue) Pop() (job database.Job, found bool) {
 	return item.(*queuedItem[prioritizable]).Inner.(queuedJob).Job, true
 }
 
+func (j *JobQueue) Delete(jobID string) (found bool) {
+	const notFound = -1
+
+	// Find index of item to be removed.
+	deleteIndex := notFound
+
+	for currIdx, job := range j.pq {
+		if job.Inner.(queuedJob).Job.ID == jobID {
+			deleteIndex = currIdx
+			break
+		}
+	}
+
+	if deleteIndex == notFound {
+		return false
+	}
+
+	heap.Remove(&j.pq, deleteIndex)
+
+	return false
+}
+
 func (j *JobQueue) IsEmpty() bool {
 	return j.len == 0
 }

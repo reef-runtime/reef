@@ -14,19 +14,19 @@ func TestJobQueue(t *testing.T) {
 
 	items := []database.Job{
 		{
-			ID:        [32]byte{123, 121, 0101},
+			ID:        "deadbeef",
 			Name:      "Analyze weather data",
 			Submitted: baseSubmit.Add(time.Hour * 3),
 			Status:    database.StatusQueued,
 		},
 		{
-			ID:        [32]byte{123, 45, 67, 13},
+			ID:        "feefeee",
 			Name:      "Mine some Coin",
 			Submitted: baseSubmit.Add(time.Hour * 2),
 			Status:    database.StatusQueued,
 		},
 		{
-			ID:        [32]byte{47, 11, 42, 69},
+			ID:        "acdc",
 			Name:      "Calculate Fibonacci",
 			Submitted: baseSubmit.Add(time.Hour * 2),
 			Status:    database.StatusQueued,
@@ -50,7 +50,7 @@ func TestJobQueue(t *testing.T) {
 			break
 		}
 
-		fmt.Printf("[test] Job ID: %b\n", job.ID)
+		fmt.Printf("[test] Job ID: %s\n", job.ID)
 
 		results = append(results, job)
 		count--

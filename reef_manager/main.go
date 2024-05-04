@@ -3,15 +3,14 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gin-gonic/gin"
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/reef-runtime/reef/reef_manager/api"
 	"github.com/reef-runtime/reef/reef_manager/database"
-	"github.com/sirupsen/logrus"
 )
 
-const LOG_LEVEL_DEFAULT = logrus.InfoLevel
 const WEB_PORT = 3000
 
 func main() {
@@ -34,15 +33,16 @@ func main() {
 	}
 
 	// Fiber HTTP server.
-	app := fiber.New()
+	r := gin.Default()
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString("Hello, World!")
+	r.GET("/", func(ctx *gin.Context) {
+		ctx.String(http.StatusOK, "REEF")
 	})
 
-	app.Get("/api/jobs", api.GetJobs)
-	app.Post("/api/jobs/submit", api.SubmitJob)
+	r.GET("/api/jobs", api.GetJobs)
+	r.POST("/api/jobs/submit", api.SubmitJob)
+	r.DELETE("/api/jobs/abort", api.AbortJob)
 
 	logger.Debugf("Starting web server on port %d...", WEB_PORT)
-	log.Fatal(app.Listen(":" + fmt.Sprint(WEB_PORT)))
+	log.Fatal(r.Run(":" + fmt.Sprint(WEB_PORT)))
 }

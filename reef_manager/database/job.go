@@ -1,7 +1,8 @@
 package database
 
 import (
-	"crypto/sha256"
+	"database/sql"
+	"errors"
 	"time"
 )
 
@@ -25,7 +26,12 @@ type Job struct {
 }
 
 func AddJob(job Job) error {
-	if _, err := db.builder.Insert(JobTableName).Values(job.ID[0:], job.Name).Exec(); err != nil {
+	if _, err := db.builder.Insert(JobTableName).Values(
+		job.ID,
+		job.Name,
+		job.Submitted,
+		job.Status,
+	).Exec(); err != nil {
 		log.Errorf("Could not add job to database: executing query failed: %s", err.Error())
 		return err
 	}
@@ -33,8 +39,8 @@ func AddJob(job Job) error {
 	return nil
 }
 
-func DeleteJob(jobID [sha256.Size]byte) (found bool, err error) {
-	res, err := db.builder.Delete(JobTableName).Where("job.ID=", jobID).Exec()
+func DeleteJob(jobID string) (found bool, err error) {
+	res, err := db.builder.Delete(JobTableName).Where("job.ID=?", jobID).Exec()
 	if err != nil {
 		return false, err
 	}
@@ -47,9 +53,23 @@ func DeleteJob(jobID [sha256.Size]byte) (found bool, err error) {
 	return affected != 0, nil
 }
 
-func ListJobs() ([]Job, error) {
-	res, err := db.builder.Select("*").From(JobTableName).Query()
+func ListJobsFiltered(stateFilter JobStatus) ([]Job, error) {
+	return listJobsGeneric(&stateFilter)
+}
 
+func ListJobs() ([]Job, error) {
+	return listJobsGeneric(nil)
+}
+
+func listJobsGeneric(stateFilter *JobStatus) ([]Job, error) {
+	baseQuery := db.builder.Select("*").From(JobTableName).OrderBy("submitted ASC")
+
+	// Apply optional filter.
+	if stateFilter != nil {
+		baseQuery.Where("job.status=?", *stateFilter)
+	}
+
+	res, err := baseQuery.Query()
 	if err != nil {
 		log.Errorf("Could not list jobs: executing query failed: %s", err.Error())
 		return nil, err
@@ -59,10 +79,40 @@ func ListJobs() ([]Job, error) {
 
 	for res.Next() {
 		var job Job
-		if err := res.Scan(&job.ID); err != nil {
+		if err := res.Scan(
+			&job.ID,
+			&job.Name,
+			&job.Submitted,
+			&job.Status,
+		); err != nil {
+			log.Errorf("Could not list jobs: scanning results failed: %s", err.Error())
 			return nil, err
 		}
+
+		jobs = append(jobs, job)
 	}
 
 	return jobs, nil
+}
+
+func GetJob(jobID string) (job Job, found bool, err error) {
+	res := db.builder.Select("*").From(JobTableName).Where("job.Id=?", jobID).QueryRow()
+	err = res.Scan(
+		&job.ID,
+		&job.Name,
+		&job.Submitted,
+		&job.Status,
+	)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		log.Tracef("Could not get job (%s): %s", jobID, err.Error())
+		return job, false, nil
+	}
+
+	if err != nil {
+		log.Errorf("Could not get job (%s): executing query failed: %s", jobID, err.Error())
+		return job, false, err
+	}
+
+	return job, true, nil
 }

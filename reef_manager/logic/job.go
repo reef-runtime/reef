@@ -3,10 +3,25 @@ package logic
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"log"
 	"time"
 
 	"github.com/reef-runtime/reef/reef_manager/database"
 )
+
+//
+// Job manager.
+//
+
+type JobManagerT struct {
+	JobQueue JobQueue
+}
+
+var JobManager JobManagerT
+
+//
+// End job manager.
+//
 
 type JobSubmission struct {
 	// TODO: add other required fields (referenced code + dataset)
@@ -33,22 +48,81 @@ func (j queuedJob) IsHigherThan(other prioritizable) bool {
 	return j.submittedAt().Before(otherJob.submittedAt())
 }
 
-func SubmitJob(submission JobSubmission) (newID string, err error) {
+func (m *JobManagerT) SubmitJob(submission JobSubmission) (newID string, err error) {
 	now := time.Now().Local()
 
 	// Create a hash for the ID.
 	// TODO: use correct hash input.
 	idBinary := sha256.Sum256(append([]byte(now.String()), []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}...))
-	newID = hex.EncodeToString(idBinary[0:len(idBinary)])
+	newID = hex.EncodeToString(idBinary[0:])
 
-	if err = database.AddJob(database.Job{
+	job := database.Job{
 		ID:        newID,
 		Name:      submission.Name,
 		Submitted: now,
 		Status:    database.StatusQueued,
-	}); err != nil {
+	}
+
+	if err = database.AddJob(job); err != nil {
 		return "", err
 	}
 
+	m.JobQueue.Push(job)
+
 	return newID, nil
+}
+
+// Can only be used while the job is queued.
+func (m *JobManagerT) AbortJob(jobID string) (found bool, err error) {
+	job, found, err := database.GetJob(jobID)
+	if err != nil || !found {
+		return found, err
+	}
+
+	// Act as there is no queued job with this id.
+	if job.Status != database.StatusQueued {
+		log.Printf("Found job `%s` but it is not in <queued> state\n", jobID)
+		return false, nil
+	}
+
+	// Remove the job from the queue and database.
+	if !m.JobQueue.Delete(jobID) {
+		return false, nil
+	}
+
+	found, err = database.DeleteJob(jobID)
+	if err != nil || !found {
+		return found, err
+	}
+
+	return true, nil
+}
+
+func (m *JobManagerT) init() error {
+	// Initialize priority queue
+	queuedJobs, err := database.ListJobsFiltered(database.StatusQueued)
+	if err != nil {
+		return err
+	}
+
+	for _, job := range queuedJobs {
+		m.JobQueue.Push(job)
+	}
+
+	return nil
+}
+
+func newJobManager() JobManagerT {
+	return JobManagerT{
+		JobQueue: NewJobQueue(),
+	}
+}
+
+func Init() error {
+	JobManager = newJobManager()
+	if err := JobManager.init(); err != nil {
+		return err
+	}
+
+	return nil
 }

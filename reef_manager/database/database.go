@@ -2,9 +2,14 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 
 	sq "github.com/Masterminds/squirrel"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/golang-migrate/migrate/v4/source/pkger"
 	_ "github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 )
@@ -62,6 +67,31 @@ func Init(pLogger *logrus.Logger, config DatabaseConfig) error {
 	dbTemp, err := sql.Open("postgres", connStr)
 	if err != nil {
 		log.Errorf("Could not connect to database: %s", err.Error())
+		return err
+	}
+
+	// Run migrations.
+	MIGRATOR_CONFIG := postgres.Config{}
+
+	driver, err := postgres.WithInstance(dbTemp, &MIGRATOR_CONFIG)
+	if err != nil {
+		log.Errorf("Could not run migrations: failed to create migration instance %s", err.Error())
+		return err
+	}
+
+	m, err := migrate.NewWithDatabaseInstance(
+		"pkger:///db/migrations",
+		"postgres", driver)
+	if err != nil {
+		log.Errorf("Could not run migrations: failed to connect to database: %s", err.Error())
+		return err
+	}
+
+	err = m.Up()
+	if errors.Is(err, migrate.ErrNoChange) {
+		log.Trace("Database migrations were not executed, no need for changes.")
+	} else if err != nil {
+		log.Errorf("Could not run migrations: failed to run UP migrations: %s", err.Error())
 		return err
 	}
 
