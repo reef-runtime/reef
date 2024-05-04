@@ -3,10 +3,10 @@ SHELL:=/bin/bash
 export BASH_ENV=./env
 
 PROJECT_NAME="reef"
-
-.PHONY: dev-db-down dev-db-up dev-db-nuke lint
-.NOTPARALLEL: dev-db-up dev-db-down dev-db-nuke
 GREP:=grep
+
+.PHONY: dev-db-down dev-db-up dev-db-nuke lint clean
+.NOTPARALLEL: dev-db-up dev-db-down dev-db-nuke
 
 #
 # (Dev) database specific.
@@ -60,3 +60,11 @@ GO_TEST_ARGS:=test -v -p 1 ./... -timeout=100000s
 
 lint: *.go ./logic ./database/ ./api/
 	$(GO_TEST_BIN) $(GO_TEST_ARGS)
+
+#
+# Misc.
+#
+
+clean:
+	rm -rf log
+	rm -f $(DOCKER_OK_FILE)
