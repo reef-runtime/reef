@@ -4,6 +4,8 @@ SHELL:=/usr/bin/env bash
 include .env
 export $(shell sed 's/=.*//' .env)
 
+################################### VARS / SETUP ####################################
+
 PROJECT_NAME="reef"
 GREP:=rg
 
@@ -24,6 +26,26 @@ DOCKER_OK_IMAGE:=bash
 DOCKER_OK_FILE:=.docker_ok
 DOCKER_OK_ERR_MSG:=Is your docker setup working?
 
+
+MIGRATE:=migrate
+MIGRATIONS_DIR:=db/migrations
+
+#
+# Go stuff.
+#
+
+GO_LINT_BIN:=golangci-lint
+GO_FLAGS:=-v -race
+GO_BIN:=go
+GO_TEST_BIN:=richgo
+GO_TEST_ARGS:=test -v -p 1 ./... -timeout=100000s
+GO_SRC:=$(wildcard *.go) $(wildcard ./logic/**/*.go) $(wildcard ./database/**/*.go) $(wildcard ./api/**/*.go)
+
+################################### BEGIN TARGETS ##################################
+
+#
+# Database targets
+#
 
 $(DOCKER_OK_FILE):
 	$(DOCKER) run $(DOCKER_OK_IMAGE) echo 'OK' > $(DOCKER_OK_FILE)
@@ -53,17 +75,18 @@ dev-db-shell: docker-check
 
 # TODO: add target for simplified DB migrations
 
+MIGRATION_NAME = "<error:not-specified>"
+dev-db-add-migration:
+	$(MIGRATE) create -ext sql -dir $(MIGRATIONS_DIR) -seq $(MIGRATION_NAME)
+
 #
 # Server / GO.
 #
 
-GO_FLAGS:=-v -race
-GO_BIN:=go
-GO_TEST_BIN:=richgo
-GO_TEST_ARGS:=test -v -p 1 ./... -timeout=100000s
-GO_SRC:=$(wildcard *.go) $(wildcard ./logic/**/*.go) $(wildcard ./database/**/*.go) $(wildcard ./api/**/*.go)
-
 lint: $(GO_SRC)
+	$(GO_LINT_BIN) run
+
+test: $(GO_SRC)
 	$(GO_TEST_BIN) $(GO_TEST_ARGS)
 
 run: $(GO_SRC)
