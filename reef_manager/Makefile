@@ -1,9 +1,11 @@
 #!make
-SHELL:=/bin/bash
-export BASH_ENV=./env
+SHELL:=/usr/bin/env bash
+
+include .env
+export $(shell sed 's/=.*//' .env)
 
 PROJECT_NAME="reef"
-GREP:=grep
+GREP:=rg
 
 .PHONY: dev-db-down dev-db-up dev-db-nuke lint clean
 .NOTPARALLEL: dev-db-up dev-db-down dev-db-nuke
@@ -55,11 +57,17 @@ dev-db-shell: docker-check
 # Server / GO.
 #
 
+GO_FLAGS:=-v -race
+GO_BIN:=go
 GO_TEST_BIN:=richgo
 GO_TEST_ARGS:=test -v -p 1 ./... -timeout=100000s
+GO_SRC:=$(wildcard *.go) $(wildcard ./logic/**/*.go) $(wildcard ./database/**/*.go) $(wildcard ./api/**/*.go)
 
-lint: *.go ./logic ./database/ ./api/
+lint: $(GO_SRC)
 	$(GO_TEST_BIN) $(GO_TEST_ARGS)
+
+run: $(GO_SRC)
+	$(GO_BIN) run $(GO_FLAGS) .
 
 #
 # Misc.
@@ -68,3 +76,6 @@ lint: *.go ./logic ./database/ ./api/
 clean:
 	rm -rf log
 	rm -f $(DOCKER_OK_FILE)
+
+env: .env
+	env | $(GREP) REEF
