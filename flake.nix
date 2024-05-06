@@ -30,10 +30,18 @@
               extensions = ["rust-src" "rust-std" "rust-analyzer"];
             })
 
+            # Golang.
             go_1_21
+            richgo
+            golangci-lint
+            go-migrate
 
+            # Node JS.
             nodejs_20
             nodePackages.npm
+
+            # Misc.
+            ripgrep
           ];
 
           shellHook = ''

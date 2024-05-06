@@ -7,3 +7,7 @@ job(
     status SMALLINT NOT NULL,
     PRIMARY KEY (id)
 );
+
+--
+-- | id | name | submitted | status |
+-- |    |      |           |        |
