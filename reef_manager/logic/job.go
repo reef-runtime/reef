@@ -24,7 +24,7 @@ var JobManager JobManagerT
 //
 
 type JobSubmission struct {
-	// TODO: add other required fields (referenced code + dataset)
+	// TODO: add other required fields (referenced code + dataset).
 	Name string `json:"name"`
 }
 

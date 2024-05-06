@@ -66,7 +66,7 @@ func listJobsGeneric(stateFilter *JobStatus) ([]Job, error) {
 
 	// Apply optional filter.
 	if stateFilter != nil {
-		baseQuery.Where("job.status=?", *stateFilter)
+		baseQuery = baseQuery.Where("job.status=?", *stateFilter)
 	}
 
 	res, err := baseQuery.Query()

@@ -22,7 +22,7 @@ func TestJobQueue(t *testing.T) {
 		{
 			ID:        "feefeee",
 			Name:      "Mine some Coin",
-			Submitted: baseSubmit.Add(time.Hour * 2),
+			Submitted: baseSubmit.Add(time.Hour * 1),
 			Status:    database.StatusQueued,
 		},
 		{
