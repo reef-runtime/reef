@@ -7,5 +7,6 @@ version = "0.0.1"
 authors = []
 description = "Fault-tolerant distributed Wasm runtime"
 repository = "https://github.com/reef-runtime/reef"
+edition = "2021"
 
 [workspace.dependencies]
