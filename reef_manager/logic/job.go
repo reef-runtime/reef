@@ -3,7 +3,6 @@ package logic
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"log"
 	"time"
 
 	"github.com/reef-runtime/reef/reef_manager/database"
@@ -81,13 +80,13 @@ func (m *JobManagerT) AbortJob(jobID string) (found bool, err error) {
 
 	// Act as there is no queued job with this id.
 	if job.Status != database.StatusQueued {
-		log.Printf("Found job `%s` but it is not in <queued> state\n", jobID)
+		log.Tracef("Found job `%s` but it is not in <queued> state\n", jobID)
 		return false, nil
 	}
 
 	// Remove the job from the queue and database.
 	if !m.JobQueue.Delete(jobID) {
-		return false, nil
+		log.Errorf("Internal state corruption: job to be aborted was not in job queue, fixing...")
 	}
 
 	found, err = database.DeleteJob(jobID)
@@ -106,6 +105,7 @@ func (m *JobManagerT) init() error {
 	}
 
 	for _, job := range queuedJobs {
+		log.Tracef("Loaded saved queued job from DB: `%s`", job.ID)
 		m.JobQueue.Push(job)
 	}
 
@@ -116,13 +116,4 @@ func newJobManager() JobManagerT {
 	return JobManagerT{
 		JobQueue: NewJobQueue(),
 	}
-}
-
-func Init() error {
-	JobManager = newJobManager()
-	if err := JobManager.init(); err != nil {
-		return err
-	}
-
-	return nil
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/reef-runtime/reef/reef_manager/api"
 	"github.com/reef-runtime/reef/reef_manager/database"
+	"github.com/reef-runtime/reef/reef_manager/logic"
 )
 
 const WEB_PORT = 3000
@@ -30,6 +31,10 @@ func main() {
 
 	if err := database.Init(logger, dbConfig); err != nil {
 		log.Fatalf("Initializing database failed: %s", err.Error())
+	}
+
+	if err := logic.Init(logger); err != nil {
+		log.Fatalf("Initializing logic package failed: %s", err.Error())
 	}
 
 	// Fiber HTTP server.
