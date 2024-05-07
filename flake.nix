@@ -26,21 +26,26 @@
           name = "Reef Dev";
 
           buildInputs = with pkgs; [
+            # Rust toolchain
             (rustToolchain.override {
               extensions = ["rust-src" "rust-std" "rust-analyzer"];
             })
 
-            # Golang.
+            # Golang toolchain
             go_1_21
             richgo
             golangci-lint
             go-migrate
 
-            # Node JS.
+            # JS toolchain
             nodejs_20
             nodePackages.npm
 
-            # Misc.
+            # Wasm tools
+            wasmtime
+            wabt
+
+            # Misc
             ripgrep
           ];
 
