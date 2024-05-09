@@ -47,9 +47,13 @@
 
             # Misc
             ripgrep
+            openssl
           ];
 
           shellHook = ''
+            export OPENSSL_DIR="${pkgs.openssl.dev}"
+            export OPENSSL_LIB_DIR="${pkgs.openssl.out}/lib"
+
             # if running from zsh, reenter zsh
             if [[ $(ps -e | grep $PPID) == *"zsh" ]]; then
               zsh
