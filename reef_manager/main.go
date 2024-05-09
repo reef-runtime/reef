@@ -48,6 +48,10 @@ func main() {
 	r.POST("/api/jobs/submit", api.SubmitJob)
 	r.DELETE("/api/jobs/abort", api.AbortJob)
 
+	r.GET("/api/node/connect", api.HandleNodeConnection)
+
 	logger.Debugf("Starting web server on port %d...", WEB_PORT)
+
+	api.Init(logger)
 	log.Fatal(r.Run(":" + fmt.Sprint(WEB_PORT)))
 }

@@ -4,7 +4,15 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
+
+var log *logrus.Logger
+
+func Init(logger *logrus.Logger) {
+	log = logger
+	log.Debug("API package sucessfully initialized")
+}
 
 type responseT struct {
 	Success bool   `json:"success"`
