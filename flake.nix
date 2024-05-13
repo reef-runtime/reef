@@ -44,10 +44,12 @@
             # Wasm tools
             wasmtime
             wabt
+            binaryen
 
             # Misc
             ripgrep
             openssl
+            pkg-config
           ];
 
           shellHook = ''
