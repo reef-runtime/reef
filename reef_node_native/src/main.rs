@@ -1,8 +1,9 @@
 extern crate websocket;
 
-use core::panic;
 use std::io::stdin;
 use std::sync::mpsc::channel;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use std::{thread, u16};
 
 use clap::Parser;
@@ -32,7 +33,18 @@ struct Args {
 const NODE_REGISTER_PATH: &str = "/api/node/connect";
 
 const CODE_INIT_HANDSHAKE: u8 = 0xB0;
+
+const CODE_SEND_ID: u8 = 0xB1;
+const ID_LEN_BYTES: usize = 32;
+
 const CODE_RECV_HANDSHAKE: u8 = 0xA0;
+
+const CODE_PING: u8 = 0xC0;
+const CODE_PONG: u8 = 0xC1;
+
+fn u16_into_bytes(v: u16) -> [u8; 2] {
+    [((v & 0xFF00) >> 8) as u8, v as u8]
+}
 
 fn main() {
     let args = Args::parse();
@@ -75,10 +87,18 @@ fn main() {
             };
 
             match message {
-                OwnedMessage::Text(ref inner) => println!("recv text: {inner:?}"),
-                OwnedMessage::Ping(ref bytes) => println!("[ping] {bytes:?}"),
-                OwnedMessage::Pong(ref bytes) => println!("[pong] {bytes:?}"),
-                OwnedMessage::Binary(ref bytes) => println!("recv binary: {bytes:?}"),
+                OwnedMessage::Text(ref inner) => println!("[SEND] text: {inner:?}"),
+                OwnedMessage::Ping(ref bytes) => println!("[SEND] ping: {bytes:?}"),
+                OwnedMessage::Pong(ref bytes) => println!("[SEND] pong: {bytes:?}"),
+                OwnedMessage::Binary(ref bytes) => {
+                    println!(
+                        "[SEND] binary: {:?}",
+                        bytes
+                            .iter()
+                            .map(|b| format!("0x{b:x}"))
+                            .collect::<Vec<String>>()
+                    )
+                }
                 OwnedMessage::Close(_) => {
                     let _ = sender.send_message(&message);
                     return;
@@ -97,6 +117,9 @@ fn main() {
         }
     });
 
+    let init_bool_src = Arc::new(Mutex::new(false));
+
+    let init_bool = init_bool_src.clone();
     let receive_loop = thread::spawn(move || {
         // Receive loop
         for message in receiver.incoming_messages() {
@@ -125,13 +148,22 @@ fn main() {
                     }
                 }
                 OwnedMessage::Binary(ref data) => {
+                    println!(
+                        "[RECV] binary: {:?}",
+                        data.iter()
+                            .map(|b| format!("0x{b:x}"))
+                            .collect::<Vec<String>>()
+                    );
+
                     if data.is_empty() {
-                        println!("[recv] Empty packet");
+                        println!("[RECV] Empty packet");
                         continue;
                     }
 
                     match data[0] {
                         CODE_INIT_HANDSHAKE => {
+                            println!("[RECV] Received handshake init");
+
                             // TODO: init handshake
                             // If we receive a handshake request, respond to it.
 
@@ -139,30 +171,66 @@ fn main() {
                             let len_name = name.len();
 
                             if len_name > u16::MAX.into() {
-                                panic!("[bug] Name was larger than u16 max")
+                                panic!("[bug] Name length was larger than u16 max")
                             }
 
                             let len_name = len_name as u16;
 
-                            let node_info = vec![
-                                CODE_RECV_HANDSHAKE,
-                                ((len_name & 0xFF00) >> 8) as u8,
-                                len_name as u8,
-                            ];
+                            let num_workers = num_cpus::get();
 
-                            let node_info = node_info.as_slice();
-                            let tx_body = &[node_info, name.as_bytes()].concat();
+                            if num_workers > u16::MAX.into() {
+                                panic!("[bug] Num workers was larger than u16 max")
+                            }
+
+                            let tx_body = &[
+                                &[CODE_RECV_HANDSHAKE],
+                                u16_into_bytes(num_workers as u16).as_slice(),
+                                u16_into_bytes(len_name).as_slice(),
+                                name.as_bytes(),
+                            ]
+                            .concat();
 
                             tx_1.send(OwnedMessage::Binary(tx_body.to_owned())).unwrap();
                         }
+                        CODE_SEND_ID => {
+                            if data.len() != ID_LEN_BYTES + 1 {
+                                panic!("[err] Returned ID is not in the expected format");
+                            }
+
+                            let id: &[u8] = &data[1..ID_LEN_BYTES];
+
+                            let mut initialized = init_bool.lock().unwrap();
+                            *initialized = true;
+
+                            println!("[end handshake]: recv ID: {id:?}");
+                        }
+                        CODE_PONG => {
+                            println!("[RECV] PONG")
+                        },
                         other => {
-                            println!("[recv]: Unkown message: {other:?}")
+                            println!("[RECV]: Unkown message: {other:?}")
                         }
                     }
                 }
-                // Say what we received
-                _ => println!("Receive Loop: {:?}", message),
+                _ => println!("[RECV] other: {:?}", message),
             }
+        }
+    });
+
+    let tx_ping = tx.clone();
+    let init_bool = init_bool_src.clone();
+
+    thread::spawn(move || {
+        loop {
+            if !*init_bool.lock().unwrap() {
+                thread::sleep(Duration::from_secs(1));
+                continue;
+            }
+
+            tx_ping.send(OwnedMessage::Binary(vec![CODE_PING])).unwrap();
+
+            // TODO: configure this.
+            thread::sleep(Duration::from_secs(10));
         }
     });
 
