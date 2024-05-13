@@ -2,6 +2,9 @@ use std::io::{self, Cursor, Error};
 
 use byteorder::{ReadBytesExt, LE};
 
+mod leb128;
+use leb128::LEB128Ext;
+
 #[derive(Debug, Default)]
 pub struct Module {
     type_section: (),
