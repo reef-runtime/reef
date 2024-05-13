@@ -13,6 +13,8 @@ func Init(logger *logrus.Logger) error {
 		return err
 	}
 
+	NodeManager = newNodeManager()
+
 	log.Debug("Logic package sucessfully initialized")
 	return nil
 }
