@@ -1,45 +1,85 @@
-use std::io::{self, Cursor, Error};
+use std::io::{self, Error, Read};
 
 use byteorder::{ReadBytesExt, LE};
 
 mod leb128;
 use leb128::LEB128Ext;
+mod sections;
 
 #[derive(Debug, Default)]
 pub struct Module {
-    type_section: (),
+    type_section: Box<[sections::type_section::TypeSectionEntry]>,
     import_section: (),
-    function_section: (),
+    function_section: Box<[()]>,
     table_section: (),
     linear_memory_section: (),
     global_section: (),
-    export_section: (),
+    export_section: Box<[()]>,
     start_section: (),
-    code_section: (),
+    element_section: (),
+    code_section: Box<[()]>,
     data_section: (),
 }
 
 const WASM_MAGIC: &[u8; 4] = b"\0asm";
 
 impl Module {
-    pub fn parse(data: &[u8]) -> io::Result<Self> {
-        let mut data = Cursor::new(data);
-        let magic = data.read_u32::<LE>()?;
+    pub fn parse<R: Read>(reader: &mut R) -> io::Result<Self> {
+        // let mut reader = Cursor::new(reader);
+        let magic = reader.read_u32::<LE>()?;
         if magic != u32::from_le_bytes(*WASM_MAGIC) {
             return Err(Error::other("Invalid Magic Bytes"));
         }
 
-        Ok(Self {
-            ..Default::default()
-        })
+        let version = reader.read_u32::<LE>()?;
+        if version != 1 {
+            return Err(Error::other(format!(
+                "Unsupported Wasm binary version {version}."
+            )));
+        }
+
+        let mut module = Module::default();
+
+        // let mut prev_section_code = 0u8;
+        loop {
+            let mut section_code = [0];
+            if reader.read(&mut section_code)? == 0 {
+                // EOF
+                break;
+            }
+
+            let section_code = section_code[0];
+            // if section_code <= prev_section_code {
+            //     return Err(Error::other(format!(
+            //         "Section {section_code} is out of order."
+            //     )));
+            // }
+            // prev_section_code = section_code;
+
+            let _section_size = reader.read_u32_leb()?;
+            match section_code {
+                // Type section
+                0x01 => {
+                    module.type_section = sections::type_section::parse_type_section(reader)?;
+                }
+                _ => {
+                    return Err(Error::other(format!(
+                        "Invalid section code  {section_code}."
+                    )));
+                }
+            }
+        }
+
+        Ok(module)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Cursor;
 
-    fn get_wat_as_wasm(name: &str) -> Vec<u8> {
+    fn get_wasm(name: &str) -> Cursor<Vec<u8>> {
         let mut wat_file = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         wat_file.push("tests/wat");
         wat_file.push(name);
@@ -53,12 +93,16 @@ mod tests {
             .status()
             .expect("wat2wasm command failed to execute");
 
-        std::fs::read(wasm_file).expect("Failed to read wasm")
+        Cursor::new(std::fs::read(wasm_file).expect("Failed to read wasm"))
     }
 
     #[test]
     fn minimal_module() {
-        let module =
-            Module::parse(&get_wat_as_wasm("minimal_module")).expect("Failed to parse Wasm");
+        let module = Module::parse(&mut get_wasm("minimal_module")).expect("Failed to parse Wasm");
+    }
+
+    #[test]
+    fn function_nop() {
+        let module = Module::parse(&mut get_wasm("function_nop")).expect("Failed to parse Wasm");
     }
 }
