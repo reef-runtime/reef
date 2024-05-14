@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gofiber/fiber/v2"
 	"github.com/reef-runtime/reef/reef_manager/database"
 	"github.com/reef-runtime/reef/reef_manager/logic"
 )
@@ -23,10 +22,6 @@ func GetJobs(ctx *gin.Context) {
 // Job submission.
 //
 
-type JobIDBody struct {
-	ID string `json:"id"`
-}
-
 func SubmitJob(ctx *gin.Context) {
 	var submission logic.JobSubmission
 
@@ -42,8 +37,8 @@ func SubmitJob(ctx *gin.Context) {
 	}
 
 	ctx.JSON(
-		fiber.StatusOK,
-		JobIDBody{
+		http.StatusOK,
+		IDBody{
 			ID: id,
 		},
 	)
@@ -54,7 +49,7 @@ func SubmitJob(ctx *gin.Context) {
 //
 
 func AbortJob(ctx *gin.Context) {
-	var job JobIDBody
+	var job IDBody
 
 	if err := ctx.ShouldBindJSON(&job); err != nil {
 		badRequest(ctx, err.Error())

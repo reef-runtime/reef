@@ -38,18 +38,22 @@ func main() {
 		log.Fatalf("Initializing logic package failed: %s", err.Error())
 	}
 
-	// Fiber HTTP server.
+	// HTTP server.
 	r := gin.Default()
 
 	r.GET("/", func(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "REEF")
 	})
 
+	// Jobs.
 	r.GET("/api/jobs", api.GetJobs)
 	r.POST("/api/jobs/submit", api.SubmitJob)
 	r.DELETE("/api/jobs/abort", api.AbortJob)
 
+	// Nodes.
 	r.GET("/api/node/connect", api.HandleNodeConnection)
+
+	// Datasets.
 	r.GET("/api/datasets", api.GetDatasets)
 	r.POST("/api/datasets/upload", api.UploadDataset)
 	r.DELETE("/api/datasets/delete", api.DeleteDataset)

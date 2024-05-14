@@ -9,7 +9,9 @@ import (
 	"github.com/reef-runtime/reef/reef_manager/logic"
 )
 
-type DatasetIDBody struct {
+const formFileFieldName = "dataset"
+
+type IDBody struct {
 	ID string `json:"id"`
 }
 
@@ -24,44 +26,54 @@ func GetDatasets(ctx *gin.Context) {
 }
 
 func UploadDataset(ctx *gin.Context) {
-	fileHeader, err := ctx.FormFile("dataset")
+	fileHeader, err := ctx.FormFile(formFileFieldName)
 	if err != nil {
-		ctx.Status(http.StatusBadRequest)
+		badRequest(
+			ctx,
+			err.Error(),
+		)
 		return
 	}
+
 	file, err := fileHeader.Open()
 	if err != nil {
 		ctx.Status(http.StatusInternalServerError)
+		return
 	}
+
 	data, err := io.ReadAll(file)
 	if err != nil {
 		ctx.Status(http.StatusInternalServerError)
+		return
 	}
-	id, err := logic.AddDataset(fileHeader.Filename, data)
+
+	id, err := logic.DatasetManager.AddDataset(fileHeader.Filename, data)
 	if err != nil {
 		respond(
 			ctx,
 			newErrResponse("could not upload dataset", err.Error()),
 			http.StatusUnprocessableEntity,
 		)
+		return
 	}
+
 	ctx.JSON(
 		http.StatusOK,
-		DatasetIDBody{
+		IDBody{
 			ID: id,
 		},
 	)
 }
 
 func DeleteDataset(ctx *gin.Context) {
-	var dataset DatasetIDBody
+	var dataset IDBody
 
 	if err := ctx.ShouldBindJSON(&dataset); err != nil {
 		badRequest(ctx, err.Error())
 		return
 	}
 
-	found, err := logic.DeleteDataset(dataset.ID)
+	found, err := logic.DatasetManager.DeleteDataset(dataset.ID)
 	if err != nil {
 		ctx.Status(http.StatusInternalServerError)
 		return
