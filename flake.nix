@@ -51,6 +51,8 @@
             openssl
             pkg-config
             bruno
+            perl
+            findutils
           ];
 
           shellHook = ''
