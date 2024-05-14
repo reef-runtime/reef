@@ -1,0 +1,18 @@
+meta {
+  name: Delete Dataset
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{url}}/api/datasets/delete
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    //"id": "<dataset-id-here>"
+    "id": "9572d7f4e812df12cd8c0d26e7308864c33cbb51b004cbe962ad545bc377a4a2"
+  }
+}
