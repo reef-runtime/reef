@@ -24,11 +24,13 @@ func AddDataset(dataset Dataset) error {
 func DeleteDataset(datasetID string) (found bool, err error) {
 	res, err := db.builder.Delete(DSTableName).Where("dataset.ID=?", datasetID).Exec()
 	if err != nil {
+		log.Errorf("Could not delete database: executing query failed: %s", err.Error())
 		return false, err
 	}
 
 	affected, err := res.RowsAffected()
 	if err != nil {
+		log.Errorf("Could not delete database: getting rows affected failed: %s", err.Error())
 		return false, err
 	}
 
