@@ -32,7 +32,7 @@ type NodeManagerT struct {
 
 var NodeManager NodeManagerT
 
-func idToString(id [32]byte) string {
+func IdToString(id [32]byte) string {
 	return hex.EncodeToString(id[0:])
 }
 
@@ -76,7 +76,7 @@ func (m *NodeManagerT) DropNode(id [32]byte) bool {
 
 	delete(m.Nodes.Map, id)
 
-	log.Debugf("[node] Dropped node with ID `%s`", idToString(id))
+	log.Debugf("[node] Dropped node with ID `%s`", IdToString(id))
 
 	return true
 }
@@ -92,7 +92,7 @@ func (m *NodeManagerT) RegisterPing(id [32]byte) bool {
 	now := time.Now().Local()
 	*m.Nodes.Map[id].LastPing = now
 
-	log.Debugf("[node] Received ping for node with ID `%s`", idToString(id))
+	log.Debugf("[node] Received ping for node with ID `%s`", IdToString(id))
 
 	return true
 }
