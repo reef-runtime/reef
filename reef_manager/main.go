@@ -13,6 +13,7 @@ import (
 )
 
 const WEB_PORT = 3000
+const DATASET_PATH = "./datasets/"
 
 func main() {
 	// Database connection.
@@ -33,7 +34,7 @@ func main() {
 		log.Fatalf("Initializing database failed: %s", err.Error())
 	}
 
-	if err := logic.Init(logger); err != nil {
+	if err := logic.Init(logger, DATASET_PATH); err != nil {
 		log.Fatalf("Initializing logic package failed: %s", err.Error())
 	}
 
@@ -49,6 +50,9 @@ func main() {
 	r.DELETE("/api/jobs/abort", api.AbortJob)
 
 	r.GET("/api/node/connect", api.HandleNodeConnection)
+	r.GET("/api/datasets", api.GetDatasets)
+	r.POST("/api/datasets/upload", api.UploadDataset)
+	r.DELETE("/api/datasets/delete", api.DeleteDataset)
 
 	logger.Debugf("Starting web server on port %d...", WEB_PORT)
 

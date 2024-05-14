@@ -1,0 +1,15 @@
+meta {
+  name: Upload Dataset
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{url}}/api/datasets/upload
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  dataset: @file(/home/niklas/Documents/test)
+}

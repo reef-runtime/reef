@@ -9,7 +9,7 @@ type Dataset struct {
 }
 
 func AddDataset(dataset Dataset) error {
-	if _, err := db.builder.Insert(JobTableName).Values(
+	if _, err := db.builder.Insert(DSTableName).Values(
 		dataset.ID,
 		dataset.Name,
 		dataset.Size,
@@ -49,9 +49,9 @@ func ListDatasets() ([]Dataset, error) {
 	for res.Next() {
 		var ds Dataset
 		if err := res.Scan(
-			ds.ID,
-			ds.Name,
-			ds.Size,
+			&ds.ID,
+			&ds.Name,
+			&ds.Size,
 		); err != nil {
 			log.Errorf("Could not list datasets: scanning results failed: %s", err.Error())
 			return nil, err
@@ -59,6 +59,5 @@ func ListDatasets() ([]Dataset, error) {
 
 		datasets = append(datasets, ds)
 	}
-
 	return datasets, nil
 }
