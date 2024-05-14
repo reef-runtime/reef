@@ -1,6 +1,6 @@
 use std::io::{self, Error, Read};
 
-use byteorder::{ReadBytesExt, LE};
+use byteorder::ReadBytesExt;
 use num_enum::{TryFromPrimitive, TryFromPrimitiveError};
 
 use crate::leb128::LEB128Ext;
@@ -55,5 +55,4 @@ pub fn parse_value_type_array<R: Read>(reader: &mut R) -> io::Result<Box<[ValueT
         .map(ValueType::try_from_primitive)
         .collect::<Result<Box<[ValueType]>, TryFromPrimitiveError<ValueType>>>()
         .map_err(io::Error::other)
-        .into()
 }
