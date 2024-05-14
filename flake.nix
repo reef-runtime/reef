@@ -50,6 +50,7 @@
             ripgrep
             openssl
             pkg-config
+            bruno
           ];
 
           shellHook = ''
