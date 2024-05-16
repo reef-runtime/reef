@@ -14,7 +14,7 @@ pub struct Module {
     table_section: (),
     linear_memory_section: (),
     global_section: (),
-    export_section: Box<[()]>,
+    export_section: Box<[sections::export_section::ExportSectionEntry]>,
     start_section: (),
     element_section: (),
     code_section: Box<[()]>,
@@ -60,11 +60,15 @@ impl Module {
             match section_code {
                 // Type section
                 0x01 => {
-                    module.type_section = sections::type_section::parse_type_section(reader)?;
+                    module.type_section = dbg!(sections::type_section::parse_type_section(reader)?);
                 }
                 0x03 => {
                     module.function_section =
-                        sections::function_section::parse_function_section(reader)?;
+                        dbg!(sections::function_section::parse_function_section(reader)?);
+                }
+                0x07 => {
+                    module.export_section =
+                        dbg!(sections::export_section::parse_export_section(reader)?);
                 }
                 _ => {
                     return Err(Error::other(format!(
@@ -76,6 +80,16 @@ impl Module {
 
         Ok(module)
     }
+}
+
+#[derive(Debug, Default, num_enum::TryFromPrimitive)]
+#[repr(u8)]
+pub enum ExternalKind {
+    #[default]
+    Function = 0x00,
+    Table = 0x01,
+    Memory = 0x02,
+    Global = 0x03,
 }
 
 #[cfg(test)]

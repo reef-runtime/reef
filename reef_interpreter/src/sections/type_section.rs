@@ -25,7 +25,8 @@ pub enum ValueType {
 
 pub fn parse_type_section<R: Read>(reader: &mut R) -> io::Result<Box<[TypeSectionEntry]>> {
     let types_len = reader.read_u32_leb()?;
-    let mut type_entries = Vec::with_capacity(types_len as usize);
+    let mut type_entries = Vec::new();
+    type_entries.reserve_exact(types_len as usize);
 
     for _ in 0..types_len {
         let type_form = reader.read_u8()?;
@@ -48,7 +49,7 @@ pub fn parse_type_section<R: Read>(reader: &mut R) -> io::Result<Box<[TypeSectio
 
 pub fn parse_value_type_array<R: Read>(reader: &mut R) -> io::Result<Box<[ValueType]>> {
     let params_len = reader.read_u32_leb()?;
-    let mut params = Vec::with_capacity(params_len as usize);
+    let mut params = vec![0; params_len as usize];
     reader.read_exact(&mut params)?;
     params
         .into_iter()

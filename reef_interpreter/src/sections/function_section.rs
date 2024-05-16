@@ -9,7 +9,8 @@ pub struct FunctionSectionEntry {
 
 pub fn parse_function_section<R: Read>(reader: &mut R) -> io::Result<Box<[FunctionSectionEntry]>> {
     let functions_len = reader.read_u32_leb()?;
-    let mut function_entries = Vec::with_capacity(functions_len as usize);
+    let mut function_entries = Vec::new();
+    function_entries.reserve_exact(functions_len as usize);
 
     for _ in 0..functions_len {
         function_entries.push(FunctionSectionEntry {
