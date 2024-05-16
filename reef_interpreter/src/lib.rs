@@ -10,7 +10,7 @@ mod sections;
 pub struct Module {
     type_section: Box<[sections::type_section::TypeSectionEntry]>,
     import_section: (),
-    function_section: Box<[()]>,
+    function_section: Box<[sections::function_section::FunctionSectionEntry]>,
     table_section: (),
     linear_memory_section: (),
     global_section: (),
@@ -61,6 +61,10 @@ impl Module {
                 // Type section
                 0x01 => {
                     module.type_section = sections::type_section::parse_type_section(reader)?;
+                }
+                0x03 => {
+                    module.function_section =
+                        sections::function_section::parse_function_section(reader)?;
                 }
                 _ => {
                     return Err(Error::other(format!(
