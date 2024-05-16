@@ -17,7 +17,7 @@ pub struct Module {
     export_section: Box<[sections::export_section::ExportSectionEntry]>,
     start_section: (),
     element_section: (),
-    code_section: Box<[()]>,
+    code_section: Box<[sections::code_section::CodeSectionEntry]>,
     data_section: (),
 }
 
@@ -42,6 +42,7 @@ impl Module {
 
         // let mut prev_section_code = 0u8;
         loop {
+            dbg!("NEXT SECTION");
             let mut section_code = [0];
             if reader.read(&mut section_code)? == 0 {
                 // EOF
@@ -60,19 +61,21 @@ impl Module {
             match section_code {
                 // Type section
                 0x01 => {
-                    module.type_section = dbg!(sections::type_section::parse_type_section(reader)?);
+                    module.type_section = sections::type_section::parse_type_section(reader)?;
                 }
                 0x03 => {
                     module.function_section =
-                        dbg!(sections::function_section::parse_function_section(reader)?);
+                        sections::function_section::parse_function_section(reader)?;
                 }
                 0x07 => {
-                    module.export_section =
-                        dbg!(sections::export_section::parse_export_section(reader)?);
+                    module.export_section = sections::export_section::parse_export_section(reader)?;
+                }
+                0x0A => {
+                    module.code_section = sections::code_section::parse_code_section(reader)?;
                 }
                 _ => {
                     return Err(Error::other(format!(
-                        "Invalid section code  {section_code}."
+                        "Invalid section code 0x{section_code:X}."
                     )));
                 }
             }
