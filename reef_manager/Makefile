@@ -79,6 +79,9 @@ MIGRATION_NAME = "<error:not-specified>"
 dev-db-add-migration:
 	$(MIGRATE) create -ext sql -dir $(MIGRATIONS_DIR) -seq $(MIGRATION_NAME)
 
+dev-db-migrate-run:
+	$(MIGRATE) up $(MIGRATIONS_DIR)
+
 #
 # Server / GO.
 #
