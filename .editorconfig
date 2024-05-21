@@ -15,3 +15,6 @@ indent_size = 4
 # Tab indentation for Makefile
 [Makefile]
 indent_style = tab
+
+[*.wat]
+indent_size = 2
