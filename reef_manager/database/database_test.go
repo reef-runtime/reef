@@ -19,6 +19,8 @@ func TestMain(m *testing.M) {
 	if err := initDB(true); err != nil {
 		panic(err.Error())
 	}
+
+	m.Run()
 }
 
 func initDB(deleteDatabase bool) error {

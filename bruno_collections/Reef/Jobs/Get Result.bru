@@ -1,0 +1,17 @@
+meta {
+  name: Get Result
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{url}}/api/result
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "id": "testid"
+  }
+}

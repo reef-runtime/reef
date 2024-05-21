@@ -112,6 +112,23 @@ func (m *JobManagerT) init() error {
 	return nil
 }
 
+func SaveResult(jobID string, content []byte, contentType database.ContentType) error {
+	now := time.Now().Local()
+
+	result := database.Result{
+		ID:          jobID,
+		Content:     content,
+		ContentType: contentType,
+		Created:     now,
+	}
+
+	if err := database.SaveResult(result); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func newJobManager() JobManagerT {
 	return JobManagerT{
 		JobQueue: NewJobQueue(),

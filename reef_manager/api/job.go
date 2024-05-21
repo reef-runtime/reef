@@ -73,3 +73,31 @@ func AbortJob(ctx *gin.Context) {
 
 	respondOk(ctx, "aborted job")
 }
+
+func GetResult(ctx *gin.Context) {
+	var id IDBody
+
+	if err := ctx.ShouldBindJSON(&id); err != nil {
+		badRequest(ctx, err.Error())
+		return
+	}
+
+	result, found, err := database.GetResult(id.ID)
+	if !found {
+		respond(
+			ctx,
+			newErrResponse("could not get result", "result doesnt exist yet"),
+			http.StatusUnprocessableEntity,
+		)
+		return
+	}
+
+	if err != nil {
+		ctx.Status(http.StatusInternalServerError)
+	}
+
+	ctx.JSON(
+		http.StatusOK,
+		result,
+	)
+}

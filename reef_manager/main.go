@@ -47,6 +47,7 @@ func main() {
 
 	// Jobs.
 	r.GET("/api/jobs", api.GetJobs)
+	r.GET("/api/result", api.GetResult)
 	r.POST("/api/jobs/submit", api.SubmitJob)
 	r.DELETE("/api/jobs/abort", api.AbortJob)
 
