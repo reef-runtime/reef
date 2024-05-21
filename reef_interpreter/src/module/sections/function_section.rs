@@ -1,10 +1,10 @@
 use std::io::{self, Read};
 
-use crate::leb128::LEB128Ext;
+use crate::module::LEB128Ext;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct FunctionSectionEntry {
-    signature_index: usize,
+    pub(crate) signature_index: usize,
 }
 
 pub fn parse_function_section<R: Read>(reader: &mut R) -> io::Result<Box<[FunctionSectionEntry]>> {

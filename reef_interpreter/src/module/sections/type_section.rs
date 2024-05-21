@@ -3,24 +3,14 @@ use std::io::{self, Error, Read};
 use byteorder::ReadBytesExt;
 use num_enum::{TryFromPrimitive, TryFromPrimitiveError};
 
-use crate::leb128::LEB128Ext;
+use crate::{module::LEB128Ext, ValueType};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeSectionEntry {
     Function {
         params: Box<[ValueType]>,
         returns: Box<[ValueType]>,
     },
-}
-
-#[derive(Debug, Default, TryFromPrimitive)]
-#[repr(u8)]
-pub enum ValueType {
-    #[default]
-    I32 = 0x7F,
-    I64 = 0x7E,
-    F32 = 0x7D,
-    F64 = 0x7C,
 }
 
 pub fn parse_type_section<R: Read>(reader: &mut R) -> io::Result<Box<[TypeSectionEntry]>> {

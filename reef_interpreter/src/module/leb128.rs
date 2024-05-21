@@ -1,6 +1,9 @@
 //! A leb128 reader for u32
 
-use std::io::{Error, Read, Result};
+use std::{
+    io::{Error, Read, Result},
+    mem::size_of,
+};
 
 const CONTINUE_BIT: u8 = 1 << 7;
 const SIGN_BIT: u8 = 1 << 6;
@@ -10,8 +13,11 @@ pub trait LEB128Ext {
     /// Read unsigned u32 encoded as LEB128.
     fn read_u32_leb(&mut self) -> Result<u32>;
 
-    /// Read signed u32 encoded as LEB128.
+    /// Read signed i32 encoded as LEB128.
     fn read_i32_leb(&mut self) -> Result<i32>;
+
+    /// Read signed i64 encoded as LEB128.
+    fn read_i64_leb(&mut self) -> Result<i64>;
 }
 
 impl<R: Read> LEB128Ext for R {
@@ -28,8 +34,8 @@ impl<R: Read> LEB128Ext for R {
                 return Ok(result);
             }
 
-            if shift == 28 {
-                return Err(Error::other("overflow"));
+            if shift == 7 * size_of::<u32>() {
+                return Err(Error::other("LEB overflow"));
             }
             shift += 7;
         }
@@ -38,9 +44,6 @@ impl<R: Read> LEB128Ext for R {
     fn read_i32_leb(&mut self) -> Result<i32> {
         let mut result = 0;
         let mut shift = 0;
-
-        println!("-420 = {:b}", -420);
-        println!("-36 = {:b}", -36);
 
         let mut buf = [0];
         loop {
@@ -52,8 +55,36 @@ impl<R: Read> LEB128Ext for R {
                 break;
             }
 
-            if shift == 28 {
-                return Err(Error::other("overflow"));
+            if shift == 7 * size_of::<i32>() {
+                return Err(Error::other("LEB overflow"));
+            }
+            shift += 7;
+        }
+
+        if (SIGN_BIT & buf[0]) == SIGN_BIT {
+            // Sign extend the result.
+            result |= !0 << (shift + 7);
+        }
+
+        Ok(result)
+    }
+
+    fn read_i64_leb(&mut self) -> Result<i64> {
+        let mut result = 0;
+        let mut shift = 0;
+
+        let mut buf = [0];
+        loop {
+            self.read_exact(&mut buf)?;
+
+            result |= ((buf[0] & !CONTINUE_BIT) as i64) << shift;
+
+            if buf[0] & CONTINUE_BIT == 0 {
+                break;
+            }
+
+            if shift == 7 * size_of::<i64>() {
+                return Err(Error::other("LEB overflow"));
             }
             shift += 7;
         }

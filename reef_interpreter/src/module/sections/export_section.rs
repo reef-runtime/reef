@@ -2,14 +2,13 @@ use std::io::{self, Read};
 
 use byteorder::ReadBytesExt;
 
-use crate::leb128::LEB128Ext;
-use crate::ExternalKind;
+use crate::module::{ExternalKind, LEB128Ext};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ExportSectionEntry {
-    export_name: Box<str>,
-    export_kind: ExternalKind,
-    export_index: usize,
+    pub(crate) export_name: Box<str>,
+    pub(crate) export_kind: ExternalKind,
+    pub(crate) export_index: usize,
 }
 
 pub fn parse_export_section<R: Read>(reader: &mut R) -> io::Result<Box<[ExportSectionEntry]>> {
