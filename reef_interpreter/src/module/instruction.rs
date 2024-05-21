@@ -101,7 +101,7 @@ pub enum InstructionOpcode {
 
     // Basic instructions
     Drop = 0x1A,
-    // Select
+    //Select
 
     // Local/Global instructions
 
@@ -134,7 +134,7 @@ pub enum Instruction {
 
     // Basic instructions
     Drop,
-    // Select
+    //Select
 
     // Local/Global instructions
 
