@@ -59,6 +59,9 @@ func main() {
 	r.POST("/api/datasets/upload", api.UploadDataset)
 	r.DELETE("/api/datasets/delete", api.DeleteDataset)
 
+	// Logs.
+	r.GET("/api/logs", api.GetLogs)
+
 	logger.Debugf("Starting web server on port %d...", WEB_PORT)
 
 	api.Init(logger)
