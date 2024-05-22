@@ -67,6 +67,8 @@ func DeleteJob(jobID string) (found bool, err error) {
 		return false, err
 	}
 
+	DeleteLogs(jobID)
+
 	return affected != 0, nil
 }
 
