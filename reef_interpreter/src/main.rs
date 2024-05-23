@@ -9,12 +9,33 @@ fn main() {
     println!("{module:#?}");
 
     // build execution context
-    let ctx = reef_interpreter::execution::ExecutionContext::start(
+    let mut ctx = reef_interpreter::execution::ExecutionContext::start(
         module,
         &args().nth(2).expect("Please provide function to execute"),
         (),
     )
     .expect("Failed to start execution");
 
-    dbg!(ctx);
+    dbg!(&ctx);
+
+    loop {
+        println!("NEXT STEP");
+        let result = ctx.step();
+
+        println!("RESULT");
+        dbg!(&result);
+        println!("STEP DONE");
+
+        match result {
+            Ok(result) => {
+                if matches!(result, Some(_)) {
+                    break;
+                }
+            }
+            Err(err) => {
+                println!("ERROR: {err}");
+                break;
+            }
+        }
+    }
 }

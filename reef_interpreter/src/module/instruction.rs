@@ -127,7 +127,7 @@ pub enum Instruction {
     End,
     Br(usize),
     BrIf(usize),
-    BrTable(usize, usize),
+    // BrTable(usize, usize),
     Return,
     Call(usize),
     CallIndirect(usize, bool),
@@ -139,6 +139,8 @@ pub enum Instruction {
     // Local/Global instructions
 
     // Memory instructions
+
+    // Integer instructions
     ConstI32(i32),
     ConstI64(i64),
     // stored as ints because Eq and Hash

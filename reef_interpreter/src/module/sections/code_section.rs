@@ -59,13 +59,14 @@ pub fn parse_code_section<R: Read>(reader: &mut R) -> io::Result<Box<[CodeSectio
                 }
                 InstructionOpcode::Br => Instruction::Br(reader.read_u32_leb()? as usize),
                 InstructionOpcode::BrIf => Instruction::BrIf(reader.read_u32_leb()? as usize),
-                InstructionOpcode::BrTable => Instruction::BrTable(
-                    reader.read_u32_leb()? as usize,
-                    reader.read_u32_leb()? as usize,
-                ),
+                // InstructionOpcode::BrTable => Instruction::BrTable(
+                //     reader.read_u32_leb()? as usize,
+                //     reader.read_u32_leb()? as usize,
+                // ),
+                InstructionOpcode::BrTable => todo!("br_table not supported"),
                 InstructionOpcode::Return => Instruction::Return,
                 InstructionOpcode::Call => Instruction::Call(reader.read_u32_leb()? as usize),
-                InstructionOpcode::CallIndirect => todo!("CallIndirect"),
+                InstructionOpcode::CallIndirect => todo!("call_indirect not supported"),
 
                 // Basic instructions
                 InstructionOpcode::Drop => Instruction::Drop,
