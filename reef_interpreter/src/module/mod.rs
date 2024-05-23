@@ -102,7 +102,7 @@ mod tests {
     use super::*;
     use std::io::Cursor;
 
-    fn get_wasm(name: &str) -> Cursor<Vec<u8>> {
+    fn get_module(name: &str) -> Module {
         let mut wat_file = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         wat_file.push("tests/wat");
         wat_file.push(name);
@@ -116,16 +116,49 @@ mod tests {
             .status()
             .expect("wat2wasm command failed to execute");
 
-        Cursor::new(std::fs::read(wasm_file).expect("Failed to read wasm"))
+        let bytes = std::fs::read(wasm_file).expect("Failed to read wasm");
+        Module::parse(&mut Cursor::new(bytes)).expect("Failed to parse Wasm")
     }
 
     #[test]
     fn minimal_module() {
-        let module = Module::parse(&mut get_wasm("minimal_module")).expect("Failed to parse Wasm");
+        let module = get_module("minimal_module");
+        assert_eq!(module.type_section.len(), 0);
+        assert_eq!(module.function_section.len(), 0);
+        assert_eq!(module.export_section.len(), 0);
+        assert_eq!(module.code_section.len(), 0);
+    }
+
+    #[test]
+    fn function_end() {
+        let module = get_module("function_end");
+        assert_eq!(module.type_section.len(), 1);
+        assert_eq!(module.function_section.len(), 1);
+        assert_eq!(module.export_section.len(), 1);
+        assert_eq!(module.code_section.len(), 1);
+
+        assert_eq!(module.code_section[0].instructions.len(), 1);
     }
 
     #[test]
     fn function_nop() {
-        let module = Module::parse(&mut get_wasm("function_nop")).expect("Failed to parse Wasm");
+        let module = get_module("function_nop");
+        assert_eq!(module.type_section.len(), 1);
+        assert_eq!(module.function_section.len(), 1);
+        assert_eq!(module.export_section.len(), 1);
+        assert_eq!(module.code_section.len(), 1);
+
+        assert_eq!(module.code_section[0].instructions.len(), 2);
+    }
+
+    #[test]
+    fn block() {
+        let module = get_module("block");
+        assert_eq!(module.type_section.len(), 1);
+        assert_eq!(module.function_section.len(), 1);
+        assert_eq!(module.export_section.len(), 1);
+        assert_eq!(module.code_section.len(), 1);
+
+        assert_eq!(module.code_section[0].instructions.len(), 8);
     }
 }
