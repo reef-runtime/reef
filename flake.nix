@@ -45,6 +45,8 @@
             wasmtime
             wabt
             binaryen
+            llvmPackages_17.clang-unwrapped
+            llvmPackages_17.bintools-unwrapped
 
             # Misc
             ripgrep
