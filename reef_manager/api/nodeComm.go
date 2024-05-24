@@ -2,7 +2,7 @@ package api
 
 import (
 	"fmt"
-	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,14 +16,16 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-const CODE_PING = 0xC0
-const CODE_PONG = 0xC1
+const CODE_PING = 0xF0
+const CODE_PONG = 0xF1
 
 const CODE_SEND_ID = 0xB1
 
 const CODE_INIT_HANDSHAKE = 0xB0
+const CODE_RECV_HANDSHAKE_DATA = 0xA0
 
 // Message layout for recv handhake data:
+// [NODE ---> MANAGER]
 //
 // |-00-------------|-01-------------02------------|-03--------------04------------|-05--------------|
 // | CODE_RECV_     |         NUM_WORKERS          |          NODE_NAME_LEN        |    NODE_NAME    |
@@ -33,28 +35,25 @@ const CODE_INIT_HANDSHAKE = 0xB0
 //
 //
 
-const CODE_RECV_HANDSHAKE_DATA = 0xA0
+func initHandshake(conn *logic.WSConn) (logic.NodeInfo, error) {
+	conn.Lock.Lock()
 
-func formatBinaryMessage(input []byte) string {
-	output := make([]string, 0)
-	for _, b := range input {
-		output = append(output, fmt.Sprintf("0x%x", b))
-	}
-
-	return fmt.Sprintf("[%s]\n", strings.Join(output, ", "))
-}
-
-func initHandshake(conn *websocket.Conn) (logic.NodeInfo, error) {
-	if err := conn.WriteMessage(
+	endpointIP := conn.Conn.RemoteAddr()
+	err := conn.Conn.WriteMessage(
 		websocket.BinaryMessage,
 		[]byte{CODE_INIT_HANDSHAKE},
-	); err != nil {
+	)
+
+	conn.Lock.Unlock()
+
+	if err != nil {
 		return logic.NodeInfo{}, err
 	}
 
-	endpointIP := conn.RemoteAddr()
+	conn.Lock.Lock()
+	typ, message, err := conn.Conn.ReadMessage()
+	conn.Lock.Unlock()
 
-	typ, message, err := conn.ReadMessage()
 	if err != nil {
 		return logic.NodeInfo{}, err
 	}
@@ -88,7 +87,7 @@ func initHandshake(conn *websocket.Conn) (logic.NodeInfo, error) {
 
 	if nameContentsOffsetBytes > len(message) || int(nameContentsOffsetBytes+nameLen) > len(message) {
 		return logic.NodeInfo{}, fmt.Errorf(
-			"Node returned illegal name length: %d or message with len=%d was too short",
+			"node returned illegal name length: %d or message with len=%d was too short",
 			nameLen,
 			len(message),
 		)
@@ -103,18 +102,30 @@ func initHandshake(conn *websocket.Conn) (logic.NodeInfo, error) {
 	}, nil
 }
 
-func dropNode(conn *websocket.Conn, closeCode int, nodeID [32]byte) {
+//
+// Node management.
+//
+
+func dropNode(conn *logic.WSConn, closeCode int, nodeID [32]byte) {
 	nodeIDString := logic.IdToString(nodeID)
 	log.Debugf("[node] Dropping node `%s`...", nodeIDString)
 
 	const closeMessageTimeout = time.Second * 5
 	message := websocket.FormatCloseMessage(closeCode, "")
 
-	if err := conn.WriteControl(websocket.CloseMessage, message, time.Now().Add(closeMessageTimeout)); err != nil {
+	conn.Lock.Lock()
+	err := conn.Conn.WriteControl(websocket.CloseMessage, message, time.Now().Add(closeMessageTimeout))
+	conn.Lock.Unlock()
+
+	if err != nil {
 		log.Warnf("[node] did not respond to close message in time")
 	}
 
-	if err := conn.Close(); err != nil {
+	conn.Lock.Lock()
+	err = conn.Conn.Close()
+	conn.Lock.Unlock()
+
+	if err != nil {
 		log.Warnf("[node] could not close TCP connection")
 	}
 
@@ -123,9 +134,13 @@ func dropNode(conn *websocket.Conn, closeCode int, nodeID [32]byte) {
 	}
 }
 
-func nodePingHandler(conn *websocket.Conn, nodeID [32]byte) func(string) error {
+func nodePingHandler(conn *logic.WSConn, nodeID [32]byte) func(string) error {
 	return func(appData string) error {
-		if err := conn.WriteMessage(websocket.BinaryMessage, []byte{CODE_PONG}); err != nil {
+		conn.Lock.Lock()
+		err := conn.Conn.WriteMessage(websocket.BinaryMessage, []byte{CODE_PONG})
+		conn.Lock.Unlock()
+
+		if err != nil {
 			log.Tracef("[node] sending pong failed: %s", err.Error())
 			return err
 		}
@@ -150,7 +165,12 @@ func HandleNodeConnection(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	node, err := initHandshake(conn)
+	wsConn := &logic.WSConn{
+		Conn: conn,
+		Lock: sync.Mutex{},
+	}
+
+	node, err := initHandshake(wsConn)
 	if err != nil {
 		log.Errorf("[node] handshake with `%s` failed: %s", conn.RemoteAddr(), err.Error())
 		return
@@ -159,7 +179,7 @@ func HandleNodeConnection(c *gin.Context) {
 	// TODO: use wrapper
 
 	// Add node to manager.
-	nodeID := logic.NodeManager.ConnectNode(node)
+	nodeID := logic.NodeManager.ConnectNode(node, conn)
 
 	if err := conn.WriteMessage(websocket.BinaryMessage, append([]byte{CODE_SEND_ID}, nodeID[0:]...)); err != nil {
 		log.Warnf(
@@ -171,7 +191,7 @@ func HandleNodeConnection(c *gin.Context) {
 		return
 	}
 
-	pingHandler := nodePingHandler(conn, nodeID)
+	pingHandler := nodePingHandler(wsConn, nodeID)
 	conn.SetPingHandler(pingHandler)
 
 	conn.SetPongHandler(func(appData string) error {
@@ -180,7 +200,7 @@ func HandleNodeConnection(c *gin.Context) {
 	})
 
 	conn.SetCloseHandler(func(code int, text string) error {
-		dropNode(conn, code, nodeID)
+		dropNode(wsConn, code, nodeID)
 		return nil
 	})
 
@@ -189,7 +209,7 @@ func HandleNodeConnection(c *gin.Context) {
 		msgType, message, err := conn.ReadMessage()
 		if err != nil {
 			log.Debugf("[node] error while reading message: %s", err.Error())
-			dropNode(conn, websocket.CloseAbnormalClosure, nodeID)
+			dropNode(wsConn, websocket.CloseAbnormalClosure, nodeID)
 			break
 		}
 
@@ -197,7 +217,7 @@ func HandleNodeConnection(c *gin.Context) {
 		case websocket.TextMessage:
 			fmt.Printf("text: %s\n", string(message))
 		case websocket.BinaryMessage:
-			log.Tracef("[node] received binary message: %s", formatBinaryMessage(message))
+			log.Tracef("[node] received binary message: %s", logic.FormatBinarySliceAsHex(message))
 
 			if len(message) == 0 {
 				log.Trace("[node] received empty binary message")
@@ -207,7 +227,17 @@ func HandleNodeConnection(c *gin.Context) {
 			switch message[0] {
 			case CODE_PING:
 				if err := pingHandler(string(message[1:])); err != nil {
-					dropNode(conn, websocket.CloseAbnormalClosure, nodeID)
+					dropNode(wsConn, websocket.CloseAbnormalClosure, nodeID)
+					return
+				}
+			case logic.CODE_STARTED_JOB:
+				if err := logic.NodeManager.JobStartedJobCallback(nodeID, message); err != nil {
+					log.Errorf("job started error: %s", err.Error())
+					return
+				}
+			case logic.CODE_JOB_LOG:
+				if err := logic.NodeManager.NodeLogCallBack(nodeID, message); err != nil {
+					log.Errorf("job log error: %s", err.Error())
 					return
 				}
 			}

@@ -8,27 +8,31 @@ import (
 )
 
 func TestJobResults(t *testing.T) {
+	now := time.Now()
+
 	job := Job{
 		ID:        "testid",
 		Name:      "",
-		Submitted: time.Now(),
+		Submitted: now,
 		Status:    StatusFinished,
 	}
 
-	assert.NoError(t, AddJob(job))
+	err := AddJob(job)
+	assert.NoError(t, err)
 
-	now := time.Now()
 	res := Result{
 		ID:          "testid",
 		Content:     []byte{1, 2, 3},
 		ContentType: Bytes,
 		Created:     now,
 	}
-	assert.NoError(t, SaveResult(res))
 
-	result, _, err := GetResult("testid")
-	
+	err = SaveResult(res)
 	assert.NoError(t, err)
+
+	result, found, err := GetResult("testid")
+	assert.NoError(t, err)
+	assert.True(t, found)
 
 	assert.Equal(t, result.ContentType, Bytes)
 	assert.Equal(t, result.Content, []byte{1, 2, 3})

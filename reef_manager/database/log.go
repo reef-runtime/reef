@@ -6,20 +6,34 @@ import (
 
 const LogTableName = "log"
 
-type LogLevel uint16
+type LogKind uint16
 
 const (
-	LevelTrace LogLevel = iota
-	LevelDebug
-	LevelInfo
-	LevelWarn
-	LevelError
-	LevelFatal
+	// Normal logging
+	LogKindLevelTrace LogKind = iota
+	LogKindLevelDebug
+	LogKindLevelInfo
+	LogKindLevelWarn
+	LogKindLevelError
+	LogKindLevelFatal
+	// Progress reporting
+	LogKindProgress
 )
+
+func IsValidLogKind(from uint16) bool {
+	switch from {
+	case uint16(LogKindLevelTrace), uint16(LogKindLevelDebug), uint16(LogKindLevelInfo), uint16(LogKindLevelWarn), uint16(LogKindLevelError), uint16(LogKindLevelFatal):
+		return true
+	case uint16(LogKindProgress):
+		return true
+	default:
+		return false
+	}
+}
 
 type JobLog struct {
 	// ID      int       `json:"id"`
-	Kind    LogLevel  `json:"kind"`
+	Kind    LogKind   `json:"kind"`
 	Created time.Time `json:"created"`
 	Content string    `json:"content"`
 	Job_id  string    `json:"job_id"`

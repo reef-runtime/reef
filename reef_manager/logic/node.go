@@ -6,7 +6,12 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
+
+type JobID = string
+type NodeID = [32]byte
 
 type NodeInfo struct {
 	EndpointIP string `json:"endpointIP"`
@@ -16,14 +21,25 @@ type NodeInfo struct {
 	NumWorkers uint16 `json:"numWorkers"`
 }
 
+type WSConn struct {
+	Conn *websocket.Conn
+	Lock sync.Mutex
+}
+
 type Node struct {
 	Info     NodeInfo
 	LastPing *time.Time
+	Conn     *WSConn
+	ID       NodeID
+	// Length of the slice is the number of workers of that node.
+	// Therefore maps every worker to a possible jobID.
+	// If the mapped jobID is `nil`, the worker is free and can start a job.
+	WorkerState []*JobID
 }
 
 type NodeMap struct {
-	Map  map[[32]byte]Node
-	Lock sync.Mutex
+	Map  map[NodeID]Node
+	Lock sync.RWMutex
 }
 
 type NodeManagerT struct {
@@ -32,11 +48,11 @@ type NodeManagerT struct {
 
 var NodeManager NodeManagerT
 
-func IdToString(id [32]byte) string {
+func IdToString(id NodeID) string {
 	return hex.EncodeToString(id[0:])
 }
 
-func (m *NodeManagerT) ConnectNode(node NodeInfo) (newID [32]byte) {
+func (m *NodeManagerT) ConnectNode(node NodeInfo, conn *websocket.Conn) (newID NodeID) {
 	newID = sha256.Sum256(append([]byte(node.EndpointIP), []byte(node.Name)...))
 	newIDString := hex.EncodeToString(newID[0:])
 
@@ -52,6 +68,12 @@ func (m *NodeManagerT) ConnectNode(node NodeInfo) (newID [32]byte) {
 	m.Nodes.Map[newID] = Node{
 		Info:     node,
 		LastPing: &now,
+		Conn: &WSConn{
+			Conn: conn,
+			Lock: sync.Mutex{},
+		},
+		ID:          newID,
+		WorkerState: make([]*string, node.NumWorkers),
 	}
 
 	log.Infof(
@@ -65,13 +87,35 @@ func (m *NodeManagerT) ConnectNode(node NodeInfo) (newID [32]byte) {
 	return newID
 }
 
-func (m *NodeManagerT) DropNode(id [32]byte) bool {
+func (m *NodeManagerT) DropNode(id NodeID) bool {
 	m.Nodes.Lock.Lock()
 	defer m.Nodes.Lock.Unlock()
 
-	_, exists := m.Nodes.Map[id]
+	node, exists := m.Nodes.Map[id]
 	if !exists {
 		return false
+	}
+
+	//
+	// Put every job which was running on the node back into <queued>
+	//
+
+	for _, potentialJob := range node.WorkerState {
+		if potentialJob == nil {
+			continue
+		}
+
+		jobID := *potentialJob
+
+		log.Infof(
+			"[node] Job `%s` has lost its node (%s)",
+			jobID,
+			IdToString(node.ID),
+		)
+
+		if err := JobManager.ParkJob(jobID); err != nil {
+			log.Errorf("Could not park job: %s", err.Error())
+		}
 	}
 
 	delete(m.Nodes.Map, id)
@@ -81,7 +125,7 @@ func (m *NodeManagerT) DropNode(id [32]byte) bool {
 	return true
 }
 
-func (m *NodeManagerT) RegisterPing(id [32]byte) bool {
+func (m *NodeManagerT) RegisterPing(id NodeID) bool {
 	m.Nodes.Lock.Lock()
 	defer m.Nodes.Lock.Unlock()
 
@@ -97,11 +141,15 @@ func (m *NodeManagerT) RegisterPing(id [32]byte) bool {
 	return true
 }
 
+//
+// TODO: write code that looks at the queued jobs and dispatches it to a free node.
+//
+
 func newNodeManager() NodeManagerT {
 	return NodeManagerT{
 		Nodes: NodeMap{
-			Map:  make(map[[32]byte]Node),
-			Lock: sync.Mutex{},
+			Map:  make(map[NodeID]Node),
+			Lock: sync.RWMutex{},
 		},
 	}
 }

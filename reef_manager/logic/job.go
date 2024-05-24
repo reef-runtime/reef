@@ -3,6 +3,7 @@ package logic
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"time"
 
 	"github.com/reef-runtime/reef/reef_manager/database"
@@ -97,6 +98,46 @@ func (m *JobManagerT) AbortJob(jobID string) (found bool, err error) {
 	return true, nil
 }
 
+// Places a job back into queued.
+// Would be called if a node disconnects while a job runs on this very node.
+func (m *JobManagerT) ParkJob(jobID string) error {
+	job, found, err := database.GetJob(jobID)
+	if err != nil {
+		return err
+	}
+
+	if !found {
+		return fmt.Errorf("could not park job `%s`: job not found", jobID)
+	}
+
+	if job.Status == database.StatusQueued {
+		log.Tracef("Found job `%s` but it is already in <queued> state", jobID)
+		return nil
+	}
+
+	found, err = database.ModifyJobStatus(jobID, database.StatusQueued)
+	if err != nil {
+		return err
+	}
+
+	if !found {
+		return fmt.Errorf("could not park job `%s`: job not found during modification", jobID)
+	}
+
+	// Put the job back into the JPQ.
+	job.Status = database.StatusQueued
+	m.JobQueue.Push(job)
+
+	log.Debugf("[job] Parked ID `%s`", jobID)
+
+	return nil
+}
+
+// func (m *JobManagerT) SetJobState(jobID JobID, newState database.JobStatus) (found bool) {
+// 	database.ModifyJobStatus(jobID, newState)
+// 	return true
+// }
+
 func (m *JobManagerT) init() error {
 	// Initialize priority queue
 	queuedJobs, err := database.ListJobsFiltered(database.StatusQueued)
@@ -132,5 +173,64 @@ func SaveResult(jobID string, content []byte, contentType database.ContentType) 
 func newJobManager() JobManagerT {
 	return JobManagerT{
 		JobQueue: NewJobQueue(),
+	}
+}
+
+//
+// When called, fetches all queued jobs and tries to start them.
+//
+
+// Error is a critical error, like a database fault.
+func (m *JobManagerT) TryToStartQueuedJobs() error {
+	if m.JobQueue.IsEmpty() {
+		log.Debugf("Job queue is empty, not starting any jobs.")
+		return nil
+	}
+
+	notStarted := make([]database.Job, 0)
+
+	for !m.JobQueue.IsEmpty() {
+		job, found := m.JobQueue.Pop()
+		if !found {
+			panic("Impossible, this is a bug")
+		}
+
+		log.Debugf("Attempting to start job `%s`...", job.ID)
+
+		couldStart, err := NodeManager.StartJobOnFreeNode(job.ID)
+		if err != nil {
+			log.Errorf("HARD ERROR: Could not start job `%s`: %s", job.ID, err.Error())
+			return err
+		}
+
+		if !couldStart {
+			log.Debugf("Could not start job `%s`", job.ID)
+			notStarted = append(notStarted, job)
+			continue
+		}
+
+		// TODO: modify in database
+
+		log.Infof("Job `%s` started", job.ID)
+	}
+
+	for _, job := range notStarted {
+		m.JobQueue.Push(job)
+	}
+
+	return nil
+}
+
+const jobDaemonFreq = time.Second * 5
+
+func (m *JobManagerT) JobQueueDaemon() {
+	log.Info("Job queue daemon is running...")
+
+	for {
+		time.Sleep(jobDaemonFreq)
+		log.Info("Trying to start all queued jobs...")
+		if err := m.TryToStartQueuedJobs(); err != nil {
+			panic(err.Error())
+		}
 	}
 }

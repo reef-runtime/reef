@@ -2,6 +2,7 @@ package logic
 
 import (
 	"container/heap"
+	"sync"
 
 	"github.com/reef-runtime/reef/reef_manager/database"
 )
@@ -11,8 +12,9 @@ import (
 //
 
 type JobQueue struct {
-	pq  priorityQueue
-	len uint64
+	pq   priorityQueue
+	len  uint64
+	lock sync.RWMutex
 }
 
 func NewJobQueue() JobQueue {
@@ -21,12 +23,16 @@ func NewJobQueue() JobQueue {
 	heap.Init(&pq)
 
 	return JobQueue{
-		pq:  pq,
-		len: 0,
+		pq:   pq,
+		len:  0,
+		lock: sync.RWMutex{},
 	}
 }
 
 func (j *JobQueue) Push(job database.Job) {
+	j.lock.Lock()
+	defer j.lock.Unlock()
+
 	heap.Push(&j.pq, queuedJob{
 		Job: job,
 	})
@@ -34,6 +40,9 @@ func (j *JobQueue) Push(job database.Job) {
 }
 
 func (j *JobQueue) Pop() (job database.Job, found bool) {
+	j.lock.Lock()
+	defer j.lock.Unlock()
+
 	if j.len == 0 {
 		return job, false
 	}
@@ -45,6 +54,9 @@ func (j *JobQueue) Pop() (job database.Job, found bool) {
 }
 
 func (j *JobQueue) Delete(jobID string) (found bool) {
+	j.lock.Lock()
+	defer j.lock.Unlock()
+
 	const notFound = -1
 
 	// Find index of item to be removed.
@@ -67,10 +79,16 @@ func (j *JobQueue) Delete(jobID string) (found bool) {
 }
 
 func (j *JobQueue) IsEmpty() bool {
+	j.lock.RLock()
+	defer j.lock.RUnlock()
+
 	return j.len == 0
 }
 
 func (j *JobQueue) Len() uint64 {
+	j.lock.RLock()
+	defer j.lock.RUnlock()
+
 	return j.len
 }
 

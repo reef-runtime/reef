@@ -7,9 +7,9 @@ import (
 )
 
 type LogEntry struct {
-	Kind    database.LogLevel `json:"kind"`
-	Content string            `josn:"content"`
-	Job_id  string            `json:"job_id"`
+	Kind    database.LogKind `json:"kind"`
+	Content string           `josn:"content"`
+	Job_id  string           `json:"job_id"`
 }
 
 func SubmitLog(entry LogEntry) error {

@@ -64,6 +64,8 @@ func main() {
 
 	logger.Debugf("Starting web server on port %d...", WEB_PORT)
 
+	go logic.JobManager.JobQueueDaemon()
+
 	api.Init(logger)
 	log.Fatal(r.Run(":" + fmt.Sprint(WEB_PORT)))
 }
