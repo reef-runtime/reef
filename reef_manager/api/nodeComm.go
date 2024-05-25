@@ -5,10 +5,12 @@ import (
 	"sync"
 	"time"
 
+	"capnproto.org/go/capnp/v3"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"github.com/pkg/errors"
 	"github.com/reef-runtime/reef/reef_manager/logic"
+	coral "github.com/reef-runtime/reef/reef_protocol"
 )
 
 var upgrader = websocket.Upgrader{
@@ -16,38 +18,72 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-const CODE_PING = 0xF0
-const CODE_PONG = 0xF1
+func MessageToNodeEmptyMessage(kind coral.MessageToNodeKind) ([]byte, error) {
+	msg, err := logic.MessageToNode()
+	if err != nil {
+		return nil, err
+	}
 
-const CODE_SEND_ID = 0xB1
+	msg.SetKind(coral.MessageToNodeKind_initHandShake)
+	msg.Body().SetEmpty()
 
-const CODE_INIT_HANDSHAKE = 0xB0
-const CODE_RECV_HANDSHAKE_DATA = 0xA0
+	return msg.Message().Marshal()
+}
 
-// Message layout for recv handhake data:
-// [NODE ---> MANAGER]
 //
-// |-00-------------|-01-------------02------------|-03--------------04------------|-05--------------|
-// | CODE_RECV_     |         NUM_WORKERS          |          NODE_NAME_LEN        |    NODE_NAME    |
-// | HANDSHAKE_DATA |           <uint16>           |            <uint16>           |                 | (... Other data? ...)
-// |----------------|------------------------------|-------------------------------|-----------------|
-// |     1 Byte     |            2 Byte            |             2 Byte            | <NODE_NAME_LEN> |
-//
+// Node Handshake.
 //
 
-func initHandshake(conn *logic.WSConn) (logic.NodeInfo, error) {
+func MessageToNodeAssignID(nodeID logic.NodeID) ([]byte, error) {
+	arena := capnp.SingleSegment(nil)
+	_, seg, err := capnp.NewMessage(arena)
+	if err != nil {
+		return nil, err
+	}
+	assignIDMsg, err := coral.NewAssignIDMessage(seg)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := assignIDMsg.SetNodeID(nodeID[:]); err != nil {
+		return nil, err
+	}
+
+	//
+
+	msg, err := logic.MessageToNode()
+	if err != nil {
+		return nil, err
+	}
+
+	msg.SetKind(coral.MessageToNodeKind_assignID)
+	if err := msg.Body().SetAssignID(assignIDMsg); err != nil {
+		return nil, err
+	}
+
+	spew.Dump(msg.Body().HasAssignID())
+
+	return msg.Message().Marshal()
+}
+
+func performHandshake(conn *logic.WSConn) (logic.Node, error) {
+	initMsg, err := MessageToNodeEmptyMessage(coral.MessageToNodeKind_initHandShake)
+	if err != nil {
+		return logic.Node{}, err
+	}
+
 	conn.Lock.Lock()
 
 	endpointIP := conn.Conn.RemoteAddr()
-	err := conn.Conn.WriteMessage(
+	err = conn.Conn.WriteMessage(
 		websocket.BinaryMessage,
-		[]byte{CODE_INIT_HANDSHAKE},
+		initMsg,
 	)
 
 	conn.Lock.Unlock()
 
 	if err != nil {
-		return logic.NodeInfo{}, err
+		return logic.Node{}, err
 	}
 
 	conn.Lock.Lock()
@@ -55,58 +91,68 @@ func initHandshake(conn *logic.WSConn) (logic.NodeInfo, error) {
 	conn.Lock.Unlock()
 
 	if err != nil {
-		return logic.NodeInfo{}, err
+		return logic.Node{}, err
 	}
 
 	if typ != websocket.BinaryMessage {
-		return logic.NodeInfo{}, fmt.Errorf("expected answer to `CODE_INIT_HANDSHAKE` to be binary, got %d", typ)
+		return logic.Node{}, fmt.Errorf("expected answer to handshake initialization to be binary, got %d", typ)
 	}
 
-	if len(message) == 0 {
-		return logic.NodeInfo{}, errors.New("expected answer to be not empty")
+	unmarshaledRaw, err := capnp.Unmarshal(message)
+	if err != nil {
+		return logic.Node{}, err
 	}
 
-	if message[0] != CODE_RECV_HANDSHAKE_DATA {
-		return logic.NodeInfo{}, fmt.Errorf("expected answer byte[0] to be `CODE_RECV_HANDSHAKE_DATA`, got 0x%x", message[0])
+	spew.Dump(unmarshaledRaw)
+
+	handshakeResponse, err := coral.ReadRootHandshakeRespondMessage(unmarshaledRaw)
+	if err != nil {
+		return logic.Node{}, fmt.Errorf("could not read handshake response: %s", err.Error())
 	}
 
-	const numWorkersOffsetBytes = 1
-
-	var numWorkers uint16
-	numWorkers = uint16(message[numWorkersOffsetBytes]) << 8
-	numWorkers |= uint16(message[numWorkersOffsetBytes+1])
-
-	const nameLenOffsetBytes = 3
-	const nameContentsOffsetBytes = nameLenOffsetBytes + 2
-
-	var nameLen uint16
-	nameLen = uint16(message[nameLenOffsetBytes]) << 8
-	nameLen |= uint16(message[nameLenOffsetBytes+1])
-
-	log.Tracef("[node] Handshake: received name length %d", nameLen)
-
-	if nameContentsOffsetBytes > len(message) || int(nameContentsOffsetBytes+nameLen) > len(message) {
-		return logic.NodeInfo{}, fmt.Errorf(
-			"node returned illegal name length: %d or message with len=%d was too short",
-			nameLen,
-			len(message),
-		)
+	numWorkers := handshakeResponse.NumWorkers()
+	nodeName, err := handshakeResponse.NodeName()
+	if err != nil {
+		return logic.Node{}, fmt.Errorf("could not read node name: %s", err.Error())
 	}
 
-	nodeName := string(message[nameContentsOffsetBytes : nameLen+nameContentsOffsetBytes])
+	//
+	// Adding the node.
+	//
 
-	return logic.NodeInfo{
+	newNode := logic.NodeManager.ConnectNode(logic.NodeInfo{
 		EndpointIP: endpointIP.String(),
 		Name:       nodeName,
 		NumWorkers: numWorkers,
-	}, nil
+	}, conn)
+
+	assignIDMsg, err := MessageToNodeAssignID(newNode.ID)
+	if err != nil {
+		return logic.Node{}, err
+	}
+
+	conn.Lock.Lock()
+	err = conn.Conn.WriteMessage(websocket.BinaryMessage, assignIDMsg)
+	conn.Lock.Unlock()
+
+	if err != nil {
+		log.Warnf(
+			"[node] handshake with `%s` failed: could not deliver ID to node: %s",
+			newNode.Info.EndpointIP,
+			err.Error(),
+		)
+
+		return logic.Node{}, err
+	}
+
+	return newNode, nil
 }
 
 //
-// Node management.
+// Dropping Nodes.
 //
 
-func dropNode(conn *logic.WSConn, closeCode int, nodeID [32]byte) {
+func dropNode(conn *logic.WSConn, closeCode int, nodeID logic.NodeID) {
 	nodeIDString := logic.IdToString(nodeID)
 	log.Debugf("[node] Dropping node `%s`...", nodeIDString)
 
@@ -134,10 +180,36 @@ func dropNode(conn *logic.WSConn, closeCode int, nodeID [32]byte) {
 	}
 }
 
-func nodePingHandler(conn *logic.WSConn, nodeID [32]byte) func(string) error {
-	return func(appData string) error {
+//
+// Ping & Heartbeating.
+//
+
+func pingOrPongMessage(isPing bool) ([]byte, error) {
+	msg, err := logic.MessageToNode()
+	if err != nil {
+		return nil, err
+	}
+
+	kind := coral.MessageToNodeKind_pong
+	if isPing {
+		kind = coral.MessageToNodeKind_ping
+	}
+
+	msg.SetKind(kind)
+	msg.Body().SetEmpty()
+
+	return msg.Message().Marshal()
+}
+
+func nodePingHandler(conn *logic.WSConn, nodeID logic.NodeID) func(string) error {
+	return func(_ string) error {
+		msg, err := pingOrPongMessage(false)
+		if err != nil {
+			return err
+		}
+
 		conn.Lock.Lock()
-		err := conn.Conn.WriteMessage(websocket.BinaryMessage, []byte{CODE_PONG})
+		err = conn.Conn.WriteMessage(websocket.BinaryMessage, msg)
 		conn.Lock.Unlock()
 
 		if err != nil {
@@ -170,7 +242,7 @@ func HandleNodeConnection(c *gin.Context) {
 		Lock: sync.Mutex{},
 	}
 
-	node, err := initHandshake(wsConn)
+	node, err := performHandshake(wsConn)
 	if err != nil {
 		log.Errorf("[node] handshake with `%s` failed: %s", conn.RemoteAddr(), err.Error())
 		return
@@ -179,19 +251,8 @@ func HandleNodeConnection(c *gin.Context) {
 	// TODO: use wrapper
 
 	// Add node to manager.
-	nodeID := logic.NodeManager.ConnectNode(node, conn)
 
-	if err := conn.WriteMessage(websocket.BinaryMessage, append([]byte{CODE_SEND_ID}, nodeID[0:]...)); err != nil {
-		log.Warnf(
-			"[node] handshake with `%s` failed: could not deliver ID to node: %s",
-			node.EndpointIP,
-			err.Error(),
-		)
-
-		return
-	}
-
-	pingHandler := nodePingHandler(wsConn, nodeID)
+	pingHandler := nodePingHandler(wsConn, node.ID)
 	conn.SetPingHandler(pingHandler)
 
 	conn.SetPongHandler(func(appData string) error {
@@ -200,16 +261,18 @@ func HandleNodeConnection(c *gin.Context) {
 	})
 
 	conn.SetCloseHandler(func(code int, text string) error {
-		dropNode(wsConn, code, nodeID)
+		dropNode(wsConn, code, node.ID)
 		return nil
 	})
+
+	// TODO: place the receive loop somewhere else.
 
 	// Blocking receive loop.
 	for {
 		msgType, message, err := conn.ReadMessage()
 		if err != nil {
 			log.Debugf("[node] error while reading message: %s", err.Error())
-			dropNode(wsConn, websocket.CloseAbnormalClosure, nodeID)
+			dropNode(wsConn, websocket.CloseAbnormalClosure, node.ID)
 			break
 		}
 
@@ -219,28 +282,29 @@ func HandleNodeConnection(c *gin.Context) {
 		case websocket.BinaryMessage:
 			log.Tracef("[node] received binary message: %s", logic.FormatBinarySliceAsHex(message))
 
-			if len(message) == 0 {
-				log.Trace("[node] received empty binary message")
-				continue
+			if err := handleGenericIncoming(message, pingHandler); err != nil {
+				log.Errorf("[node] failed to act upon message: %s", err.Error())
+				dropNode(wsConn, websocket.CloseAbnormalClosure, node.ID)
+				return
 			}
 
-			switch message[0] {
-			case CODE_PING:
-				if err := pingHandler(string(message[1:])); err != nil {
-					dropNode(wsConn, websocket.CloseAbnormalClosure, nodeID)
-					return
-				}
-			case logic.CODE_STARTED_JOB:
-				if err := logic.NodeManager.JobStartedJobCallback(nodeID, message); err != nil {
-					log.Errorf("job started error: %s", err.Error())
-					return
-				}
-			case logic.CODE_JOB_LOG:
-				if err := logic.NodeManager.NodeLogCallBack(nodeID, message); err != nil {
-					log.Errorf("job log error: %s", err.Error())
-					return
-				}
-			}
+			// switch message[0] {
+			// case CODE_PING:
+			// 	if err := pingHandler(string(message[1:])); err != nil {
+			// 		dropNode(wsConn, websocket.CloseAbnormalClosure, nodeID)
+			// 		return
+			// 	}
+			// case logic.CODE_STARTED_JOB:
+			// 	if err := logic.NodeManager.JobStartedJobCallback(nodeID, message); err != nil {
+			// 		log.Errorf("job started error: %s", err.Error())
+			// 		return
+			// 	}
+			// case logic.CODE_JOB_LOG:
+			// 	if err := logic.NodeManager.NodeLogCallBack(nodeID, message); err != nil {
+			// 		log.Errorf("job log error: %s", err.Error())
+			// 		return
+			// 	}
+			// }
 		case websocket.PingMessage:
 			fmt.Printf("ping: %x\n", message)
 		case websocket.PongMessage:
@@ -250,4 +314,56 @@ func HandleNodeConnection(c *gin.Context) {
 			return
 		}
 	}
+}
+
+func handleGenericIncoming(message []byte, pingHandler func(string) error) error {
+	unmarshaledRaw, err := capnp.UnmarshalPacked(message)
+	if err != nil {
+		return err
+	}
+
+	decoded, err := coral.ReadRootMessageFromNode(unmarshaledRaw)
+	if err != nil {
+		return fmt.Errorf("could not read handshake response: %s", err.Error())
+	}
+
+	switch decoded.Kind() {
+	case coral.MessageFromNodeKind_ping:
+		return pingHandler(string(message[1:]))
+	case coral.MessageFromNodeKind_pong:
+		panic("TODO: implement this.")
+	case coral.MessageFromNodeKind_jobLog:
+		return handleJobLog(decoded.Body())
+	case coral.MessageFromNodeKind_jobProgressReport:
+		return handleJobProgressReport(decoded.Body())
+	default:
+		// VERY BAD!
+		panic("todo: better error handling")
+	}
+
+	return nil
+}
+
+func handleJobLog(body coral.MessageFromNode_body) error {
+	jobLog, err := coral.ReadRootJobLogMessage(body.Message())
+	if err != nil {
+		return err
+	}
+
+	panic(jobLog)
+
+	panic("TODO")
+	return nil
+}
+
+func handleJobProgressReport(body coral.MessageFromNode_body) error {
+	jobProgress, err := coral.ReadRootJobProgressReportMessage(body.Message())
+	if err != nil {
+		return err
+	}
+
+	panic(jobProgress)
+
+	panic("TODO")
+	return nil
 }
