@@ -5,27 +5,46 @@ import (
 	"fmt"
 	"strings"
 
+	"capnproto.org/go/capnp/v3"
 	"github.com/gorilla/websocket"
 	"github.com/reef-runtime/reef/reef_manager/database"
+
+	coral "github.com/reef-runtime/reef/reef_protocol"
 )
+
+func MessageToNode() (coral.MessageToNode, error) {
+	arena := capnp.SingleSegment(nil)
+
+	_, seg, err := capnp.NewMessage(arena)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	genericMsg, err := coral.NewMessageToNode(seg)
+	if err != nil {
+		return coral.MessageToNode{}, err
+	}
+
+	return genericMsg, nil
+}
 
 // TODO: could just use `binary.LittleEndian.PutUint32()`?
 // TODO: write test for this function
-func uint32IntoBytes(v uint32) []byte {
-	return []byte{
-		byte((v & 0xFF_00_00_00) >> 24),
-		byte((v & 0x00_FF_00_00) >> 16),
-		byte((v & 0x00_00_FF_00) >> 8),
-		byte(v),
-	}
-}
-
-func uint16IntoBytes(v uint16) []byte {
-	return []byte{
-		byte((v & 0xFF_00) >> 8),
-		byte(v),
-	}
-}
+// func uint32IntoBytes(v uint32) []byte {
+// 	return []byte{
+// 		byte((v & 0xFF_00_00_00) >> 24),
+// 		byte((v & 0x00_FF_00_00) >> 16),
+// 		byte((v & 0x00_00_FF_00) >> 8),
+// 		byte(v),
+// 	}
+// }
+//
+// func uint16IntoBytes(v uint16) []byte {
+// 	return []byte{
+// 		byte((v & 0xFF_00) >> 8),
+// 		byte(v),
+// 	}
+// }
 
 func FormatBinarySliceAsHex(input []byte) string {
 	output := make([]string, 0)
@@ -59,28 +78,66 @@ func FormatBinarySliceAsHex(input []byte) string {
 // |     1 Byte     |            4 Byte            |		 64 Byte        |
 //
 //
+//
+// const CODE_START_JOB = 0xC0
+// const CODE_STARTED_JOB = 0xC1
+// const CODE_REJECTED_JOB = 0xC2
 
-const CODE_START_JOB = 0xC0
-const CODE_STARTED_JOB = 0xC1
-const CODE_REJECTED_JOB = 0xC2
+func toNodeJobInitializationMessage(
+	workerIndex uint32, // TODO: uint16 is enough.
+	jobID string,
+	programByteCode []byte,
+) ([]byte, error) {
+	arena := capnp.SingleSegment(nil)
+	_, seg, err := capnp.NewMessage(arena)
+	if err != nil {
+		return nil, err
+	}
+	startjobBody, err := coral.NewJobInitializationMessage(seg)
+	if err != nil {
+		return nil, err
+	}
+
+	startjobBody.SetWorkerIndex(workerIndex)
+	if err := startjobBody.SetJobID(jobID); err != nil {
+		return nil, err
+	}
+
+	if err := startjobBody.SetProgramByteCode(programByteCode); err != nil {
+		return nil, err
+	}
+
+	//
+
+	msg, err := MessageToNode()
+	if err != nil {
+		return nil, err
+	}
+
+	msg.SetKind(coral.MessageToNodeKind_assignID)
+	if err := msg.Body().SetStartJob(startjobBody); err != nil {
+		return nil, err
+	}
+
+	return msg.Message().Marshal()
+}
 
 // TODO: migrate into `logic`
 func (m *NodeManagerT) StartJobOnNode(node Node, jobID JobID, workerIdx uint16, programByteCode []byte) error {
-	byteLenProgram := len(programByteCode)
+	msg, err := toNodeJobInitializationMessage(
+		uint32(workerIdx),
+		jobID,
+		programByteCode,
+	)
 
-	if byteLenProgram > int(^uint32(0)) {
-		panic("Program too large: maximum size is `uint32::MAX` bytes")
+	if err != nil {
+		return err
 	}
 
-	messageContent := append([]byte{CODE_START_JOB}, (uint32IntoBytes(uint32(byteLenProgram)))...)
-	messageContent = append(messageContent, uint16IntoBytes(workerIdx)...)
-	messageContent = append(messageContent, []byte(jobID)...)
-	messageContent = append(messageContent, programByteCode...)
-
 	node.Conn.Lock.Lock()
-	err := node.Conn.Conn.WriteMessage(
+	err = node.Conn.Conn.WriteMessage(
 		websocket.BinaryMessage,
-		messageContent,
+		msg,
 	)
 	node.Conn.Lock.Unlock()
 

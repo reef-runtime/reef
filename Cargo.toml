@@ -1,5 +1,5 @@
 [workspace]
-members = ["reef_interpreter", "reef_node_native"]
+members = ["reef_interpreter", "reef_node_native", "reef_protocol/rust", "reef_runtime_libs/wasm_test"]
 resolver = "2"
 
 [workspace.package]

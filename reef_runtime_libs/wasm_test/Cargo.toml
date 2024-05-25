@@ -1,0 +1,13 @@
+[package]
+name = "wasm_test"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+repository.workspace = true
+edition.workspace = true
+
+[dependencies]
+argh = "0.1.12"
+color-eyre = "0.6.3"
+log = "0.4.21"
+tinywasm = "0.7.0"
