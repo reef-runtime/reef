@@ -52,8 +52,8 @@ func IdToString(id NodeID) string {
 	return hex.EncodeToString(id[0:])
 }
 
-func (m *NodeManagerT) ConnectNode(node NodeInfo, conn *websocket.Conn) (newID NodeID) {
-	newID = sha256.Sum256(append([]byte(node.EndpointIP), []byte(node.Name)...))
+func (m *NodeManagerT) ConnectNode(node NodeInfo, conn *WSConn) (nodeObj Node) {
+	newID := sha256.Sum256(append([]byte(node.EndpointIP), []byte(node.Name)...))
 	newIDString := hex.EncodeToString(newID[0:])
 
 	m.Nodes.Lock.Lock()
@@ -65,16 +65,15 @@ func (m *NodeManagerT) ConnectNode(node NodeInfo, conn *websocket.Conn) (newID N
 
 	now := time.Now().Local()
 
-	m.Nodes.Map[newID] = Node{
-		Info:     node,
-		LastPing: &now,
-		Conn: &WSConn{
-			Conn: conn,
-			Lock: sync.Mutex{},
-		},
+	nodeObj = Node{
+		Info:        node,
+		LastPing:    &now,
+		Conn:        conn,
 		ID:          newID,
 		WorkerState: make([]*string, node.NumWorkers),
 	}
+
+	m.Nodes.Map[newID] = nodeObj
 
 	log.Infof(
 		"[node] Handshake success: connected to new node `%s` ip=`%s` name=`%s` with %d workers",
@@ -84,7 +83,7 @@ func (m *NodeManagerT) ConnectNode(node NodeInfo, conn *websocket.Conn) (newID N
 		node.NumWorkers,
 	)
 
-	return newID
+	return nodeObj
 }
 
 func (m *NodeManagerT) DropNode(id NodeID) bool {
