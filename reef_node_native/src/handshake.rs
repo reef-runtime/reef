@@ -1,7 +1,7 @@
-use core::panic;
 use std::net::TcpStream;
 
 use anyhow::{bail, Context, Result};
+use capnp::{message::ReaderOptions, serialize};
 use reef_protocol::message_capnp::{self, message_to_node, MessageToNodeKind};
 use tungstenite::{stream::MaybeTlsStream, Message, WebSocket};
 
@@ -60,13 +60,10 @@ pub(crate) fn perform(
     //
     // 1. Wait for (and expect) incoming handshake initializer.
     //
-    {
+    loop {
         let bin = wait_for_binary_ignore_other(socket)?;
-        let segments = &[bin.as_slice()];
-        let message = capnp::message::Reader::new(
-            capnp::message::SegmentArray::new(segments),
-            core::default::Default::default(),
-        );
+
+        let message = serialize::read_message(bin.as_slice(), ReaderOptions::new()).unwrap();
 
         let decoded = message
             .get_root::<reef_protocol::message_capnp::message_to_node::Reader>()
@@ -77,7 +74,11 @@ pub(crate) fn perform(
             .with_context(|| "failed to determine incoming binary message kind")?;
 
         match kind {
-            MessageToNodeKind::InitHandShake | MessageToNodeKind::Ping | MessageToNodeKind::Pong => (),
+            MessageToNodeKind::InitHandShake => {
+                println!("received handshake initializer...");
+                break
+            },
+            MessageToNodeKind::Ping | MessageToNodeKind::Pong => println!("received ping, waiting for init handshake..."),
             other => bail!("first binary message from server is not the expected handshake initializer, got {other:?}"),
         }
     }
@@ -98,27 +99,15 @@ pub(crate) fn perform(
         loop {
             let bin =
                 wait_for_binary_ignore_other(socket).with_context(|| "could not read node ID")?;
-            let bin_slice = bin.as_slice();
-            let segments = &[bin_slice];
-            let message = capnp::message::Reader::new(
-                capnp::message::SegmentArray::new(segments),
-                core::default::Default::default(),
-            );
 
-            println!("{bin:?}");
+            let reader = serialize::read_message(bin.as_slice(), ReaderOptions::new())
+                .with_context(|| "could not read node ID")?;
 
-            let decoded = message
+            let decoded = reader
                 .get_root::<reef_protocol::message_capnp::message_to_node::Reader>()
-                .unwrap();
+                .with_context(|| "could not decode node ID message")?;
 
-            let kind = decoded
-                .get_kind()
-                .with_context(|| "failed to determine incoming binary message kind")?;
-
-            match kind {
-            MessageToNodeKind::AssignID | MessageToNodeKind::Ping | MessageToNodeKind::Pong => (),
-            other => bail!("second binary message from server is not the expected handshake initializer, got {other:?}"),
-        }
+            let kind = decoded.get_kind().unwrap();
 
             match (
                 kind,
