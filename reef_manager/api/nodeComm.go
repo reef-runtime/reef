@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"capnproto.org/go/capnp/v3"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/reef-runtime/reef/reef_manager/logic"
@@ -19,15 +18,25 @@ var upgrader = websocket.Upgrader{
 }
 
 func MessageToNodeEmptyMessage(kind coral.MessageToNodeKind) ([]byte, error) {
-	msg, err := logic.MessageToNode()
+	// msg, err := logic.MessageToNode()
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	msg, seg, err := capnp.NewMessage(capnp.SingleSegment(nil))
 	if err != nil {
 		return nil, err
 	}
 
-	msg.SetKind(coral.MessageToNodeKind_initHandShake)
-	msg.Body().SetEmpty()
+	toNode, err := coral.NewRootMessageToNode(seg)
+	if err != nil {
+		return nil, err
+	}
 
-	return msg.Message().Marshal()
+	toNode.SetKind(coral.MessageToNodeKind_initHandShake)
+	toNode.Body().SetEmpty()
+
+	return msg.Marshal()
 }
 
 //
@@ -35,11 +44,22 @@ func MessageToNodeEmptyMessage(kind coral.MessageToNodeKind) ([]byte, error) {
 //
 
 func MessageToNodeAssignID(nodeID logic.NodeID) ([]byte, error) {
-	arena := capnp.SingleSegment(nil)
-	_, seg, err := capnp.NewMessage(arena)
+	msg, seg, err := capnp.NewMessage(capnp.SingleSegment(nil))
 	if err != nil {
 		return nil, err
 	}
+
+	toNodeMsg, err := coral.NewRootMessageToNode(seg)
+	if err != nil {
+		return nil, err
+	}
+
+	toNodeMsg.SetKind(coral.MessageToNodeKind_assignID)
+
+	//
+	// Nested.
+	//
+
 	assignIDMsg, err := coral.NewAssignIDMessage(seg)
 	if err != nil {
 		return nil, err
@@ -49,21 +69,11 @@ func MessageToNodeAssignID(nodeID logic.NodeID) ([]byte, error) {
 		return nil, err
 	}
 
-	//
-
-	msg, err := logic.MessageToNode()
-	if err != nil {
+	if err := toNodeMsg.Body().SetAssignID(assignIDMsg); err != nil {
 		return nil, err
 	}
 
-	msg.SetKind(coral.MessageToNodeKind_assignID)
-	if err := msg.Body().SetAssignID(assignIDMsg); err != nil {
-		return nil, err
-	}
-
-	spew.Dump(msg.Body().HasAssignID())
-
-	return msg.Message().Marshal()
+	return msg.Marshal()
 }
 
 func performHandshake(conn *logic.WSConn) (logic.Node, error) {
@@ -103,7 +113,7 @@ func performHandshake(conn *logic.WSConn) (logic.Node, error) {
 		return logic.Node{}, err
 	}
 
-	spew.Dump(unmarshaledRaw)
+	// spew.Dump(unmarshaledRaw)
 
 	handshakeResponse, err := coral.ReadRootHandshakeRespondMessage(unmarshaledRaw)
 	if err != nil {
@@ -185,7 +195,17 @@ func dropNode(conn *logic.WSConn, closeCode int, nodeID logic.NodeID) {
 //
 
 func pingOrPongMessage(isPing bool) ([]byte, error) {
-	msg, err := logic.MessageToNode()
+	// msg, err := logic.MessageToNode()
+	// if err != nil {
+	// return nil, err
+	// }
+
+	msg, seg, err := capnp.NewMessage(capnp.SingleSegment(nil))
+	if err != nil {
+		return nil, err
+	}
+
+	toNode, err := coral.NewRootMessageToNode(seg)
 	if err != nil {
 		return nil, err
 	}
@@ -195,10 +215,10 @@ func pingOrPongMessage(isPing bool) ([]byte, error) {
 		kind = coral.MessageToNodeKind_ping
 	}
 
-	msg.SetKind(kind)
-	msg.Body().SetEmpty()
+	toNode.SetKind(kind)
+	toNode.Body().SetEmpty()
 
-	return msg.Message().Marshal()
+	return msg.Marshal()
 }
 
 func nodePingHandler(conn *logic.WSConn, nodeID logic.NodeID) func(string) error {
