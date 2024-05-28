@@ -58,4 +58,4 @@ require (
 	zenhack.net/go/util v0.0.0-20230414204917-531d38494cf5 // indirect
 )
 
-replace github.com/reef-runtime/reef/reef_protocol => ../reef_protocol/go/
+replace github.com/reef-runtime/reef/reef_protocol => ../reef_protocol/node/go/

@@ -195,11 +195,6 @@ func dropNode(conn *logic.WSConn, closeCode int, nodeID logic.NodeID) {
 //
 
 func pingOrPongMessage(isPing bool) ([]byte, error) {
-	// msg, err := logic.MessageToNode()
-	// if err != nil {
-	// return nil, err
-	// }
-
 	msg, seg, err := capnp.NewMessage(capnp.SingleSegment(nil))
 	if err != nil {
 		return nil, err
@@ -337,7 +332,7 @@ func HandleNodeConnection(c *gin.Context) {
 }
 
 func handleGenericIncoming(message []byte, pingHandler func(string) error) error {
-	unmarshaledRaw, err := capnp.UnmarshalPacked(message)
+	unmarshaledRaw, err := capnp.Unmarshal(message)
 	if err != nil {
 		return err
 	}

@@ -11,7 +11,7 @@ clap = { version = "4.5.4", features = ["derive"] }
 env_logger = "0.11.3"
 tungstenite = "0.21.0"
 url = "2.5.0"
-reef_protocol = { path = "../reef_protocol/rust/"}
+reef_protocol = { path = "../reef_protocol/node/rust/"}
 capnp = "0.19.5"
 sysinfo = "0.30.12"
 hex = "0.4.3"
