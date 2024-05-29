@@ -3,6 +3,7 @@ package logic
 import (
 	"encoding/binary"
 	"fmt"
+	"os"
 	"strings"
 
 	"capnproto.org/go/capnp/v3"
@@ -249,7 +250,10 @@ func (m *NodeManagerT) StartJobOnFreeNode(jobID JobID) (couldStart bool, err err
 		return false, nil
 	}
 
-	programByteCode := []byte{0xDE, 0xAD, 0xBE, 0xEF}
+	programByteCode, err := os.ReadFile("./c_test.wasm")
+	if err != nil {
+		panic("test file not found")
+	}
 
 	m.Nodes.Lock.Lock()
 	node, nodeFound := m.Nodes.Map[nodeID]
