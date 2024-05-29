@@ -15,3 +15,4 @@ reef_protocol = { path = "../reef_protocol/node/rust/"}
 capnp = "0.19.5"
 sysinfo = "0.30.12"
 hex = "0.4.3"
+tinywasm = { path = "../../tinywasm/crates/tinywasm/"}
