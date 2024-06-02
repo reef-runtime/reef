@@ -1,0 +1,3 @@
+[type.po]
+extend-glob = ["go.mod"]
+check-file = false

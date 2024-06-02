@@ -9,22 +9,20 @@ const LogTableName = "log"
 type LogKind uint16
 
 const (
-	// Normal logging
+	// Normal logging.
 	LogKindLevelTrace LogKind = iota
 	LogKindLevelDebug
 	LogKindLevelInfo
 	LogKindLevelWarn
 	LogKindLevelError
 	LogKindLevelFatal
-	// Progress reporting
-	LogKindProgress
 )
 
 func IsValidLogKind(from uint16) bool {
 	switch from {
-	case uint16(LogKindLevelTrace), uint16(LogKindLevelDebug), uint16(LogKindLevelInfo), uint16(LogKindLevelWarn), uint16(LogKindLevelError), uint16(LogKindLevelFatal):
-		return true
-	case uint16(LogKindProgress):
+	case uint16(LogKindLevelTrace), uint16(LogKindLevelDebug),
+		uint16(LogKindLevelInfo), uint16(LogKindLevelWarn),
+		uint16(LogKindLevelError), uint16(LogKindLevelFatal):
 		return true
 	default:
 		return false
@@ -32,20 +30,18 @@ func IsValidLogKind(from uint16) bool {
 }
 
 type JobLog struct {
-	// ID      int       `json:"id"`
 	Kind    LogKind   `json:"kind"`
 	Created time.Time `json:"created"`
 	Content string    `json:"content"`
-	Job_id  string    `json:"job_id"`
+	JobID   string    `json:"jobId"`
 }
 
 func AddLog(joblog JobLog) error {
 	_, err := db.builder.Insert(JobTableName).Values(
-		// joblog.ID,
 		joblog.Kind,
 		joblog.Created,
 		joblog.Content,
-		joblog.Job_id,
+		joblog.JobID,
 	).Exec()
 
 	if err != nil {
@@ -57,6 +53,7 @@ func AddLog(joblog JobLog) error {
 }
 
 func DeleteLogs(jobID string) (found bool, err error) {
+	// nolint:goconst
 	res, err := db.builder.Delete(JobTableName).Where("log.job_id=?", jobID).Exec()
 	if err != nil {
 		return false, err
@@ -71,23 +68,35 @@ func DeleteLogs(jobID string) (found bool, err error) {
 }
 
 func GetLastLogs(num uint64, jobID string) ([]JobLog, error) {
-	res, err := db.builder.Select("*").From(LogTableName).Where("log.job_id=?", jobID).OrderBy("id DESC").Limit(num).Query()
+	res, err := db.builder.
+		Select("*").
+		From(LogTableName).
+		Where("log.job_id=?", jobID).
+		OrderBy("id DESC").
+		Limit(num).
+		Query()
 
 	if err != nil {
+		// nolint:goconst
 		log.Errorf("Could not list logs: executing query failed: %s", err.Error())
 		return nil, err
 	}
+
+	if res.Err() != nil {
+		log.Errorf("Could not list logs: executing query failed: %s", res.Err())
+		return nil, err
+	}
+	defer res.Close()
 
 	logs := make([]JobLog, 0)
 
 	for res.Next() {
 		var joblog JobLog
 		if err := res.Scan(
-			// &joblog.ID,
 			&joblog.Kind,
 			&joblog.Created,
 			&joblog.Content,
-			&joblog.Job_id,
+			&joblog.JobID,
 		); err != nil {
 			log.Errorf("Could not list logs: scanning results failed: %s", err.Error())
 			return nil, err

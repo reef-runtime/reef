@@ -11,7 +11,7 @@ var log *logrus.Logger
 
 func Init(logger *logrus.Logger) {
 	log = logger
-	log.Debug("API package sucessfully initialized")
+	log.Debug("API successfully initialized")
 }
 
 type responseT struct {

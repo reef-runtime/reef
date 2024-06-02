@@ -1,4 +1,14 @@
-use std::u16;
+use crate::worker::{spawn_worker_thread, Worker};
+use std::{
+    sync::{
+        atomic::AtomicU8,
+        mpsc::{self, TryRecvError},
+        Arc,
+    },
+    thread,
+    time::Duration,
+    u16,
+};
 
 use anyhow::{bail, Context, Result};
 use capnp::{message::ReaderOptions, serialize};
@@ -10,12 +20,17 @@ use tungstenite::Message;
 
 use clap::Parser;
 use url::Url;
+use worker::FromWorkerMessage;
 
+use crate::worker::Job;
+
+mod comms;
 mod handshake;
 mod worker;
-mod comms;
 
 const NODE_REGISTER_PATH: &str = "/api/node/connect";
+
+const MAIN_THREAD_SLEEP: Duration = Duration::from_millis(10);
 
 /// Reef worker node (native)
 #[derive(Parser, Debug)]
@@ -34,26 +49,22 @@ struct Args {
     tls: bool,
 }
 
-
-#[derive(Debug, Clone)]
-struct Job {
-    id: String,
-    // TODO: interpreter state & more.
-}
-
-#[derive(Debug, Default, Clone)]
-struct Worker {
-    job: Option<Job>,
-}
-
 struct NodeState {
     workers: Box<[Worker]>,
+    from_worker_sender: mpsc::Sender<FromWorkerMessage>,
 }
 
 impl NodeState {
-    fn new(num_workers: u16) -> Self {
+    fn new(num_workers: u16, sender: mpsc::Sender<FromWorkerMessage>) -> Self {
+        let mut workers = Vec::with_capacity(num_workers as usize);
+
+        for _ in 0..num_workers {
+            workers.push(Worker::default());
+        }
+
         Self {
-            workers: vec![Worker::default(); num_workers as usize].into(),
+            workers: workers.into(),
+            from_worker_sender: sender,
         }
     }
 }
@@ -83,9 +94,12 @@ fn main() -> anyhow::Result<()> {
 
     let (mut socket, response) = tungstenite::connect(connect_url).expect("Can't connect");
 
-    println!("Connected to the server");
-    println!("Response HTTP code: {}", response.status());
-    println!("Response contains the following headers:");
+    println!("  -> Connected to the manager");
+    println!(
+        "  -> Registration response HTTP code: {}",
+        response.status()
+    );
+    println!("  -> Response contains the following headers:");
     for (ref header, _value) in response.headers() {
         println!("* {}", header);
     }
@@ -107,7 +121,9 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let mut state = NodeState::new(num_workers);
+    let (from_node_sender, from_node_receiver) = mpsc::channel();
+
+    let mut state = NodeState::new(num_workers, from_node_sender);
 
     let node_info = handshake::perform(&node_name, num_workers, &mut socket)
         .with_context(|| "handshake failed")?;
@@ -117,9 +133,67 @@ fn main() -> anyhow::Result<()> {
         hex::encode(node_info.node_id)
     );
 
-    loop {
-        let msg = socket.read().expect("Error reading message");
+    //
+    // Buffer for state + logs + progress
+    // TODO: this feature is quite important.
+    //
 
+    loop {
+        //
+        // Websocket communications.
+        //
+        if socket.can_read() {
+            let msg = socket.read().expect("Error reading message");
+            state
+                .handle_websocket(msg)
+                .with_context(|| "evaluating incoming message")?;
+        }
+
+        //
+        // Worker channel communications.
+        //
+
+        match from_node_receiver.try_recv() {
+            Ok(FromWorkerMessage::Log(contents)) => todo!("implement logging: {contents}"),
+            Ok(FromWorkerMessage::Progress(progress)) => todo!("implement progress: {progress}"),
+            Err(TryRecvError::Empty) => thread::sleep(MAIN_THREAD_SLEEP),
+            Err(TryRecvError::Disconnected) => unreachable!("all senders have been dropped"),
+        }
+
+        //
+        // Checking whether a thread has finished.
+        //
+
+        for worker in state.workers.iter_mut() {
+            let Some(job) = worker.job.as_ref() else {
+                continue;
+            };
+
+            if !job.handle.is_finished() {
+                continue;
+            }
+
+            let res = worker
+                .job
+                .take()
+                .expect("existence of the job was checked above")
+                .handle
+                .join()
+                .expect("worker thread panic'ed, this is a bug");
+
+            match res {
+                Ok(ret_val) => println!("Job has executed successfully! {ret_val}"),
+                Err(err) => println!("Job failed: {err:?}"),
+            }
+        }
+    }
+
+    // TODO: implement a close (also on reef protocol layer)
+    // socket.close(None);
+}
+
+impl NodeState {
+    fn handle_websocket(&mut self, msg: tungstenite::Message) -> Result<()> {
         let action = match msg {
             Message::Text(_) => bail!("received a text message, this should never happen"),
             Message::Binary(bin) => handle_binary(&bin)?,
@@ -136,7 +210,7 @@ fn main() -> anyhow::Result<()> {
 
         match action {
             Action::StartJob(request) => {
-                if let Err(err) = start_job(request, &mut state) {
+                if let Err(err) = self.start_job(request) {
                     // TODO: replace with `real` logger.
                     eprintln!("Failed to start job: {err}");
                 }
@@ -148,31 +222,41 @@ fn main() -> anyhow::Result<()> {
             Action::Disconnect => todo!(),
         }
 
-        // println!("Received: {}", msg);
-    }
-    // socket.close(None);
-}
-
-fn start_job(request: StartJobRequest, state: &mut NodeState) -> Result<()> {
-    // 1. Check if the worker is free and available.
-    let Some(worker) = state.workers.get_mut(request.worker_index as usize) else {
-        bail!("requested illegal worker index");
-    };
-
-    if worker.job.is_some() {
-        bail!("worker is occupied");
+        Ok(())
     }
 
-    println!(
-        "starting job with id {:?} on worker {} with program: {:?}...",
-        request.job_id, request.worker_index, request.program_byte_code
-    );
+    fn start_job(&mut self, request: StartJobRequest) -> Result<()> {
+        // 1. Check if the worker is free and available.
+        let Some(worker) = self.workers.get_mut(request.worker_index as usize) else {
+            bail!("requested illegal worker index");
+        };
 
-    worker.job = Some(Job { id: request.job_id });
+        if worker.job.is_some() {
+            bail!("worker is occupied");
+        }
 
-    //  TODO: would trigger job here.
+        println!(
+            "starting job with id {:?} on worker {} with program: {:?}...",
+            request.job_id, request.worker_index, request.program_byte_code
+        );
 
-    Ok(())
+        let signal = Arc::new(AtomicU8::new(0));
+
+        let handle = spawn_worker_thread(
+            request.program_byte_code,
+            request.job_id.clone(),
+            self.from_worker_sender.clone(),
+            signal.clone(),
+        );
+
+        worker.job = Some(Job {
+            id: request.job_id,
+            signal,
+            handle,
+        });
+
+        Ok(())
+    }
 }
 
 struct StartJobRequest {

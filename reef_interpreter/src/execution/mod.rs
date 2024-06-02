@@ -160,7 +160,7 @@ impl ExecutionContext {
                     todo!("return not yet supported");
                 }
                 None => {
-                    // TODO: return resuts
+                    // TODO: return results
                     return Ok(Some(()));
                 }
             }

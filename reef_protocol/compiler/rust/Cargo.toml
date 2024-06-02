@@ -1,5 +1,5 @@
 [package]
-name = "reef_protocol_node"
+name = "reef_protocol_compiler"
 version.workspace = true
 authors.workspace = true
 description.workspace = true

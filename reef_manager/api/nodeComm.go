@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/reef-runtime/reef/reef_manager/logic"
-	coral "github.com/reef-runtime/reef/reef_protocol"
+	node "github.com/reef-runtime/reef/reef_protocol_node"
 )
 
 var upgrader = websocket.Upgrader{
@@ -17,7 +17,7 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-func MessageToNodeEmptyMessage(kind coral.MessageToNodeKind) ([]byte, error) {
+func MessageToNodeEmptyMessage(kind node.MessageToNodeKind) ([]byte, error) {
 	// msg, err := logic.MessageToNode()
 	// if err != nil {
 	// 	return nil, err
@@ -28,12 +28,12 @@ func MessageToNodeEmptyMessage(kind coral.MessageToNodeKind) ([]byte, error) {
 		return nil, err
 	}
 
-	toNode, err := coral.NewRootMessageToNode(seg)
+	toNode, err := node.NewRootMessageToNode(seg)
 	if err != nil {
 		return nil, err
 	}
 
-	toNode.SetKind(coral.MessageToNodeKind_initHandShake)
+	toNode.SetKind(node.MessageToNodeKind_initHandShake)
 	toNode.Body().SetEmpty()
 
 	return msg.Marshal()
@@ -49,18 +49,18 @@ func MessageToNodeAssignID(nodeID logic.NodeID) ([]byte, error) {
 		return nil, err
 	}
 
-	toNodeMsg, err := coral.NewRootMessageToNode(seg)
+	toNodeMsg, err := node.NewRootMessageToNode(seg)
 	if err != nil {
 		return nil, err
 	}
 
-	toNodeMsg.SetKind(coral.MessageToNodeKind_assignID)
+	toNodeMsg.SetKind(node.MessageToNodeKind_assignID)
 
 	//
 	// Nested.
 	//
 
-	assignIDMsg, err := coral.NewAssignIDMessage(seg)
+	assignIDMsg, err := node.NewAssignIDMessage(seg)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func MessageToNodeAssignID(nodeID logic.NodeID) ([]byte, error) {
 }
 
 func performHandshake(conn *logic.WSConn) (logic.Node, error) {
-	initMsg, err := MessageToNodeEmptyMessage(coral.MessageToNodeKind_initHandShake)
+	initMsg, err := MessageToNodeEmptyMessage(node.MessageToNodeKind_initHandShake)
 	if err != nil {
 		return logic.Node{}, err
 	}
@@ -115,7 +115,7 @@ func performHandshake(conn *logic.WSConn) (logic.Node, error) {
 
 	// spew.Dump(unmarshaledRaw)
 
-	handshakeResponse, err := coral.ReadRootHandshakeRespondMessage(unmarshaledRaw)
+	handshakeResponse, err := node.ReadRootHandshakeRespondMessage(unmarshaledRaw)
 	if err != nil {
 		return logic.Node{}, fmt.Errorf("could not read handshake response: %s", err.Error())
 	}
@@ -200,14 +200,14 @@ func pingOrPongMessage(isPing bool) ([]byte, error) {
 		return nil, err
 	}
 
-	toNode, err := coral.NewRootMessageToNode(seg)
+	toNode, err := node.NewRootMessageToNode(seg)
 	if err != nil {
 		return nil, err
 	}
 
-	kind := coral.MessageToNodeKind_pong
+	kind := node.MessageToNodeKind_pong
 	if isPing {
-		kind = coral.MessageToNodeKind_ping
+		kind = node.MessageToNodeKind_ping
 	}
 
 	toNode.SetKind(kind)
@@ -337,19 +337,19 @@ func handleGenericIncoming(message []byte, pingHandler func(string) error) error
 		return err
 	}
 
-	decoded, err := coral.ReadRootMessageFromNode(unmarshaledRaw)
+	decoded, err := node.ReadRootMessageFromNode(unmarshaledRaw)
 	if err != nil {
 		return fmt.Errorf("could not read handshake response: %s", err.Error())
 	}
 
 	switch decoded.Kind() {
-	case coral.MessageFromNodeKind_ping:
+	case node.MessageFromNodeKind_ping:
 		return pingHandler(string(message[1:]))
-	case coral.MessageFromNodeKind_pong:
+	case node.MessageFromNodeKind_pong:
 		panic("TODO: implement this.")
-	case coral.MessageFromNodeKind_jobLog:
+	case node.MessageFromNodeKind_jobLog:
 		return handleJobLog(decoded.Body())
-	case coral.MessageFromNodeKind_jobProgressReport:
+	case node.MessageFromNodeKind_jobProgressReport:
 		return handleJobProgressReport(decoded.Body())
 	default:
 		// VERY BAD!
@@ -359,8 +359,8 @@ func handleGenericIncoming(message []byte, pingHandler func(string) error) error
 	return nil
 }
 
-func handleJobLog(body coral.MessageFromNode_body) error {
-	jobLog, err := coral.ReadRootJobLogMessage(body.Message())
+func handleJobLog(body node.MessageFromNode_body) error {
+	jobLog, err := node.ReadRootJobLogMessage(body.Message())
 	if err != nil {
 		return err
 	}
@@ -371,8 +371,8 @@ func handleJobLog(body coral.MessageFromNode_body) error {
 	return nil
 }
 
-func handleJobProgressReport(body coral.MessageFromNode_body) error {
-	jobProgress, err := coral.ReadRootJobProgressReportMessage(body.Message())
+func handleJobProgressReport(body node.MessageFromNode_body) error {
+	jobProgress, err := node.ReadRootJobProgressReportMessage(body.Message())
 	if err != nil {
 		return err
 	}
