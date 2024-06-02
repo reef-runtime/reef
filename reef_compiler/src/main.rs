@@ -1,7 +1,18 @@
+use futures::AsyncReadExt;
 use std::fs;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::PathBuf;
 use std::process::Command;
+
+use capnp::capability::Promise;
+use capnp_rpc::{pry, rpc_twoparty_capnp, twoparty, RpcSystem};
+
+use reef_compiler::compiler_capnp;
+use reef_compiler::compiler_capnp::compiler;
+
+const MAIN_PATH: &str = "../test/";
+const SKELETON_PATH: &str = "../skeletons/";
+
 struct CompilerManager {
     main_path: PathBuf,
     skeleton_path: PathBuf,
@@ -25,7 +36,6 @@ impl CompilerManager {
             skeleton_path: PathBuf::from(skeleton_path),
         };
     }
-
     fn compile(&self, file_buf: &str, language: Language) -> Result<Vec<u8>, CError> {
         let mut hasher = DefaultHasher::new();
         file_buf.hash(&mut hasher);
@@ -90,7 +100,7 @@ impl CompilerManager {
         let mut build_path = self.main_path.clone();
         build_path.push("build");
 
-        match copy_dir::copy_dir(skeleton, build_path) {
+        match copy_dir::copy_dir(&skeleton, &build_path) {
             Ok(_) => (),
             Err(e) => return Err(CError::FSError(e)),
         }
@@ -98,7 +108,7 @@ impl CompilerManager {
         let output = match Command::new("make")
             .arg(format!("HASH={}", hash))
             .arg("-C")
-            .arg("./build")
+            .arg(build_path)
             .arg("build")
             .output()
         {
@@ -121,14 +131,77 @@ impl CompilerManager {
     }
 }
 
-fn test() {
-    let m = CompilerManager::new("../test/", "../skeletons/");
+struct Compiler;
 
-    let content = m.compile("int main() {}", Language::C).unwrap();
+impl compiler::Server for Compiler {
+    fn compile(
+        &mut self,
+        params: compiler::CompileParams,
+        mut results: compiler::CompileResults,
+    ) -> Promise<(), ::capnp::Error> {
+        let program_src = pry!(pry!(pry!(params.get()).get_program_src()).to_str());
+        let language = match pry!(pry!(params.get()).get_language()) {
+            compiler_capnp::Language::C => Language::C,
+            compiler_capnp::Language::Rust => Language::Rust,
+        };
 
-    println!("{}", content.len());
+        let manager = CompilerManager::new(MAIN_PATH, SKELETON_PATH);
+        let compiler_res = manager.compile(program_src, language);
+
+        match compiler_res {
+            Ok(buf) => results
+                .get()
+                .init_response()
+                .set_file_content(buf.as_slice()),
+
+            Err(e) => match e {
+                CError::CompilerError(err) => results.get().init_response().set_compiler_error(err),
+
+                CError::FSError(err) => results
+                    .get()
+                    .init_response()
+                    .set_file_system_error(err.to_string()),
+            },
+        }
+
+        Promise::ok(())
+    }
 }
 
-fn main() {
-    test();
+#[tokio::main(flavor = "current_thread")]
+pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    use std::net::ToSocketAddrs;
+    let args: Vec<String> = ::std::env::args().collect();
+    if args.len() != 2 {
+        println!("usage: {} ADDRESS[:PORT]", args[0]);
+        return Ok(());
+    }
+
+    let addr = args[1]
+        .to_socket_addrs()?
+        .next()
+        .expect("could not parse address");
+
+    tokio::task::LocalSet::new()
+        .run_until(async move {
+            let listener = tokio::net::TcpListener::bind(&addr).await?;
+            let compiler: compiler::Client = capnp_rpc::new_client(Compiler);
+
+            loop {
+                let (stream, _) = listener.accept().await?;
+                stream.set_nodelay(true)?;
+                let (reader, writer) =
+                    tokio_util::compat::TokioAsyncReadCompatExt::compat(stream).split();
+                let network = twoparty::VatNetwork::new(
+                    reader,
+                    writer,
+                    rpc_twoparty_capnp::Side::Server,
+                    Default::default(),
+                );
+
+                let rpc_system = RpcSystem::new(Box::new(network), Some(compiler.clone().client));
+                tokio::task::spawn_local(rpc_system);
+            }
+        })
+        .await
 }

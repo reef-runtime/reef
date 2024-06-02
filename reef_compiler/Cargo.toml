@@ -10,6 +10,7 @@ edition.workspace = true
 capnp = "0.19.6"
 capnp-rpc = "0.19.1"
 copy_dir = "0.1.3"
+futures = "0.3.30"
 tokio = { version = "1.37.0", features = ["net", "rt", "macros"] }
 tokio-util = { version = "0.7.11", features = ["compat"] }
 
