@@ -10,6 +10,7 @@ import (
 	"github.com/reef-runtime/reef/reef_manager/database"
 )
 
+const dataSetFilePermission = 0600
 const dataSetFileEnding = ".bin"
 
 type DatasetManagerT struct {
@@ -37,7 +38,7 @@ func (m *DatasetManagerT) AddDataset(name string, data []byte) (id string, err e
 
 	path := filepath.Join(m.DatasetPath, fmt.Sprintf("%s%s", id, dataSetFileEnding))
 
-	if err := os.WriteFile(path, data, 0755); err != nil {
+	if err := os.WriteFile(path, data, dataSetFilePermission); err != nil {
 		return "", err
 	}
 

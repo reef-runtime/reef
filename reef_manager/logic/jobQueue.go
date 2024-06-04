@@ -33,7 +33,7 @@ func (j *JobQueue) Push(job database.Job) {
 	j.lock.Lock()
 	defer j.lock.Unlock()
 
-	heap.Push(&j.pq, queuedJob{
+	heap.Push(&j.pq, QueuedJob{
 		Job: job,
 	})
 	j.len++
@@ -50,7 +50,7 @@ func (j *JobQueue) Pop() (job database.Job, found bool) {
 	item := heap.Pop(&j.pq)
 	j.len--
 
-	return item.(*queuedItem[prioritizable]).Inner.(queuedJob).Job, true
+	return item.(*queuedItem[prioritizable]).Inner.(QueuedJob).Job, true
 }
 
 func (j *JobQueue) Delete(jobID string) (found bool) {
@@ -63,7 +63,7 @@ func (j *JobQueue) Delete(jobID string) (found bool) {
 	deleteIndex := notFound
 
 	for currIdx, job := range j.pq {
-		if job.Inner.(queuedJob).Job.ID == jobID {
+		if job.Inner.(QueuedJob).Job.ID == jobID {
 			deleteIndex = currIdx
 			break
 		}
@@ -137,14 +137,10 @@ func (pq *priorityQueue) Pop() any {
 	old := *pq
 	n := len(old)
 	item := old[n-1]
-	old[n-1] = nil  // avoid memory leak
-	item.index = -1 // for safety
+	// Avoid memory leak.
+	old[n-1] = nil
+	// For safety.
+	item.index = -1
 	*pq = old[0 : n-1]
 	return item
-}
-
-// update modifies the priority and value of an Item in the queue.
-func (pq *priorityQueue) update(item *queuedItem[prioritizable], inner prioritizable) {
-	item.Inner = inner
-	heap.Fix(pq, item.index)
 }

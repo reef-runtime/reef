@@ -28,28 +28,28 @@ type JobSubmission struct {
 	Name string `json:"name"`
 }
 
-type queuedJob struct {
+type QueuedJob struct {
 	Job database.Job
 }
 
-func NewQueuedJob(job database.Job) queuedJob {
-	return queuedJob{
+func NewQueuedJob(job database.Job) QueuedJob {
+	return QueuedJob{
 		Job: job,
 	}
 }
 
 // Implements Prioritizable.
-func (j queuedJob) submittedAt() time.Time {
+func (j QueuedJob) submittedAt() time.Time {
 	return j.Job.Submitted
 }
 
-func (j queuedJob) IsHigherThan(other prioritizable) bool {
-	otherJob := other.(queuedJob)
+func (j QueuedJob) IsHigherThan(other prioritizable) bool {
+	otherJob := other.(QueuedJob)
 	return j.submittedAt().Before(otherJob.submittedAt())
 }
 
 func (m *JobManagerT) SubmitJob(submission JobSubmission) (newID string, err error) {
-	now := time.Now().Local()
+	now := time.Now()
 
 	// Create a hash for the ID.
 	// TODO: use correct hash input.
@@ -133,13 +133,8 @@ func (m *JobManagerT) ParkJob(jobID string) error {
 	return nil
 }
 
-// func (m *JobManagerT) SetJobState(jobID JobID, newState database.JobStatus) (found bool) {
-// 	database.ModifyJobStatus(jobID, newState)
-// 	return true
-// }
-
 func (m *JobManagerT) init() error {
-	// Initialize priority queue
+	// Initialize priority queue.
 	queuedJobs, err := database.ListJobsFiltered(database.StatusQueued)
 	if err != nil {
 		return err
@@ -154,7 +149,7 @@ func (m *JobManagerT) init() error {
 }
 
 func SaveResult(jobID string, content []byte, contentType database.ContentType) error {
-	now := time.Now().Local()
+	now := time.Now()
 
 	result := database.Result{
 		ID:          jobID,
@@ -209,7 +204,7 @@ func (m *JobManagerT) TryToStartQueuedJobs() error {
 			continue
 		}
 
-		// TODO: modify in database
+		// TODO: modify in database.
 
 		log.Infof("Job `%s` started", job.ID)
 	}

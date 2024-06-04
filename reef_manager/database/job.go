@@ -86,7 +86,9 @@ func DeleteJob(jobID string) (found bool, err error) {
 		return false, err
 	}
 
-	DeleteLogs(jobID)
+	if _, err := DeleteLogs(jobID); err != nil {
+		return false, err
+	}
 
 	return affected != 0, nil
 }
@@ -109,9 +111,17 @@ func listJobsGeneric(stateFilter *JobStatus) ([]Job, error) {
 
 	res, err := baseQuery.Query()
 	if err != nil {
+		// nolint:goconst
 		log.Errorf("Could not list jobs: executing query failed: %s", err.Error())
 		return nil, err
 	}
+
+	if res.Err() != nil {
+		log.Errorf("Could not list jobs: executing query failed: %s", res.Err())
+		return nil, res.Err()
+	}
+
+	defer res.Close()
 
 	jobs := make([]Job, 0)
 
@@ -133,6 +143,7 @@ func listJobsGeneric(stateFilter *JobStatus) ([]Job, error) {
 	return jobs, nil
 }
 
+// nolint:dupl
 func GetJob(jobID string) (job Job, found bool, err error) {
 	res := db.builder.Select("*").From(JobTableName).Where("job.Id=?", jobID).QueryRow()
 	err = res.Scan(
@@ -169,6 +180,7 @@ func SaveResult(result Result) (err error) {
 	return nil
 }
 
+// nolint:dupl
 func GetResult(jobID string) (result Result, found bool, err error) {
 	res := db.builder.Select("*").From(ResultTableName).Where("job_result.job_id=?", jobID).QueryRow()
 	err = res.Scan(

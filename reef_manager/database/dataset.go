@@ -38,13 +38,21 @@ func DeleteDataset(datasetID string) (found bool, err error) {
 }
 
 func ListDatasets() ([]Dataset, error) {
+	// nolint:goconst
 	baseQuery := db.builder.Select("*").From(DSTableName).OrderBy("name ASC")
 
 	res, err := baseQuery.Query()
 	if err != nil {
+		// nolint:goconst
 		log.Errorf("Could not list datasets: executing query failed: %s", err.Error())
 		return nil, err
 	}
+
+	if res.Err() != nil {
+		log.Errorf("Could not list datasets: executing query failed: %s", res.Err())
+		return nil, res.Err()
+	}
+	defer res.Close()
 
 	datasets := make([]Dataset, 0)
 

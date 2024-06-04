@@ -12,17 +12,21 @@ import (
 	node "github.com/reef-runtime/reef/reef_protocol_node"
 )
 
+const upgraderReadBufferSize = 1024
+const upgraderWriteBufferSize = 1024
+
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	HandshakeTimeout:  0,
+	ReadBufferSize:    upgraderReadBufferSize,
+	WriteBufferSize:   upgraderWriteBufferSize,
+	WriteBufferPool:   nil,
+	Subprotocols:      []string{},
+	Error:             nil,
+	CheckOrigin:       nil,
+	EnableCompression: false, // TODO: enable compression?
 }
 
-func MessageToNodeEmptyMessage(kind node.MessageToNodeKind) ([]byte, error) {
-	// msg, err := logic.MessageToNode()
-	// if err != nil {
-	// 	return nil, err
-	// }
-
+func MessageToNodeEmptyMessage() ([]byte, error) {
 	msg, seg, err := capnp.NewMessage(capnp.SingleSegment(nil))
 	if err != nil {
 		return nil, err
@@ -76,8 +80,9 @@ func MessageToNodeAssignID(nodeID logic.NodeID) ([]byte, error) {
 	return msg.Marshal()
 }
 
+// nolint:funlen
 func performHandshake(conn *logic.WSConn) (logic.Node, error) {
-	initMsg, err := MessageToNodeEmptyMessage(node.MessageToNodeKind_initHandShake)
+	initMsg, err := MessageToNodeEmptyMessage()
 	if err != nil {
 		return logic.Node{}, err
 	}
@@ -113,10 +118,9 @@ func performHandshake(conn *logic.WSConn) (logic.Node, error) {
 		return logic.Node{}, err
 	}
 
-	// spew.Dump(unmarshaledRaw)
-
 	handshakeResponse, err := node.ReadRootHandshakeRespondMessage(unmarshaledRaw)
 	if err != nil {
+		//nolint:goconst
 		return logic.Node{}, fmt.Errorf("could not read handshake response: %s", err.Error())
 	}
 
@@ -163,7 +167,7 @@ func performHandshake(conn *logic.WSConn) (logic.Node, error) {
 //
 
 func dropNode(conn *logic.WSConn, closeCode int, nodeID logic.NodeID) {
-	nodeIDString := logic.IdToString(nodeID)
+	nodeIDString := logic.IDToString(nodeID)
 	log.Debugf("[node] Dropping node `%s`...", nodeIDString)
 
 	const closeMessageTimeout = time.Second * 5
@@ -235,7 +239,7 @@ func nodePingHandler(conn *logic.WSConn, nodeID logic.NodeID) func(string) error
 		if !logic.NodeManager.RegisterPing(nodeID) {
 			log.Errorf(
 				"[node] could not register ping, node `%s` does not exist, this is a bug",
-				logic.IdToString(nodeID),
+				logic.IDToString(nodeID),
 			)
 		}
 
@@ -243,8 +247,9 @@ func nodePingHandler(conn *logic.WSConn, nodeID logic.NodeID) func(string) error
 	}
 }
 
+//nolint:funlen
 func HandleNodeConnection(c *gin.Context) {
-	// TODO: add timeouts
+	// TODO: add timeouts.
 
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -263,19 +268,19 @@ func HandleNodeConnection(c *gin.Context) {
 		return
 	}
 
-	// TODO: use wrapper
+	// TODO: use wrapper.
 
 	// Add node to manager.
 
 	pingHandler := nodePingHandler(wsConn, node.ID)
 	conn.SetPingHandler(pingHandler)
 
-	conn.SetPongHandler(func(appData string) error {
+	conn.SetPongHandler(func(_ string) error {
 		log.Tracef("RECEIVED PONG!")
 		return nil
 	})
 
-	conn.SetCloseHandler(func(code int, text string) error {
+	conn.SetCloseHandler(func(code int, _ string) error {
 		dropNode(wsConn, code, node.ID)
 		return nil
 	})
@@ -302,24 +307,6 @@ func HandleNodeConnection(c *gin.Context) {
 				dropNode(wsConn, websocket.CloseAbnormalClosure, node.ID)
 				return
 			}
-
-			// switch message[0] {
-			// case CODE_PING:
-			// 	if err := pingHandler(string(message[1:])); err != nil {
-			// 		dropNode(wsConn, websocket.CloseAbnormalClosure, nodeID)
-			// 		return
-			// 	}
-			// case logic.CODE_STARTED_JOB:
-			// 	if err := logic.NodeManager.JobStartedJobCallback(nodeID, message); err != nil {
-			// 		log.Errorf("job started error: %s", err.Error())
-			// 		return
-			// 	}
-			// case logic.CODE_JOB_LOG:
-			// 	if err := logic.NodeManager.NodeLogCallBack(nodeID, message); err != nil {
-			// 		log.Errorf("job log error: %s", err.Error())
-			// 		return
-			// 	}
-			// }
 		case websocket.PingMessage:
 			fmt.Printf("ping: %x\n", message)
 		case websocket.PongMessage:
@@ -355,8 +342,6 @@ func handleGenericIncoming(message []byte, pingHandler func(string) error) error
 		// VERY BAD!
 		panic("todo: better error handling")
 	}
-
-	return nil
 }
 
 func handleJobLog(body node.MessageFromNode_body) error {
@@ -366,9 +351,6 @@ func handleJobLog(body node.MessageFromNode_body) error {
 	}
 
 	panic(jobLog)
-
-	panic("TODO")
-	return nil
 }
 
 func handleJobProgressReport(body node.MessageFromNode_body) error {
@@ -378,7 +360,4 @@ func handleJobProgressReport(body node.MessageFromNode_body) error {
 	}
 
 	panic(jobProgress)
-
-	panic("TODO")
-	return nil
 }

@@ -84,7 +84,7 @@ func GetLastLogs(num uint64, jobID string) ([]JobLog, error) {
 
 	if res.Err() != nil {
 		log.Errorf("Could not list logs: executing query failed: %s", res.Err())
-		return nil, err
+		return nil, res.Err()
 	}
 	defer res.Close()
 

@@ -13,7 +13,7 @@ import (
 const compilerServiceDialType = "tcp"
 
 type CompilerConfig struct {
-	IP   string `env:"REEF_COMPILER_IP" env-required:"true"`
+	IP   string `env:"REEF_COMPILER_IP"   env-required:"true"`
 	Port uint16 `env:"REEF_COMPILER_PORT" env-required:"true"`
 }
 
@@ -32,15 +32,8 @@ var CompilerInstance CompilerManager
 // Instance management.
 //
 
-func InitCompiler(config CompilerConfig) error {
-	comp, err := newCompiler(config)
-	if err != nil {
-		return err
-	}
-
-	CompilerInstance = comp
-
-	return nil
+func InitCompiler(config CompilerConfig) {
+	CompilerInstance = newCompiler(config)
 }
 
 func DestroyCompiler() error {
@@ -57,7 +50,7 @@ func (c *CompilerManager) destroy() error {
 
 func newCompiler(
 	config CompilerConfig,
-) (CompilerManager, error) {
+) CompilerManager {
 	log.Debugf("Connecting to remote compiler at %s:%d...", config.IP, config.Port)
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -75,7 +68,7 @@ func newCompiler(
 		conn:   rpcConn,
 		ctx:    ctx,
 		cancel: cancel,
-	}, nil
+	}
 }
 
 func (c *CompilerManager) Compile(

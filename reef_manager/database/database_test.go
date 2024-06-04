@@ -24,7 +24,7 @@ func TestMain(m *testing.M) {
 }
 
 func initDB(deleteDatabase bool) error {
-	var dbConfig DatabaseConfig
+	var dbConfig DBConfig
 
 	if err := cleanenv.ReadEnv(&dbConfig); err != nil {
 		help, helpErr := cleanenv.GetDescription(&dbConfig, nil)
@@ -49,7 +49,7 @@ func initDB(deleteDatabase bool) error {
 
 	time.Sleep(deleteTablesGrace)
 
-	// Prevents bug detection from triggering
+	// Prevents bug detection from triggering.
 	db.db = nil
 	return initDB(false)
 }

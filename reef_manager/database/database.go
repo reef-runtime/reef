@@ -8,8 +8,10 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+
+	// Required for DB migrations.
 	_ "github.com/golang-migrate/migrate/v4/source/pkger"
+	// Also required for DB migrations.
 	_ "github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 )
@@ -29,7 +31,7 @@ type Database struct {
 	db      *sql.DB
 }
 
-var db Database = Database{
+var db = Database{
 	builder: sq.StatementBuilderType{},
 	db:      nil,
 }
@@ -38,15 +40,15 @@ var db Database = Database{
 // Database initialization.
 //
 
-type DatabaseConfig struct {
+type DBConfig struct {
 	Username string `env:"REEF_DB_USERNAME" env-required:"true"`
 	Password string `env:"REEF_DB_PASSWORD" env-required:"true"`
-	Host     string `env:"REEF_DB_HOST" env-required:"true"`
-	Port     uint16 `env:"REEF_DB_PORT" env-required:"true"`
-	DBName   string `env:"REEF_DB_NAME" env-required:"true"`
+	Host     string `env:"REEF_DB_HOST"     env-required:"true"`
+	Port     uint16 `env:"REEF_DB_PORT"     env-required:"true"`
+	DBName   string `env:"REEF_DB_NAME"     env-required:"true"`
 }
 
-func Init(pLogger *logrus.Logger, config DatabaseConfig) error {
+func Init(pLogger *logrus.Logger, config DBConfig) error {
 	initLogger(pLogger)
 
 	if db.db != nil {
@@ -64,6 +66,7 @@ func Init(pLogger *logrus.Logger, config DatabaseConfig) error {
 		config.DBName,
 	)
 
+	// nolint:goconst
 	dbTemp, err := sql.Open("postgres", connStr)
 	if err != nil {
 		log.Errorf("Could not connect to database: %s", err.Error())
@@ -71,9 +74,10 @@ func Init(pLogger *logrus.Logger, config DatabaseConfig) error {
 	}
 
 	// Run migrations.
-	MIGRATOR_CONFIG := postgres.Config{}
+	// nolint:exhaustruct
+	migratorConfig := postgres.Config{}
 
-	driver, err := postgres.WithInstance(dbTemp, &MIGRATOR_CONFIG)
+	driver, err := postgres.WithInstance(dbTemp, &migratorConfig)
 	if err != nil {
 		log.Errorf("Could not run migrations: failed to create migration instance %s", err.Error())
 		return err

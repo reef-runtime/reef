@@ -14,9 +14,10 @@ type JobID = string
 type NodeID = [32]byte
 
 type NodeInfo struct {
+	// nolint:tagliatelle
 	EndpointIP string `json:"endpointIP"`
 	Name       string `json:"string"`
-	// TODO: maybe worker descriptions
+	// TODO: maybe worker descriptions.
 	// TODO: maybe the current state of the node?
 	NumWorkers uint16 `json:"numWorkers"`
 }
@@ -48,7 +49,7 @@ type NodeManagerT struct {
 
 var NodeManager NodeManagerT
 
-func IdToString(id NodeID) string {
+func IDToString(id NodeID) string {
 	return hex.EncodeToString(id[0:])
 }
 
@@ -63,7 +64,7 @@ func (m *NodeManagerT) ConnectNode(node NodeInfo, conn *WSConn) (nodeObj Node) {
 		panic(fmt.Sprintf("[bug] node with ID %x already exists", newID))
 	}
 
-	now := time.Now().Local()
+	now := time.Now()
 
 	nodeObj = Node{
 		Info:        node,
@@ -96,7 +97,7 @@ func (m *NodeManagerT) DropNode(id NodeID) bool {
 	}
 
 	//
-	// Put every job which was running on the node back into <queued>
+	// Put every job which was running on the node back into <queued>.
 	//
 
 	for _, potentialJob := range node.WorkerState {
@@ -109,7 +110,7 @@ func (m *NodeManagerT) DropNode(id NodeID) bool {
 		log.Infof(
 			"[node] Job `%s` has lost its node (%s)",
 			jobID,
-			IdToString(node.ID),
+			IDToString(node.ID),
 		)
 
 		if err := JobManager.ParkJob(jobID); err != nil {
@@ -119,7 +120,7 @@ func (m *NodeManagerT) DropNode(id NodeID) bool {
 
 	delete(m.Nodes.Map, id)
 
-	log.Debugf("[node] Dropped node with ID `%s`", IdToString(id))
+	log.Debugf("[node] Dropped node with ID `%s`", IDToString(id))
 
 	return true
 }
@@ -132,10 +133,10 @@ func (m *NodeManagerT) RegisterPing(id NodeID) bool {
 		return false
 	}
 
-	now := time.Now().Local()
+	now := time.Now()
 	*m.Nodes.Map[id].LastPing = now
 
-	log.Debugf("[node] Received ping for node with ID `%s`", IdToString(id))
+	log.Debugf("[node] Received ping for node with ID `%s`", IDToString(id))
 
 	return true
 }
