@@ -8,19 +8,18 @@ import (
 
 type LogEntry struct {
 	Kind    database.LogKind `json:"kind"`
-	Content string           `josn:"content"`
-	Job_id  string           `json:"job_id"`
+	Content string           `json:"content"`
+	JobID   string           `json:"jobId"`
 }
 
 func SubmitLog(entry LogEntry) error {
-	now := time.Now().Local()
+	now := time.Now()
 
 	joblog := database.JobLog{
-		// ID:      0,
 		Kind:    entry.Kind,
 		Created: now,
 		Content: entry.Content,
-		Job_id:  entry.Job_id,
+		JobID:   entry.JobID,
 	}
 
 	err := database.AddLog(joblog)

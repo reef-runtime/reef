@@ -16,6 +16,6 @@ func Init(logger *logrus.Logger, datasetDirPath string) error {
 	NodeManager = newNodeManager()
 	DatasetManager = newDatasetManager(datasetDirPath)
 
-	log.Debug("Logic package sucessfully initialized")
+	log.Debug("Logic package successfully initialized")
 	return nil
 }

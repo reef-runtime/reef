@@ -8,7 +8,7 @@ import (
 )
 
 //
-// Extermal API for the queue.
+// External API for the queue.
 //
 
 type JobQueue struct {

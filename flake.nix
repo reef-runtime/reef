@@ -59,6 +59,7 @@
             bruno
             perl
             findutils
+            typos
           ];
 
           shellHook = ''

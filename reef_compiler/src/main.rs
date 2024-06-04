@@ -18,7 +18,7 @@ mod server;
 pub enum Command {
     /// Spawn a compiler server.
     Server {
-        /// The port on which the server listenes.
+        /// The port on which the server listens.
         port: u16,
     },
     /// Connect to an existing server.

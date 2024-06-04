@@ -1,6 +1,6 @@
 (module
-  (func $funtion_nop
+  (func $function_nop
     nop
   )
-  (export "function_nop" (func $funtion_nop))
+  (export "function_nop" (func $function_nop))
 )

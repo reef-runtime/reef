@@ -123,6 +123,6 @@ func (c *CompilerManager) Compile(
 
 		return nil, &cpE, err
 	default:
-		panic("Unreachable: a new type of compiler reply occured")
+		panic("Unreachable: a new type of compiler reply occurred")
 	}
 }

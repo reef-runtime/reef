@@ -34,7 +34,7 @@ fn wait_for_binary_ignore_other(
 
         match msg {
             Message::Text(_) => {
-                bail!("received unexpected mesage of type `text` instead of handshake initializer")
+                bail!("received unexpected message of type `text` instead of handshake initializer")
             }
             Message::Ping(_) => {
                 todo!("respond to ping")
