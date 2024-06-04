@@ -10,10 +10,11 @@ fn main() {
     p!("Generating CAPNP code...");
 
     capnpc::CompilerCommand::new()
-        .src_prefix("./schema/")
-        .file("./schema/compiler.capnp")
-        .run()
-        .expect("schema compiler command");
+        .src_prefix("../schema/")
+        .import_path("../go-capnp/std/")
+        .file("../schema/compiler.capnp")
+        // .file("schema/bar.capnp")
+        .run().expect("schema compiler command");
 
     p!("Generated Rust files in");
 }

@@ -1,10 +1,15 @@
+using Go = import "/go.capnp";
+
 @0xcf0367ee3bec7bc8;
+
+$Go.package("message");
+$Go.import("foo/message");
 
 struct CompilerResponse {
     union {
         fileContent @0 :Data;
         compilerError @1 :Text;
-        fileSystemError @2 :Text;
+        systemError @2 :Text;
     }
 }
 
@@ -14,10 +19,5 @@ enum Language {
 }
 
 interface Compiler {
-    struct Config {
-        mainPath @0 :Text;
-        depPath @1 :Text;
-    }
-
     compile @0 (programSrc :Text, language :Language) -> (response :CompilerResponse);
 }

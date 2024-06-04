@@ -1,5 +1,4 @@
 COMPILER:=capnp
-CARGO:=cargo
 
 INPUT_DIR:=./schema
 INPUT_FILES:=$(wildcard $(INPUT_DIR)/*.capnp)

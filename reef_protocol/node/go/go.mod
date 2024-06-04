@@ -1,4 +1,4 @@
-module github.com/reef-runtime/reef/reef_protocol
+module github.com/reef-runtime/reef/reef_protocol_node
 
 go 1.21.10
 

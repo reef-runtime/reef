@@ -10,10 +10,10 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/reef-runtime/reef/reef_manager/database"
 
-	coral "github.com/reef-runtime/reef/reef_protocol"
+	node "github.com/reef-runtime/reef/reef_protocol_node"
 )
 
-// func MessageToNode() (coral.MessageToNode, error) {
+// func MessageToNode() (node.MessageToNode, error) {
 // 	arena := capnp.SingleSegment(nil)
 //
 // 	_, seg, err := capnp.NewMessage(arena)
@@ -21,9 +21,9 @@ import (
 // 		panic(err.Error())
 // 	}
 //
-// 	genericMsg, err := coral.NewMessageToNode(seg)
+// 	genericMsg, err := node.NewMessageToNode(seg)
 // 	if err != nil {
-// 		return coral.MessageToNode{}, err
+// 		return node.MessageToNode{}, err
 // 	}
 //
 // 	return genericMsg, nil
@@ -94,14 +94,14 @@ func toNodeJobInitializationMessage(
 		return nil, err
 	}
 
-	toNodeMsg, err := coral.NewRootMessageToNode(seg)
+	toNodeMsg, err := node.NewRootMessageToNode(seg)
 	if err != nil {
 		return nil, err
 	}
 
-	toNodeMsg.SetKind(coral.MessageToNodeKind_startJob)
+	toNodeMsg.SetKind(node.MessageToNodeKind_startJob)
 
-	nestedBody, err := coral.NewJobInitializationMessage(seg)
+	nestedBody, err := node.NewJobInitializationMessage(seg)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func toNodeJobInitializationMessage(
 }
 
 // TODO: migrate into `logic`
-func (m *NodeManagerT) StartJobOnNode(node Node, jobID JobID, workerIdx uint16, programByteCode []byte) error {
+func (m *NodeManagerT) StartJobOnNode(nodeData Node, jobID JobID, workerIdx uint16, programByteCode []byte) error {
 	msg, err := toNodeJobInitializationMessage(
 		uint32(workerIdx),
 		jobID,
@@ -135,15 +135,15 @@ func (m *NodeManagerT) StartJobOnNode(node Node, jobID JobID, workerIdx uint16, 
 	}
 
 	msg2, _ := capnp.Unmarshal(msg)
-	b, _ := coral.ReadRootMessageToNode(msg2)
+	b, _ := node.ReadRootMessageToNode(msg2)
 	spew.Dump(b.Kind())
 
-	node.Conn.Lock.Lock()
-	err = node.Conn.Conn.WriteMessage(
+	nodeData.Conn.Lock.Lock()
+	err = nodeData.Conn.Conn.WriteMessage(
 		websocket.BinaryMessage,
 		msg,
 	)
-	node.Conn.Lock.Unlock()
+	nodeData.Conn.Lock.Unlock()
 
 	if err != nil {
 		return err
@@ -152,10 +152,10 @@ func (m *NodeManagerT) StartJobOnNode(node Node, jobID JobID, workerIdx uint16, 
 	// TODO: what??
 
 	m.Nodes.Lock.Lock()
-	m.Nodes.Map[node.ID].WorkerState[workerIdx] = &jobID
+	m.Nodes.Map[nodeData.ID].WorkerState[workerIdx] = &jobID
 	m.Nodes.Lock.Unlock()
 
-	log.Debugf("[node] Started job `%s` on node `%s`", jobID, FormatBinarySliceAsHex(node.ID[:]))
+	log.Debugf("[node] Started job `%s` on node `%s`", jobID, FormatBinarySliceAsHex(nodeData.ID[:]))
 
 	// Now we wait until the job responds with `CODE_STARTED_JOB`.
 	// Then, we invoke another function to handle this.

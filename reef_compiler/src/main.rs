@@ -1,207 +1,124 @@
+use std::{
+    net::{IpAddr, SocketAddr, ToSocketAddrs},
+    str::FromStr,
+};
+
+use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
+use clap::{Parser, Subcommand};
+
+use anyhow::{bail, Context, Result};
+use compiler_capnp::compiler;
 use futures::AsyncReadExt;
-use std::fs;
-use std::hash::{DefaultHasher, Hash, Hasher};
-use std::path::PathBuf;
-use std::process::Command;
+use reef_protocol_compiler::compiler_capnp::{self, compiler_response};
+use server::run_server_main;
 
-use capnp::capability::Promise;
-use capnp_rpc::{pry, rpc_twoparty_capnp, twoparty, RpcSystem};
+mod server;
 
-use reef_compiler::compiler_capnp;
-use reef_compiler::compiler_capnp::compiler;
-
-const MAIN_PATH: &str = "../test/";
-const SKELETON_PATH: &str = "../skeletons/";
-
-struct CompilerManager {
-    main_path: PathBuf,
-    skeleton_path: PathBuf,
+#[derive(Subcommand, PartialEq, Eq, Debug)]
+pub enum Command {
+    /// Spawn a compiler server.
+    Server {
+        /// The port on which the server listenes.
+        port: u16,
+    },
+    /// Connect to an existing server.
+    Client {
+        /// The ip of the remote compilation server.
+        ip: String,
+        /// The port of the remote compilation server.
+        port: u16,
+    },
 }
 
-enum Language {
-    C,
-    Rust,
-}
-
-#[derive(Debug)]
-pub enum CError {
-    CompilerError(String),
-    FSError(std::io::Error),
-}
-
-impl CompilerManager {
-    fn new(main_path: &str, skeleton_path: &str) -> Self {
-        return Self {
-            main_path: PathBuf::from(main_path),
-            skeleton_path: PathBuf::from(skeleton_path),
-        };
-    }
-    fn compile(&self, file_buf: &str, language: Language) -> Result<Vec<u8>, CError> {
-        let mut hasher = DefaultHasher::new();
-        file_buf.hash(&mut hasher);
-
-        let hash = format!("{:x}", hasher.finish());
-
-        let mut artifact_name = hash.clone();
-        artifact_name.push_str(".wasm");
-
-        // <main_path>/output/<hash>/
-        let mut artifact_path = self.main_path.clone();
-        artifact_path.push("output");
-        artifact_path.push(hash.as_str());
-
-        // <main_path>/src/<hash>/
-        let mut src_path = self.main_path.clone();
-        src_path.push("src");
-        src_path.push(hash.as_str());
-
-        if artifact_path.is_dir() {
-            artifact_path.push(artifact_name);
-            match fs::read(artifact_path.as_path()) {
-                Ok(data) => return Ok(data),
-                Err(e) => return Err(CError::FSError(e)),
-            };
-        }
-
-        match fs::create_dir_all(&artifact_path) {
-            Ok(_) => (),
-            Err(e) => return Err(CError::FSError(e)),
-        };
-
-        match fs::create_dir_all(&src_path) {
-            Ok(_) => (),
-            Err(e) => return Err(CError::FSError(e)),
-        };
-
-        artifact_path.push(artifact_name);
-
-        let mut src_name = hash.clone();
-        match language {
-            Language::C => src_name.push_str(".c"),
-            Language::Rust => src_name.push_str(".rs"),
-        }
-        src_path.push(src_name);
-
-        match fs::write(src_path.clone(), file_buf) {
-            Ok(_) => (),
-            Err(e) => return Err(CError::FSError(e)),
-        };
-
-        let mut skeleton = self.skeleton_path.clone();
-        match language {
-            Language::C => {
-                skeleton.push("c");
-            }
-            Language::Rust => {
-                skeleton.push("rust");
-            }
-        }
-
-        let mut build_path = self.main_path.clone();
-        build_path.push("build");
-
-        match copy_dir::copy_dir(&skeleton, &build_path) {
-            Ok(_) => (),
-            Err(e) => return Err(CError::FSError(e)),
-        }
-
-        let output = match Command::new("make")
-            .arg(format!("HASH={}", hash))
-            .arg("-C")
-            .arg(build_path)
-            .arg("build")
-            .output()
-        {
-            Ok(output) => output,
-            Err(e) => return Err(CError::FSError(e)),
-        };
-
-        if !output.status.success() {
-            return Err(CError::CompilerError(
-                String::from_utf8_lossy(&output.stderr).into_owned(),
-            ));
-        }
-
-        let data = match fs::read(artifact_path.as_path()) {
-            Ok(data) => data,
-            Err(e) => return Err(CError::FSError(e)),
-        };
-
-        Ok(data)
-    }
-}
-
-struct Compiler;
-
-impl compiler::Server for Compiler {
-    fn compile(
-        &mut self,
-        params: compiler::CompileParams,
-        mut results: compiler::CompileResults,
-    ) -> Promise<(), ::capnp::Error> {
-        let program_src = pry!(pry!(pry!(params.get()).get_program_src()).to_str());
-        let language = match pry!(pry!(params.get()).get_language()) {
-            compiler_capnp::Language::C => Language::C,
-            compiler_capnp::Language::Rust => Language::Rust,
-        };
-
-        let manager = CompilerManager::new(MAIN_PATH, SKELETON_PATH);
-        let compiler_res = manager.compile(program_src, language);
-
-        match compiler_res {
-            Ok(buf) => results
-                .get()
-                .init_response()
-                .set_file_content(buf.as_slice()),
-
-            Err(e) => match e {
-                CError::CompilerError(err) => results.get().init_response().set_compiler_error(err),
-
-                CError::FSError(err) => results
-                    .get()
-                    .init_response()
-                    .set_file_system_error(err.to_string()),
-            },
-        }
-
-        Promise::ok(())
-    }
+/// Reef compiler service.
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[clap(subcommand)]
+    pub subcommand: Command,
 }
 
 #[tokio::main(flavor = "current_thread")]
-pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use std::net::ToSocketAddrs;
-    let args: Vec<String> = ::std::env::args().collect();
-    if args.len() != 2 {
-        println!("usage: {} ADDRESS[:PORT]", args[0]);
-        return Ok(());
+pub async fn main() -> Result<()> {
+    let args = Args::parse();
+
+    match args.subcommand {
+        Command::Server { port } => {
+            let addr = SocketAddr::new(
+                IpAddr::from_str("0.0.0.0").with_context(|| "IP is always valid")?,
+                port,
+            );
+
+            run_server_main(addr)
+                .await
+                .with_context(|| "failed to run server")
+        }
+        Command::Client { ip, port } => {
+            let addr = format!("{ip}:{port}")
+                .to_socket_addrs()?
+                .next()
+                .with_context(|| "server url is invalid")?;
+
+            tokio::task::LocalSet::new()
+                .run_until(async move {
+                    let stream = tokio::net::TcpStream::connect(&addr)
+                        .await
+                        .with_context(|| "could not connect to compiler server")?;
+                    stream.set_nodelay(true)?;
+                    let (reader, writer) =
+                        tokio_util::compat::TokioAsyncReadCompatExt::compat(stream).split();
+                    let rpc_network = Box::new(twoparty::VatNetwork::new(
+                        reader,
+                        writer,
+                        rpc_twoparty_capnp::Side::Client,
+                        Default::default(),
+                    ));
+                    let mut rpc_system = RpcSystem::new(rpc_network, None);
+                    let compiler: compiler::Client =
+                        rpc_system.bootstrap(rpc_twoparty_capnp::Side::Server);
+
+                    tokio::task::spawn_local(rpc_system);
+
+                    let mut request = compiler.compile_request();
+                    request.get().set_program_src("int main() {}");
+                    request.get().set_language(compiler_capnp::Language::C);
+
+                    let reply = request
+                        .send()
+                        .promise
+                        .await
+                        .with_context(|| "could not send compilation request")?;
+
+                    let response = reply
+                        .get()?
+                        .get_response()
+                        .with_context(|| "failed to receive compilation response")?;
+
+                    // TODO: what the ACTUAL FUCK?
+                    match response.which() {
+                        Ok(compiler_response::FileContent(Ok(e))) => {
+                            println!("ok, received file: {e:?}")
+                        }
+                        Ok(compiler_response::FileContent(Err(e))) => {
+                            bail!("error receiving file: {e}")
+                        }
+
+                        Ok(compiler_response::CompilerError(Ok(err))) => {
+                            bail!("compile error: {}", err.to_str().unwrap())
+                        }
+                        Ok(compiler_response::CompilerError(Err(e))) => bail!("compile error: {e}"),
+
+                        Ok(compiler_response::SystemError(Ok(e))) => {
+                            bail!("FS error: {e:?}")
+                        }
+                        Ok(compiler_response::SystemError(Err(e))) => println!("fs error: {e}"),
+
+                        Err(e) => bail!("general error: {e}"),
+                    }
+
+                    Ok(())
+                })
+                .await
+        }
     }
-
-    let addr = args[1]
-        .to_socket_addrs()?
-        .next()
-        .expect("could not parse address");
-
-    tokio::task::LocalSet::new()
-        .run_until(async move {
-            let listener = tokio::net::TcpListener::bind(&addr).await?;
-            let compiler: compiler::Client = capnp_rpc::new_client(Compiler);
-
-            loop {
-                let (stream, _) = listener.accept().await?;
-                stream.set_nodelay(true)?;
-                let (reader, writer) =
-                    tokio_util::compat::TokioAsyncReadCompatExt::compat(stream).split();
-                let network = twoparty::VatNetwork::new(
-                    reader,
-                    writer,
-                    rpc_twoparty_capnp::Side::Server,
-                    Default::default(),
-                );
-
-                let rpc_system = RpcSystem::new(Box::new(network), Some(compiler.clone().client));
-                tokio::task::spawn_local(rpc_system);
-            }
-        })
-        .await
 }

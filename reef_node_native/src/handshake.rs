@@ -2,12 +2,12 @@ use std::net::TcpStream;
 
 use anyhow::{bail, Context, Result};
 use capnp::{message::ReaderOptions, serialize};
-use reef_protocol::message_capnp::{self, message_to_node, MessageToNodeKind};
+use reef_protocol_node::message_capnp::{self, message_to_node, MessageToNodeKind};
 use tungstenite::{stream::MaybeTlsStream, Message, WebSocket};
 
 fn ack_handshake_message(num_workers: u16, node_name: &str) -> Result<Message> {
     let mut message = capnp::message::Builder::new_default();
-    let mut root: reef_protocol::message_capnp::handshake_respond_message::Builder =
+    let mut root: reef_protocol_node::message_capnp::handshake_respond_message::Builder =
         message.init_root();
     root.set_num_workers(num_workers);
     root.set_node_name(node_name);
@@ -66,7 +66,7 @@ pub(crate) fn perform(
         let message = serialize::read_message(bin.as_slice(), ReaderOptions::new()).unwrap();
 
         let decoded = message
-            .get_root::<reef_protocol::message_capnp::message_to_node::Reader>()
+            .get_root::<reef_protocol_node::message_capnp::message_to_node::Reader>()
             .unwrap();
 
         let kind = decoded
@@ -104,7 +104,7 @@ pub(crate) fn perform(
                 .with_context(|| "could not read node ID")?;
 
             let decoded = reader
-                .get_root::<reef_protocol::message_capnp::message_to_node::Reader>()
+                .get_root::<reef_protocol_node::message_capnp::message_to_node::Reader>()
                 .with_context(|| "could not decode node ID message")?;
 
             let kind = decoded.get_kind().unwrap();
