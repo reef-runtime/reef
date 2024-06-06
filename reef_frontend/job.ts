@@ -57,4 +57,7 @@ export interface Job {
     // Is ``!= null` as soon as the job has completed execution.
     // The result itself determines whether the job executed successfully or with errors.
     result?: JobResult,
+    // The ID of the attached dataset, always 64 characters long.
+    // The backend guarantees that this is always valid.
+    datasetId?: string,
 }
