@@ -12,7 +12,7 @@ use std::{
 
 use anyhow::{bail, Context, Result};
 use capnp::{message::ReaderOptions, serialize};
-use reef_protocol::message_capnp::{
+use reef_protocol_node::message_capnp::{
     message_to_node::{self, body},
     MessageToNodeKind,
 };

@@ -1,18 +1,17 @@
 [package]
 name = "reef_node_native"
-version = "0.1.0"
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
+reef_interpreter = { path = "../reef_interpreter" }
+reef_protocol_node = { path = "../reef_protocol/node/rust/" }
+
 anyhow = "1.0.83"
 clap = { version = "4.5.4", features = ["derive"] }
 env_logger = "0.11.3"
 tungstenite = "0.21.0"
 url = "2.5.0"
-reef_protocol_node = { path = "../reef_protocol/node/rust/"}
 capnp = "0.19.5"
 sysinfo = "0.30.12"
 hex = "0.4.3"
-tinywasm = { path = "../../tinywasm/crates/tinywasm/"}

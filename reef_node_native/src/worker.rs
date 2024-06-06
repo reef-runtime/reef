@@ -10,8 +10,12 @@ use std::{
     time::Duration,
 };
 
-use tinywasm::{
-    CallResultTyped, ExecHandleTyped, Extern, FuncContext, Imports, Instance, MemoryStringExt,
+use reef_interpreter::{
+    exec::{CallResultTyped, ExecHandleTyped},
+    imports::{Extern, FuncContext, Imports},
+    parse_bytes,
+    reference::MemoryStringExt,
+    Instance,
 };
 
 const ENTRY_FN_NAME: &str = "reef_main";
@@ -55,8 +59,8 @@ type EntryPointFnHandle = ExecHandleTyped<EntryPointFnReturnValueType>;
 fn setup_interpreter(
     program: &[u8],
     sender: WorkerSenderChannel,
-) -> std::result::Result<EntryPointFnHandle, tinywasm::Error> {
-    let module = tinywasm::parse_bytes(program)?;
+) -> std::result::Result<EntryPointFnHandle, reef_interpreter::error::Error> {
+    let module = parse_bytes(program)?;
 
     let mut imports = Imports::new();
 
@@ -84,7 +88,7 @@ fn setup_interpreter(
         "progress",
         Extern::typed_func(move |mut _ctx: FuncContext<'_>, percent: i32| {
             if !(u16::MIN.into()..=u16::MAX.into()).contains(&percent) {
-                return Err(tinywasm::Error::Io(std::io::Error::new(
+                return Err(reef_interpreter::error::Error::Io(std::io::Error::new(
                     ErrorKind::AddrNotAvailable,
                     "Invalid range: percentage must be in u16 range",
                 )));
@@ -102,7 +106,7 @@ fn setup_interpreter(
 
     let instance = Instance::instantiate(module, imports)?;
     let entry_fn_handle = instance.exported_func::<i32, i32>(ENTRY_FN_NAME).unwrap();
-    let exec_handle = entry_fn_handle.call(0)?;
+    let exec_handle = entry_fn_handle.call(0, None)?;
 
     Ok(exec_handle)
 }
@@ -110,12 +114,12 @@ fn setup_interpreter(
 #[derive(Debug)]
 pub(crate) enum JobError {
     Killed,
-    InitializationError(tinywasm::Error),
+    InitializationError(reef_interpreter::error::Error),
     RuntimeError(String),
 }
 
-impl From<tinywasm::Error> for JobError {
-    fn from(err: tinywasm::Error) -> Self {
+impl From<reef_interpreter::error::Error> for JobError {
+    fn from(err: reef_interpreter::error::Error) -> Self {
         Self::InitializationError(err)
     }
 }

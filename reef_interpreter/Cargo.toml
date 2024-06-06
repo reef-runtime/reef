@@ -1,9 +1,20 @@
 [package]
 name = "reef_interpreter"
 version.workspace = true
+description = "A tiny WebAssembly interpreter"
 edition.workspace = true
 
 [dependencies]
-byteorder = "1.5.0"
-num_enum = { version = "0.7.2", features = ["std"] }
-thiserror = "1.0.61"
+wasmparser = { version = "0.208", default-features = false, features = [
+    "validate",
+] }
+libm = { version = "0.2", default-features = false }
+rkyv = { version = "0.7.44", default-features = false, features = [
+    "size_32",
+    "validation",
+] }
+bytecheck = { version = "0.7" }
+
+[features]
+default = ["std"]
+std = ["wasmparser/std"]
