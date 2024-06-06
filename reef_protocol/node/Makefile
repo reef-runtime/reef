@@ -22,7 +22,7 @@ $(GO_CAPNP_CHECKOUT):
 
 go: $(OUTPUT_FILES_GO)
 
-build: go
+build: $(GO_CAPNP_CHECKOUT) go
 
 test: ./rust/src/*.rs go
 	cd ./rust/ && cargo clippy

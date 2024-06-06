@@ -370,7 +370,7 @@ func (c Compiler_compile) AllocResults() (Compiler_compile_Results, error) {
 // Compiler_List is a list of Compiler.
 type Compiler_List = capnp.CapList[Compiler]
 
-// NewCompiler creates a new list of Compiler.
+// NewCompiler_List creates a new list of Compiler.
 func NewCompiler_List(s *capnp.Segment, sz int32) (Compiler_List, error) {
 	l, err := capnp.NewPointerList(s, sz)
 	return capnp.CapList[Compiler](l), err
