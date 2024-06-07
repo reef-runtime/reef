@@ -7,7 +7,7 @@ repository.workspace = true
 edition.workspace = true
 
 [dependencies]
-capnp = "0.19.5"
+capnp.workspace = true
 
 [build-dependencies]
-capnpc = "0.19"
+capnpc.workspace = true

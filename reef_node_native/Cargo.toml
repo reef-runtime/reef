@@ -4,14 +4,14 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-reef_interpreter = { path = "../reef_interpreter" }
-reef_protocol_node = { path = "../reef_protocol/node/rust/" }
+reef_interpreter.workspace = true
+reef_protocol_node.workspace = true
 
-anyhow = "1.0.83"
-clap = { version = "4.5.4", features = ["derive"] }
-env_logger = "0.11.3"
-tungstenite = "0.21.0"
-url = "2.5.0"
-capnp = "0.19.5"
-sysinfo = "0.30.12"
-hex = "0.4.3"
+anyhow.workspace = true
+clap.workspace = true
+env_logger.workspace = true
+tungstenite.workspace = true
+url.workspace = true
+capnp.workspace = true
+sysinfo.workspace = true
+hex.workspace = true

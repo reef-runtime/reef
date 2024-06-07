@@ -7,12 +7,14 @@ repository.workspace = true
 edition.workspace = true
 
 [dependencies]
-anyhow = "1.0.86"
-capnp = "0.19.6"
-capnp-rpc = "0.19.1"
-clap = { version = "4.5.4", features = ["derive"] }
-copy_dir = "0.1.3"
-futures = "0.3.30"
-reef_protocol_compiler = { version = "0.0.1", path = "../reef_protocol/compiler/rust" }
-tokio = { version = "1.37.0", features = ["net", "rt", "macros"] }
-tokio-util = { version = "0.7.11", features = ["compat"] }
+reef_protocol_compiler.workspace = true
+
+capnp.workspace = true
+capnp-rpc.workspace = true
+
+anyhow.workspace = true
+clap.workspace = true
+copy_dir.workspace = true
+futures.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
