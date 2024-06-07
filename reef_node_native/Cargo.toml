@@ -3,6 +3,10 @@ name = "reef_node_native"
 version.workspace = true
 edition.workspace = true
 
+[[bin]]
+name = "reef_node_native"
+path = "src/main.rs"
+
 [dependencies]
 reef_interpreter.workspace = true
 reef_protocol_node.workspace = true

@@ -6,6 +6,10 @@ description.workspace = true
 repository.workspace = true
 edition.workspace = true
 
+[[bin]]
+name = "reef_compiler"
+path = "src/main.rs"
+
 [dependencies]
 reef_protocol_compiler.workspace = true
 

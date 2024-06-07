@@ -1,4 +1,5 @@
 [workspace]
+# keep in sync with flake.nix
 members = [
     "reef_compiler",
     "reef_interpreter",

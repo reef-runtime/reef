@@ -4,6 +4,9 @@ version.workspace = true
 description = "A tiny WebAssembly interpreter"
 edition.workspace = true
 
+[lib]
+path = "src/lib.rs"
+
 [dependencies]
 wasmparser = { version = "0.208", default-features = false, features = [
     "validate",
