@@ -5,7 +5,6 @@ members = [
     "reef_node_native",
     "reef_protocol/compiler/rust",
     "reef_protocol/node/rust",
-    "reef_runtime_libs/wasm_test",
 ]
 resolver = "2"
 
