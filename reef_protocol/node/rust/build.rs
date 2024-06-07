@@ -9,16 +9,8 @@ fn main() {
 
     p!("Generating CAPNP code...");
 
-    // retarted Go bullshit
-    std::process::Command::new("make")
-        .arg("build")
-        .current_dir(std::env::current_dir().unwrap().parent().unwrap())
-        .status()
-        .unwrap();
-
     capnpc::CompilerCommand::new()
         .src_prefix("../schema/")
-        .import_path("../go-capnp/std/")
         .file("../schema/message.capnp")
         .run()
         .expect("schema compiler command");

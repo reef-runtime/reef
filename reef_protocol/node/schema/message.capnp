@@ -1,4 +1,4 @@
-using Go = import "/go.capnp";
+using Go = import "./go.capnp";
 
 @0xc5f4c7dc14cbdbf0;
 
