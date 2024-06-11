@@ -1,32 +1,28 @@
-use crate::worker::{spawn_worker_thread, Worker};
-use std::{
-    sync::{
-        atomic::AtomicU8,
-        mpsc::{self, TryRecvError},
-        Arc,
-    },
-    thread,
-    time::Duration,
-    u16,
+use std::sync::{
+    atomic::AtomicU8,
+    mpsc::{self, TryRecvError},
+    Arc,
 };
+use std::thread;
+use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use capnp::{message::ReaderOptions, serialize};
+use clap::Parser;
+use tungstenite::Message;
+use url::Url;
+
 use reef_protocol_node::message_capnp::{
     message_to_node::{self, body},
     MessageToNodeKind,
 };
-use tungstenite::Message;
-
-use clap::Parser;
-use url::Url;
-use worker::FromWorkerMessage;
-
-use crate::worker::Job;
 
 mod comms;
 mod handshake;
 mod worker;
+use worker::{FromWorkerMessage, Job};
+
+use crate::worker::{spawn_worker_thread, Worker};
 
 const NODE_REGISTER_PATH: &str = "/api/node/connect";
 
@@ -55,8 +51,8 @@ struct NodeState {
 }
 
 impl NodeState {
-    fn new(num_workers: u16, sender: mpsc::Sender<FromWorkerMessage>) -> Self {
-        let mut workers = Vec::with_capacity(num_workers as usize);
+    fn new(num_workers: usize, sender: mpsc::Sender<FromWorkerMessage>) -> Self {
+        let mut workers = Vec::with_capacity(num_workers);
 
         for _ in 0..num_workers {
             workers.push(Worker::default());
@@ -69,7 +65,6 @@ impl NodeState {
     }
 }
 
-/// A WebSocket echo server
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
@@ -84,9 +79,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut connect_url = args.manager_url.clone();
     connect_url.set_path(NODE_REGISTER_PATH);
-    connect_url
-        .set_scheme(scheme)
-        .expect("ws/wss is always a valid scheme");
+    connect_url.set_scheme(scheme).unwrap();
 
     println!("Connecting to {}...", &connect_url);
 
@@ -94,23 +87,20 @@ fn main() -> anyhow::Result<()> {
 
     let (mut socket, response) = tungstenite::connect(connect_url).expect("Can't connect");
 
-    println!("  -> Connected to the manager");
-    println!(
-        "  -> Registration response HTTP code: {}",
-        response.status()
-    );
-    println!("  -> Response contains the following headers:");
-    for (ref header, _value) in response.headers() {
-        println!("* {}", header);
-    }
+    println!("Connected to the manager");
+    println!("Registration response HTTP code: {}", response.status());
+    // println!("  -> Response contains the following headers:");
+    // for (ref header, _value) in response.headers() {
+    //     println!("* {}", header);
+    // }
 
     //
-    // Block in order to perform the handshake.
+    // Perform handshake.
     //
 
     let num_workers = std::thread::available_parallelism()
-        .with_context(|| "failed to determine number of workers")?
-        .get() as u16;
+        .map(|n| n.get())
+        .unwrap_or(1);
 
     let node_name = match args.node_name {
         Some(from_args) => from_args,
@@ -125,7 +115,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut state = NodeState::new(num_workers, from_node_sender);
 
-    let node_info = handshake::perform(&node_name, num_workers, &mut socket)
+    let node_info = handshake::perform(&node_name, num_workers as u16, &mut socket)
         .with_context(|| "handshake failed")?;
 
     println!(
@@ -182,7 +172,7 @@ fn main() -> anyhow::Result<()> {
                 .expect("worker thread panic'ed, this is a bug");
 
             match res {
-                Ok(ret_val) => println!("Job has executed successfully! {ret_val}"),
+                Ok(ret_val) => println!("Job has executed successfully! {}", ret_val.0),
                 Err(err) => println!("Job failed: {err:?}"),
             }
         }
@@ -243,10 +233,10 @@ impl NodeState {
         let signal = Arc::new(AtomicU8::new(0));
 
         let handle = spawn_worker_thread(
-            request.program_byte_code,
-            request.job_id.clone(),
             self.from_worker_sender.clone(),
             signal.clone(),
+            request.program_byte_code,
+            request.job_id.clone(),
         );
 
         worker.job = Some(Job {

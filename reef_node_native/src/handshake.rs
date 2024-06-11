@@ -24,9 +24,7 @@ pub(crate) struct NodeInfo {
 }
 
 // TODO: add timeouts.
-fn wait_for_binary_ignore_other(
-    socket: &mut WebSocket<MaybeTlsStream<TcpStream>>,
-) -> Result<Vec<u8>> {
+fn read_binary(socket: &mut WebSocket<MaybeTlsStream<TcpStream>>) -> Result<Vec<u8>> {
     loop {
         let msg = socket
             .read()
@@ -61,7 +59,7 @@ pub(crate) fn perform(
     // 1. Wait for (and expect) incoming handshake initializer.
     //
     loop {
-        let bin = wait_for_binary_ignore_other(socket)?;
+        let bin = read_binary(socket)?;
 
         let message = serialize::read_message(bin.as_slice(), ReaderOptions::new()).unwrap();
 
@@ -86,19 +84,17 @@ pub(crate) fn perform(
     //
     // 2. Respond and send node information.
     //
-    {
-        socket
-            .send(ack_handshake_message(num_workers, node_name)?)
-            .with_context(|| "could not send node information")?;
-    }
+
+    socket
+        .send(ack_handshake_message(num_workers, node_name)?)
+        .with_context(|| "could not send node information")?;
 
     //
     // 3. Wait until the server has assigned an ID to this node.
     //
     let node_id = {
         loop {
-            let bin =
-                wait_for_binary_ignore_other(socket).with_context(|| "could not read node ID")?;
+            let bin = read_binary(socket).with_context(|| "could not read node ID")?;
 
             let reader = serialize::read_message(bin.as_slice(), ReaderOptions::new())
                 .with_context(|| "could not read node ID")?;

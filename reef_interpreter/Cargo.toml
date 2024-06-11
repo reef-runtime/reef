@@ -8,14 +8,11 @@ edition.workspace = true
 path = "src/lib.rs"
 
 [dependencies]
+rkyv.workspace = true
 wasmparser = { version = "0.208", default-features = false, features = [
     "validate",
 ] }
 libm = { version = "0.2", default-features = false }
-rkyv = { version = "0.7.44", default-features = false, features = [
-    "size_32",
-    "validation",
-] }
 bytecheck = { version = "0.7" }
 
 [features]

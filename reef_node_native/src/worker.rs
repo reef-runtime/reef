@@ -1,14 +1,9 @@
-use core::panic;
-use std::{
-    io::ErrorKind,
-    sync::{
-        atomic::{AtomicU8, Ordering},
-        mpsc::{self},
-        Arc,
-    },
-    thread::{self, JoinHandle},
-    time::Duration,
+use std::sync::{
+    atomic::{AtomicU8, Ordering},
+    mpsc::{self},
+    Arc,
 };
+use std::thread::{self, JoinHandle};
 
 use reef_interpreter::{
     exec::{CallResultTyped, ExecHandleTyped},
@@ -17,8 +12,26 @@ use reef_interpreter::{
     reference::MemoryStringExt,
     Instance,
 };
+use rkyv::AlignedVec;
 
-const ENTRY_FN_NAME: &str = "reef_main";
+//
+// Wasm interface declaration
+//
+
+const REEF_MAIN_NAME: &str = "reef_main";
+type ReefMainArgs = (i32,);
+type ReefMainReturn = (i32,);
+type ReefMainHandle = ExecHandleTyped<ReefMainReturn>;
+
+const REEF_LOG_NAME: (&str, &str) = ("reef", "log");
+type ReefLogArgs = (i32, i32);
+// type ReefLogReturn = ();
+
+const REEF_PROGRESS_NAME: (&str, &str) = ("reef", "progress");
+type ReefProgressArgs = (f32,);
+// type ReefProgressReturn = ();
+
+const ITERATION_CYCLES: usize = 0x10000;
 
 //
 // Worker state.
@@ -42,150 +55,135 @@ pub(crate) struct Worker {
 
 pub(crate) enum FromWorkerMessage {
     Log(String),
-    Progress(u16),
+    Progress(f32),
 }
 
-pub(crate) type WorkerSenderChannel = mpsc::Sender<FromWorkerMessage>;
-
-// type WorkerReceiverChannel = mpsc::Receiver<ToWorkerMessage>;
-
-const IDLE_SLEEP: Duration = Duration::from_secs(1);
-
-// TODO: replace this with a pointer?
-// OR: just return a struct directly?
-type EntryPointFnReturnValueType = i32;
-type EntryPointFnHandle = ExecHandleTyped<EntryPointFnReturnValueType>;
+pub(crate) type WorkerSender = mpsc::Sender<FromWorkerMessage>;
 
 fn setup_interpreter(
+    sender: WorkerSender,
     program: &[u8],
-    sender: WorkerSenderChannel,
-) -> std::result::Result<EntryPointFnHandle, reef_interpreter::error::Error> {
+    state: Option<&[u8]>,
+) -> std::result::Result<ReefMainHandle, reef_interpreter::error::Error> {
     let module = parse_bytes(program)?;
 
     let mut imports = Imports::new();
 
     let sender_log = sender.clone();
     imports.define(
-        "reef",
-        "log",
-        Extern::typed_func(move |ctx: FuncContext<'_>, args: (i32, i32)| {
+        REEF_LOG_NAME.0,
+        REEF_LOG_NAME.1,
+        Extern::typed_func(move |ctx: FuncContext<'_>, args: ReefLogArgs| {
             let mem = ctx.exported_memory("memory")?;
             let ptr = args.0 as usize;
             let len = args.1 as usize;
             let log_string = mem.load_string(ptr, len)?;
-            println!("REEF_LOG: {}", log_string);
 
-            sender_log
-                .send(FromWorkerMessage::Log(log_string))
-                .expect("receiver cannot hang up");
-
+            sender_log.send(FromWorkerMessage::Log(log_string)).unwrap();
             Ok(())
         }),
     )?;
 
+    let sender_progress = sender.clone();
     imports.define(
-        "reef",
-        "progress",
-        Extern::typed_func(move |mut _ctx: FuncContext<'_>, percent: i32| {
-            if !(u16::MIN.into()..=u16::MAX.into()).contains(&percent) {
-                return Err(reef_interpreter::error::Error::Io(std::io::Error::new(
-                    ErrorKind::AddrNotAvailable,
-                    "Invalid range: percentage must be in u16 range",
-                )));
+        REEF_PROGRESS_NAME.0,
+        REEF_PROGRESS_NAME.1,
+        Extern::typed_func(move |mut _ctx: FuncContext<'_>, done: ReefProgressArgs| {
+            if !(0.0..=1.0).contains(&done.0) {
+                return Err(reef_interpreter::error::Error::Other(
+                    "reef/progress: value not in Range 0.0..=1.0".into(),
+                ));
             }
 
-            println!("REEF_REPORT_PROGRESS: {percent}");
-
-            sender
-                .send(FromWorkerMessage::Progress(percent as u16))
-                .expect("receiver cannot hang up");
-
+            sender_progress
+                .send(FromWorkerMessage::Progress(done.0))
+                .unwrap();
             Ok(())
         }),
     )?;
 
-    let instance = Instance::instantiate(module, imports)?;
-    let entry_fn_handle = instance.exported_func::<i32, i32>(ENTRY_FN_NAME).unwrap();
-    let exec_handle = entry_fn_handle.call(0, None)?;
+    let (instance, stack) = Instance::instantiate(module, imports, state)?;
+    let entry_fn_handle = instance
+        .exported_func::<ReefMainArgs, ReefMainReturn>(REEF_MAIN_NAME)
+        .unwrap();
+    let exec_handle = entry_fn_handle.call((0,), stack)?;
 
     Ok(exec_handle)
 }
 
 #[derive(Debug)]
 pub(crate) enum JobError {
-    Killed,
-    InitializationError(reef_interpreter::error::Error),
-    RuntimeError(String),
+    Aborted,
+    Interpreter(reef_interpreter::error::Error),
 }
 
 impl From<reef_interpreter::error::Error> for JobError {
     fn from(err: reef_interpreter::error::Error) -> Self {
-        Self::InitializationError(err)
+        Self::Interpreter(err)
     }
 }
 
-pub(crate) type WorkerThreadHandle =
-    JoinHandle<std::result::Result<EntryPointFnReturnValueType, JobError>>;
+pub(crate) type WorkerThreadHandle = JoinHandle<Result<ReefMainReturn, JobError>>;
 
 #[non_exhaustive]
 struct WorkerSignal;
 
 impl WorkerSignal {
-    pub const NOP: u8 = 0;
+    pub const CONTINUE: u8 = 0;
     pub const SAVE_STATE: u8 = 1;
-    pub const KILL: u8 = 2;
+    pub const ABORT: u8 = 2;
 }
 
-//  NOTE: pausing the interpreter would probably be more efficient if OS signals are used.
 pub(crate) fn spawn_worker_thread(
+    sender: WorkerSender,
+    signal: Arc<AtomicU8>,
     program: Vec<u8>,
     job_id: String,
-    sender: WorkerSenderChannel,
-    signal: Arc<AtomicU8>,
 ) -> WorkerThreadHandle {
-    thread::spawn(
-        move || -> std::result::Result<EntryPointFnReturnValueType, JobError> {
-            println!("Creating WASM sandbox...");
-            let mut exec_handle = setup_interpreter(&program, sender.clone())?;
-            let max_cycles = 10;
-            println!("WASM sandbox created successfully.");
+    thread::spawn(move || {
+        println!("Instantiating WASM interpreter...");
 
-            println!("-> Executing {} ...", job_id);
+        // TODO get previous state
+        let mut exec_handle = setup_interpreter(sender.clone(), &program, None)?;
 
-            loop {
-                match signal.swap(0, Ordering::Relaxed) {
-                    //
-                    // No signal, perform normal execution.
-                    //
-                    WorkerSignal::NOP => (),
-                    //
-                    // Perform a state sync.
-                    //
-                    WorkerSignal::SAVE_STATE => {
-                        println!("========================== Would perform a sync now =======================");
-                        continue;
+        let mut serialized_state: Option<AlignedVec> = None;
+
+        println!("Executing {}...", job_id);
+
+        loop {
+            // Check for signal from manager thread
+            match signal.swap(0, Ordering::Relaxed) {
+                // No signal, perform normal execution.
+                WorkerSignal::CONTINUE => (),
+                // Perform a state sync.
+                WorkerSignal::SAVE_STATE => {
+                    if serialized_state.is_none() {
+                        serialized_state =
+                            Some(AlignedVec::with_capacity(reef_interpreter::PAGE_SIZE * 2));
                     }
-                    //
-                    // Kill the worker
-                    //
-                    WorkerSignal::KILL => break Err(JobError::Killed),
-                    _ => unreachable!("internal bug: master thread has sent invalid signal"),
+                    serialized_state =
+                        Some(exec_handle.serialize(serialized_state.take().unwrap())?);
+
+                    println!(
+                        "Serialized {} bytes for state of {}.",
+                        serialized_state.as_ref().unwrap().len(),
+                        job_id
+                    );
                 }
-
-                let run_res = exec_handle.run(max_cycles);
-                match run_res {
-                    Ok(CallResultTyped::Done(return_value)) => {
-                        break Ok(return_value);
-                    }
-                    Ok(CallResultTyped::Incomplete) => {
-                        sender
-                            .send(FromWorkerMessage::Log("Executed part of the job".into()))
-                            .expect("receiver cannot disconnect");
-                        println!("Executed step of {max_cycles} instructions.")
-                    }
-                    Err(err) => panic!("WASM thread has crashed: {err}"),
-                }
+                // Kill the worker
+                WorkerSignal::ABORT => break Err(JobError::Aborted),
+                _ => unreachable!("internal bug: master thread has sent invalid signal"),
             }
-        },
-    )
+
+            // Execute Wasm
+            let run_res = exec_handle.run(ITERATION_CYCLES);
+            match run_res {
+                Ok(CallResultTyped::Done(return_value)) => {
+                    break Ok(return_value);
+                }
+                Ok(CallResultTyped::Incomplete) => {}
+                Err(err) => return Err(JobError::Interpreter(err)),
+            }
+        }
+    })
 }

@@ -864,6 +864,7 @@ dependencies = [
  "hex",
  "reef_interpreter",
  "reef_protocol_node",
+ "rkyv",
  "sysinfo",
  "tungstenite",
  "url",
