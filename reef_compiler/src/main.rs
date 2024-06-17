@@ -52,33 +52,15 @@ pub async fn main() -> Result<()> {
     let args = Args::parse();
 
     match args.subcommand {
-        Command::Server {
-            port,
-            skeleton_path,
-            build_path,
-            no_cleanup,
-        } => {
-            let addr = SocketAddr::new(
-                IpAddr::from_str("0.0.0.0").with_context(|| "IP is always valid")?,
-                port,
-            );
+        Command::Server { port, skeleton_path, build_path, no_cleanup } => {
+            let addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").with_context(|| "IP is always valid")?, port);
 
-            run_server_main(
-                addr,
-                Compiler {
-                    build_path,
-                    skeleton_path,
-                    no_cleanup,
-                },
-            )
-            .await
-            .with_context(|| "failed to run server")
+            run_server_main(addr, Compiler { build_path, skeleton_path, no_cleanup })
+                .await
+                .with_context(|| "failed to run server")
         }
         Command::Client { ip, port } => {
-            let addr = format!("{ip}:{port}")
-                .to_socket_addrs()?
-                .next()
-                .with_context(|| "server url is invalid")?;
+            let addr = format!("{ip}:{port}").to_socket_addrs()?.next().with_context(|| "server url is invalid")?;
 
             tokio::task::LocalSet::new()
                 .run_until(async move {
@@ -86,8 +68,7 @@ pub async fn main() -> Result<()> {
                         .await
                         .with_context(|| "could not connect to compiler server")?;
                     stream.set_nodelay(true)?;
-                    let (reader, writer) =
-                        tokio_util::compat::TokioAsyncReadCompatExt::compat(stream).split();
+                    let (reader, writer) = tokio_util::compat::TokioAsyncReadCompatExt::compat(stream).split();
                     let rpc_network = Box::new(twoparty::VatNetwork::new(
                         reader,
                         writer,
@@ -95,8 +76,7 @@ pub async fn main() -> Result<()> {
                         Default::default(),
                     ));
                     let mut rpc_system = RpcSystem::new(rpc_network, None);
-                    let compiler: compiler::Client =
-                        rpc_system.bootstrap(rpc_twoparty_capnp::Side::Server);
+                    let compiler: compiler::Client = rpc_system.bootstrap(rpc_twoparty_capnp::Side::Server);
 
                     tokio::task::spawn_local(rpc_system);
 
@@ -104,16 +84,10 @@ pub async fn main() -> Result<()> {
                     request.get().set_program_src("int main() {}");
                     request.get().set_language(compiler_capnp::Language::C);
 
-                    let reply = request
-                        .send()
-                        .promise
-                        .await
-                        .with_context(|| "could not send compilation request")?;
+                    let reply = request.send().promise.await.with_context(|| "could not send compilation request")?;
 
-                    let response = reply
-                        .get()?
-                        .get_response()
-                        .with_context(|| "failed to receive compilation response")?;
+                    let response =
+                        reply.get()?.get_response().with_context(|| "failed to receive compilation response")?;
 
                     // TODO: what the ACTUAL FUCK?
                     match response.which() {

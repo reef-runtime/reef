@@ -74,11 +74,7 @@ impl From<io::Error> for CError {
 
 impl CompilerManager {
     fn new(main_path: &Path, skeleton_path: &Path, skip_cleanup: bool) -> Self {
-        Self {
-            build_path: main_path.into(),
-            skeleton_path: skeleton_path.into(),
-            skip_cleanup,
-        }
+        Self { build_path: main_path.into(), skeleton_path: skeleton_path.into(), skip_cleanup }
     }
 
     fn compile(&self, file_buf: &str, language: Language) -> Result<Vec<u8>, CError> {
@@ -99,30 +95,21 @@ impl CompilerManager {
 
         match fs::create_dir_all(&root_build_path) {
             Ok(_) => (),
-            Err(e) => {
-                return Err(CError::SystemError(format!(
-                    "failed to create build directory: {e}"
-                )))
-            }
+            Err(e) => return Err(CError::SystemError(format!("failed to create build directory: {e}"))),
         };
 
         let mut skeleton_source_path = self.skeleton_path.clone();
         skeleton_source_path.push(PathBuf::from(&language));
 
         if !skeleton_source_path.exists() {
-            return Err(CError::SystemError(format!(
-                "skeleton source path for language {language} does not exist"
-            )));
+            return Err(CError::SystemError(format!("skeleton source path for language {language} does not exist")));
         }
 
         let mut current_compilation_context = root_build_path.clone();
         current_compilation_context.push(&hash);
 
         if fs::remove_dir_all(&current_compilation_context).is_ok() {
-            println!(
-                "cleaned up compilation context at {:?}",
-                &current_compilation_context
-            );
+            println!("cleaned up compilation context at {:?}", &current_compilation_context);
         }
 
         println!("copying {skeleton_source_path:?} to {current_compilation_context:?}...");
@@ -135,19 +122,12 @@ impl CompilerManager {
         }
 
         let mut source_file = current_compilation_context.clone();
-        source_file.push(format!(
-            "input.{file_ending}",
-            file_ending = language.file_ending()
-        ));
+        source_file.push(format!("input.{file_ending}", file_ending = language.file_ending()));
 
         println!("writing source file...");
         match fs::write(source_file, file_buf) {
             Ok(_) => (),
-            Err(e) => {
-                return Err(CError::SystemError(format!(
-                    "failed to write to source file: {e}"
-                )))
-            }
+            Err(e) => return Err(CError::SystemError(format!("failed to write to source file: {e}"))),
         };
 
         let mut cmd = Command::new("make");
@@ -164,9 +144,7 @@ impl CompilerManager {
             Ok(output) => output,
             Err(e) => {
                 println!("failed to invoke compiler: {e}");
-                return Err(CError::SystemError(format!(
-                    "failed to invoke compiler: {e}"
-                )));
+                return Err(CError::SystemError(format!("failed to invoke compiler: {e}")));
             }
         };
 
@@ -183,11 +161,7 @@ impl CompilerManager {
 
         let data = match fs::read(output_path.as_path()) {
             Ok(data) => data,
-            Err(e) => {
-                return Err(CError::SystemError(format!(
-                    "failed to read output artifact: {e}"
-                )))
-            }
+            Err(e) => return Err(CError::SystemError(format!("failed to read output artifact: {e}"))),
         };
 
         // Skip cleanup if required.
@@ -197,9 +171,7 @@ impl CompilerManager {
         }
 
         if let Err(err) = fs::remove_dir_all(&current_compilation_context) {
-            return Err(CError::SystemError(format!(
-                "failed to cleanup build directory: {err}"
-            )));
+            return Err(CError::SystemError(format!("failed to cleanup build directory: {err}")));
         };
 
         Ok(data)
@@ -228,18 +200,12 @@ impl compiler::Server for Compiler {
         let compiler_res = manager.compile(program_src, language);
 
         match compiler_res {
-            Ok(buf) => results
-                .get()
-                .init_response()
-                .set_file_content(buf.as_slice()),
+            Ok(buf) => results.get().init_response().set_file_content(buf.as_slice()),
 
             Err(e) => match e {
                 CError::CompilerError(err) => results.get().init_response().set_compiler_error(err),
 
-                CError::SystemError(err) => results
-                    .get()
-                    .init_response()
-                    .set_system_error(err.to_string()),
+                CError::SystemError(err) => results.get().init_response().set_system_error(err.to_string()),
             },
         }
 
@@ -250,26 +216,16 @@ impl compiler::Server for Compiler {
 pub async fn run_server_main(socket: SocketAddr, compiler: Compiler) -> Result<()> {
     tokio::task::LocalSet::new()
         .run_until(async move {
-            let listener = tokio::net::TcpListener::bind(&socket)
-                .await
-                .with_context(|| "failed to bind to socket")?;
+            let listener = tokio::net::TcpListener::bind(&socket).await.with_context(|| "failed to bind to socket")?;
 
             let compiler: compiler::Client = capnp_rpc::new_client(compiler);
 
             loop {
-                let (stream, _) = listener
-                    .accept()
-                    .await
-                    .with_context(|| "failed to listen")?;
+                let (stream, _) = listener.accept().await.with_context(|| "failed to listen")?;
                 stream.set_nodelay(true)?;
-                let (reader, writer) =
-                    tokio_util::compat::TokioAsyncReadCompatExt::compat(stream).split();
-                let network = twoparty::VatNetwork::new(
-                    reader,
-                    writer,
-                    rpc_twoparty_capnp::Side::Server,
-                    Default::default(),
-                );
+                let (reader, writer) = tokio_util::compat::TokioAsyncReadCompatExt::compat(stream).split();
+                let network =
+                    twoparty::VatNetwork::new(reader, writer, rpc_twoparty_capnp::Side::Server, Default::default());
 
                 let rpc_system = RpcSystem::new(Box::new(network), Some(compiler.clone().client));
                 tokio::task::spawn_local(rpc_system);
