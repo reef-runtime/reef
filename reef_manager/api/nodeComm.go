@@ -346,13 +346,15 @@ func handleGenericIncoming(message []byte, pingHandler func(string) error) error
 	case node.MessageFromNodeKind_ping:
 		return pingHandler(string(message[1:]))
 	case node.MessageFromNodeKind_pong:
-		panic("TODO: implement this.")
+		fmt.Println("===== [TODO] State sync is not yet supported")
+		return nil
+		// panic("TODO: implement this.")
 		// case node.MessageFromNodeKind_jobLog:
 		// 	return handleJobLog(decoded.Body())
 		// case node.MessageFromNodeKind_jobProgressReport:
 		// 	return handleJobProgressReport(decoded.Body())
 	case node.MessageFromNodeKind_jobStateSync:
-		fmt.Println("State sync is not yet supported")
+		fmt.Println("===== [TODO] State sync is not yet supported")
 		return nil
 	default:
 		// VERY BAD!
