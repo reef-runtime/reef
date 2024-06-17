@@ -1,6 +1,7 @@
 package database
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -20,7 +21,7 @@ func TestMain(m *testing.M) {
 		panic(err.Error())
 	}
 
-	m.Run()
+	os.Exit(m.Run())
 }
 
 func initDB(deleteDatabase bool) error {

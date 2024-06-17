@@ -5,6 +5,8 @@ use capnp::{message::ReaderOptions, serialize};
 use reef_protocol_node::message_capnp::{self, message_to_node, MessageToNodeKind};
 use tungstenite::{stream::MaybeTlsStream, Message, WebSocket};
 
+use crate::WSConn;
+
 fn ack_handshake_message(num_workers: u16, node_name: &str) -> Result<Message> {
     let mut message = capnp::message::Builder::new_default();
     let mut root: reef_protocol_node::message_capnp::handshake_respond_message::Builder =
@@ -24,7 +26,7 @@ pub(crate) struct NodeInfo {
 }
 
 // TODO: add timeouts.
-fn read_binary(socket: &mut WebSocket<MaybeTlsStream<TcpStream>>) -> Result<Vec<u8>> {
+fn read_binary(socket: &mut WSConn) -> Result<Vec<u8>> {
     loop {
         let msg = socket
             .read()
@@ -53,7 +55,7 @@ fn read_binary(socket: &mut WebSocket<MaybeTlsStream<TcpStream>>) -> Result<Vec<
 pub(crate) fn perform(
     node_name: &str,
     num_workers: u16,
-    socket: &mut WebSocket<MaybeTlsStream<TcpStream>>,
+    socket: &mut WSConn,
 ) -> Result<NodeInfo> {
     //
     // 1. Wait for (and expect) incoming handshake initializer.

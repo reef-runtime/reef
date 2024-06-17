@@ -3,6 +3,7 @@ package database
 const DSTableName = "dataset"
 
 type Dataset struct {
+	// Is guaranteed to be 64 chars long.
 	ID   string `json:"id"`
 	Name string `json:"name"`
 	Size uint32 `json:"size"` // Size of the dataset in bytes.

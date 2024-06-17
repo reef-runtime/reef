@@ -1,10 +1,16 @@
-use std::sync::{
-    atomic::{AtomicU8, Ordering},
-    mpsc::{self},
-    Arc,
-};
+use std::sync::Mutex;
+// use std::net::TcpStream;
 use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
+use std::{
+    sync::{
+        atomic::{AtomicU8, Ordering},
+        mpsc, Arc,
+    },
+    // u32,
+};
 
+// use anyhow::Context;
 use reef_interpreter::{
     exec::{CallResultTyped, ExecHandleTyped},
     imports::{Extern, FuncContext, Imports},
@@ -13,6 +19,10 @@ use reef_interpreter::{
     Instance,
 };
 use rkyv::AlignedVec;
+// use tungstenite::stream::MaybeTlsStream;
+// use tungstenite::WebSocket;
+
+use crate::WSConn;
 
 //
 // Wasm interface declaration
@@ -31,6 +41,11 @@ const REEF_PROGRESS_NAME: (&str, &str) = ("reef", "progress");
 type ReefProgressArgs = (f32,);
 // type ReefProgressReturn = ();
 
+const REEF_SLEEP_NAME: (&str, &str) = ("reef", "sleep");
+// Seconds to sleep.
+type ReefSleepArgs = (f32,);
+// type ReefProgressReturn = ();
+
 const ITERATION_CYCLES: usize = 0x10000;
 
 //
@@ -38,15 +53,31 @@ const ITERATION_CYCLES: usize = 0x10000;
 //
 
 #[derive(Debug)]
-pub(crate) struct Job {
-    pub(crate) id: String,
-    pub(crate) signal: Arc<AtomicU8>,
+pub(crate) struct Worker {
+    pub(crate) last_sync: Instant,
+    pub(crate) sleep_until: Arc<Mutex<Option<Instant>>>,
+
+    pub(crate) worker_index: usize,
+    pub(crate) job_id: String,
+
+    pub(crate) signal_to_worker: Arc<AtomicU8>,
+    pub(crate) channel_from_worker: mpsc::Receiver<FromWorkerMessage>,
+
     pub(crate) handle: WorkerThreadHandle,
+
+    pub(crate) logs_to_be_flushed: Vec<String>,
+    pub(crate) progress: f32,
 }
 
-#[derive(Debug, Default)]
-pub(crate) struct Worker {
-    pub(crate) job: Option<Job>,
+impl Worker {
+    pub(crate) fn flush_state(
+        &mut self,
+        state: AlignedVec,
+        socket: &mut WSConn,
+    ) -> anyhow::Result<()> {
+        self.last_sync = Instant::now();
+        todo!("impl this")
+    }
 }
 
 //
@@ -54,21 +85,22 @@ pub(crate) struct Worker {
 //
 
 pub(crate) enum FromWorkerMessage {
+    State(AlignedVec),
     Log(String),
     Progress(f32),
+    Sleep(f32),
 }
 
 pub(crate) type WorkerSender = mpsc::Sender<FromWorkerMessage>;
 
-fn setup_interpreter(
+fn reef_std_lib(
     sender: WorkerSender,
-    program: &[u8],
-    state: Option<&[u8]>,
-) -> std::result::Result<ReefMainHandle, reef_interpreter::error::Error> {
-    let module = parse_bytes(program)?;
-
+) -> std::result::Result<Imports, reef_interpreter::error::Error> {
     let mut imports = Imports::new();
 
+    //
+    // Reef Log.
+    //
     let sender_log = sender.clone();
     imports.define(
         REEF_LOG_NAME.0,
@@ -80,10 +112,14 @@ fn setup_interpreter(
             let log_string = mem.load_string(ptr, len)?;
 
             sender_log.send(FromWorkerMessage::Log(log_string)).unwrap();
+
             Ok(())
         }),
     )?;
 
+    //
+    // Reef report progress.
+    //
     let sender_progress = sender.clone();
     imports.define(
         REEF_PROGRESS_NAME.0,
@@ -98,9 +134,36 @@ fn setup_interpreter(
             sender_progress
                 .send(FromWorkerMessage::Progress(done.0))
                 .unwrap();
+
             Ok(())
         }),
     )?;
+
+    //
+    // Reef sleep.
+    //
+    let sender_sleep = sender.clone();
+    imports.define(
+        REEF_SLEEP_NAME.0,
+        REEF_SLEEP_NAME.1,
+        Extern::typed_func(move |mut _ctx: FuncContext<'_>, done: ReefProgressArgs| {
+            sender_sleep.send(FromWorkerMessage::Sleep(done.0)).unwrap();
+
+            Ok(())
+        }),
+    )?;
+
+    Ok(imports)
+}
+
+fn setup_interpreter(
+    sender: WorkerSender,
+    program: &[u8],
+    state: Option<&[u8]>,
+    // worker_index: usize,
+) -> std::result::Result<ReefMainHandle, reef_interpreter::error::Error> {
+    let module = parse_bytes(program)?;
+    let imports = reef_std_lib(sender)?;
 
     let (instance, stack) = Instance::instantiate(module, imports, state)?;
     let entry_fn_handle = instance
@@ -126,12 +189,13 @@ impl From<reef_interpreter::error::Error> for JobError {
 pub(crate) type WorkerThreadHandle = JoinHandle<Result<ReefMainReturn, JobError>>;
 
 #[non_exhaustive]
-struct WorkerSignal;
+pub(crate) struct WorkerSignal;
 
 impl WorkerSignal {
-    pub const CONTINUE: u8 = 0;
-    pub const SAVE_STATE: u8 = 1;
-    pub const ABORT: u8 = 2;
+    pub(crate) const SLEEP: u8 = 0;
+    pub(crate) const CONTINUE: u8 = 1;
+    pub(crate) const SAVE_STATE: u8 = 2;
+    pub(crate) const ABORT: u8 = 3;
 }
 
 pub(crate) fn spawn_worker_thread(
@@ -139,43 +203,67 @@ pub(crate) fn spawn_worker_thread(
     signal: Arc<AtomicU8>,
     program: Vec<u8>,
     job_id: String,
+    sleep_until: Arc<Mutex<Option<Instant>>>,
+    // worker_index: usize,
 ) -> WorkerThreadHandle {
-    thread::spawn(move || {
+    thread::spawn(move || -> Result<(i32,), JobError> {
         println!("Instantiating WASM interpreter...");
 
         // TODO get previous state
         let mut exec_handle = setup_interpreter(sender.clone(), &program, None)?;
 
+        // This is not being re-allocated inside the hotloop for performance gains.
         let mut serialized_state: Option<AlignedVec> = None;
 
         println!("Executing {}...", job_id);
 
+        let mut sleep = false;
+
         loop {
-            // Check for signal from manager thread
+            // Check for signal from manager thread.
             match signal.swap(0, Ordering::Relaxed) {
+                // Do not perform further execution.
+                WorkerSignal::SLEEP => {
+                    sleep = true;
+                    continue;
+                }
                 // No signal, perform normal execution.
                 WorkerSignal::CONTINUE => (),
                 // Perform a state sync.
                 WorkerSignal::SAVE_STATE => {
-                    if serialized_state.is_none() {
-                        serialized_state =
-                            Some(AlignedVec::with_capacity(reef_interpreter::PAGE_SIZE * 2));
-                    }
-                    serialized_state =
-                        Some(exec_handle.serialize(serialized_state.take().unwrap())?);
+                    serialized_state = match serialized_state.is_some() {
+                        true => Some(exec_handle.serialize(serialized_state.take().unwrap())?),
+                        false => Some(AlignedVec::with_capacity(reef_interpreter::PAGE_SIZE * 2)),
+                    };
 
                     println!(
                         "Serialized {} bytes for state of {}.",
                         serialized_state.as_ref().unwrap().len(),
                         job_id
                     );
+
+                    sender
+                        .send(FromWorkerMessage::State(serialized_state.take().unwrap()))
+                        .unwrap();
                 }
-                // Kill the worker
+                // Kill the worker.
                 WorkerSignal::ABORT => break Err(JobError::Aborted),
-                _ => unreachable!("internal bug: master thread has sent invalid signal"),
+                other => {
+                    unreachable!("internal bug: master thread has sent invalid signal: {other}")
+                }
             }
 
-            // Execute Wasm
+            if sleep {
+                if Instant::now().duration_since(sleep_until.lock().unwrap().unwrap())
+                    != Duration::ZERO
+                {
+                    continue;
+                }
+
+                sleep = false;
+            }
+
+            // Execute Wasm.
             let run_res = exec_handle.run(ITERATION_CYCLES);
             match run_res {
                 Ok(CallResultTyped::Done(return_value)) => {

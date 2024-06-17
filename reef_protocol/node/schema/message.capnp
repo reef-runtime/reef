@@ -22,17 +22,29 @@ struct MessageToNode {
     kind @0 :MessageToNodeKind;
 
     body :union {
-        empty               @1 :Void;
+        empty               @1  :Void;
 
-        assignID            @2 :AssignIDMessage;
+        assignID            @2  :AssignIDMessage;
 
-        startJob            @3 :JobInitializationMessage;
-        abortJob            @4 :JobKillMessage;
+        startJob            @3  :JobInitializationMessage;
+        resumeJob           @4  :JobResumeMessage;
+        abortJob            @5  :JobKillMessage;
     }
 }
 
 struct AssignIDMessage {
     nodeID @0: Data;
+}
+
+struct JobResumeMessage {
+    job @0 :JobInitializationMessage;
+    previousState @1: PreviousJobState;
+}
+
+
+struct PreviousJobState {
+    progress @0 :Float32;
+    interpreterState @1 :Data;
 }
 
 struct JobInitializationMessage {
@@ -72,7 +84,6 @@ struct HandshakeRespondMessage {
     numWorkers @0 :UInt16;
     nodeName @1 :Text;
 }
-
 
 struct JobStartedMessage {
     workerIndex @0 :UInt32;

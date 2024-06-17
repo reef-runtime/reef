@@ -10,19 +10,17 @@ type LogKind uint16
 
 const (
 	// Normal logging.
-	LogKindLevelTrace LogKind = iota
-	LogKindLevelDebug
-	LogKindLevelInfo
-	LogKindLevelWarn
-	LogKindLevelError
-	LogKindLevelFatal
+	LogKindProgram LogKind = iota
+	// Logs that the node may produce.
+	LogKindNode
+	// Logs that the manager may produce.
+	LogKindSystem
 )
 
 func IsValidLogKind(from uint16) bool {
 	switch from {
-	case uint16(LogKindLevelTrace), uint16(LogKindLevelDebug),
-		uint16(LogKindLevelInfo), uint16(LogKindLevelWarn),
-		uint16(LogKindLevelError), uint16(LogKindLevelFatal):
+	case uint16(LogKindProgram), uint16(LogKindNode),
+		uint16(LogKindSystem):
 		return true
 	default:
 		return false

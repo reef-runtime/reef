@@ -68,6 +68,7 @@ func ship(logger *logrus.Logger) error {
 	// Nodes.
 	//
 	r.GET("/api/node/connect", api.HandleNodeConnection)
+	r.GET("/api/nodes", api.GetNodes)
 
 	//
 	// Datasets.

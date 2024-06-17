@@ -163,7 +163,7 @@ func performHandshake(conn *logic.WSConn) (logic.Node, error) {
 //
 
 func dropNode(conn *logic.WSConn, closeCode int, nodeID logic.NodeID) {
-	nodeIDString := logic.IdToString(nodeID)
+	nodeIDString := logic.IDToString(nodeID)
 	log.Debugf("[node] Dropping node `%s`...", nodeIDString)
 
 	const closeMessageTimeout = time.Second * 5
@@ -235,7 +235,7 @@ func nodePingHandler(conn *logic.WSConn, nodeID logic.NodeID) func(string) error
 		if !logic.NodeManager.RegisterPing(nodeID) {
 			log.Errorf(
 				"[node] could not register ping, node `%s` does not exist, this is a bug",
-				logic.IdToString(nodeID),
+				logic.IDToString(nodeID),
 			)
 		}
 
@@ -355,8 +355,6 @@ func handleGenericIncoming(message []byte, pingHandler func(string) error) error
 		// VERY BAD!
 		panic("todo: better error handling")
 	}
-
-	return nil
 }
 
 func handleJobLog(body node.MessageFromNode_body) error {
@@ -366,9 +364,6 @@ func handleJobLog(body node.MessageFromNode_body) error {
 	}
 
 	panic(jobLog)
-
-	panic("TODO")
-	return nil
 }
 
 func handleJobProgressReport(body node.MessageFromNode_body) error {
@@ -378,7 +373,4 @@ func handleJobProgressReport(body node.MessageFromNode_body) error {
 	}
 
 	panic(jobProgress)
-
-	panic("TODO")
-	return nil
 }

@@ -157,7 +157,7 @@ func SaveResult(jobID string, content []byte, contentType database.ContentType) 
 	now := time.Now().Local()
 
 	result := database.Result{
-		ID:          jobID,
+		JobID:       jobID,
 		Content:     content,
 		ContentType: contentType,
 		Created:     now,
@@ -197,7 +197,8 @@ func (m *JobManagerT) TryToStartQueuedJobs() error {
 
 		log.Debugf("Attempting to start job `%s`...", job.ID)
 
-		couldStart, err := NodeManager.StartJobOnFreeNode(job.ID)
+		// TODO: here is the place where we can give the node a previous state to resume from.
+		couldStart, err := NodeManager.StartJobOnFreeNode(job.ID, nil)
 		if err != nil {
 			log.Errorf("HARD ERROR: Could not start job `%s`: %s", job.ID, err.Error())
 			return err

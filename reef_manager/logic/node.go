@@ -46,10 +46,37 @@ type NodeManagerT struct {
 	Nodes NodeMap
 }
 
+type NodeWeb struct {
+	Info        NodeInfo   `json:"info"`
+	LastPing    *time.Time `json:"lastPing"`
+	ID          string     `json:"id"`
+	WorkerState []*JobID   `json:"workerState"`
+}
+
 var NodeManager NodeManagerT
 
-func IdToString(id NodeID) string {
+func IDToString(id NodeID) string {
 	return hex.EncodeToString(id[0:])
+}
+
+func (m *NodeManagerT) ListNodes() []NodeWeb {
+	m.Nodes.Lock.RLock()
+	defer m.Nodes.Lock.RUnlock()
+
+	nodes := make([]NodeWeb, len(m.Nodes.Map))
+
+	cnt := 0
+	for nodeID, node := range m.Nodes.Map {
+		nodes[cnt] = NodeWeb{
+			Info:        node.Info,
+			LastPing:    node.LastPing,
+			ID:          IDToString(nodeID),
+			WorkerState: node.WorkerState,
+		}
+		cnt++
+	}
+
+	return nodes
 }
 
 func (m *NodeManagerT) ConnectNode(node NodeInfo, conn *WSConn) (nodeObj Node) {
@@ -63,7 +90,7 @@ func (m *NodeManagerT) ConnectNode(node NodeInfo, conn *WSConn) (nodeObj Node) {
 		panic(fmt.Sprintf("[bug] node with ID %x already exists", newID))
 	}
 
-	now := time.Now().Local()
+	now := time.Now()
 
 	nodeObj = Node{
 		Info:        node,
@@ -109,7 +136,7 @@ func (m *NodeManagerT) DropNode(id NodeID) bool {
 		log.Infof(
 			"[node] Job `%s` has lost its node (%s)",
 			jobID,
-			IdToString(node.ID),
+			IDToString(node.ID),
 		)
 
 		if err := JobManager.ParkJob(jobID); err != nil {
@@ -119,7 +146,7 @@ func (m *NodeManagerT) DropNode(id NodeID) bool {
 
 	delete(m.Nodes.Map, id)
 
-	log.Debugf("[node] Dropped node with ID `%s`", IdToString(id))
+	log.Debugf("[node] Dropped node with ID `%s`", IDToString(id))
 
 	return true
 }
@@ -135,7 +162,7 @@ func (m *NodeManagerT) RegisterPing(id NodeID) bool {
 	now := time.Now().Local()
 	*m.Nodes.Map[id].LastPing = now
 
-	log.Debugf("[node] Received ping for node with ID `%s`", IdToString(id))
+	log.Debugf("[node] Received ping for node with ID `%s`", IDToString(id))
 
 	return true
 }

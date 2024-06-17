@@ -14,40 +14,6 @@ import (
 	node "github.com/reef-runtime/reef/reef_protocol_node"
 )
 
-// func MessageToNode() (node.MessageToNode, error) {
-// 	arena := capnp.SingleSegment(nil)
-//
-// 	_, seg, err := capnp.NewMessage(arena)
-// 	if err != nil {
-// 		panic(err.Error())
-// 	}
-//
-// 	genericMsg, err := node.NewMessageToNode(seg)
-// 	if err != nil {
-// 		return node.MessageToNode{}, err
-// 	}
-//
-// 	return genericMsg, nil
-// }
-
-// TODO: could just use `binary.LittleEndian.PutUint32()`?
-// TODO: write test for this function
-// func uint32IntoBytes(v uint32) []byte {
-// 	return []byte{
-// 		byte((v & 0xFF_00_00_00) >> 24),
-// 		byte((v & 0x00_FF_00_00) >> 16),
-// 		byte((v & 0x00_00_FF_00) >> 8),
-// 		byte(v),
-// 	}
-// }
-//
-// func uint16IntoBytes(v uint16) []byte {
-// 	return []byte{
-// 		byte((v & 0xFF_00) >> 8),
-// 		byte(v),
-// 	}
-// }
-
 func FormatBinarySliceAsHex(input []byte) string {
 	output := make([]string, 0)
 	for _, b := range input {
@@ -60,30 +26,6 @@ func FormatBinarySliceAsHex(input []byte) string {
 //
 // Job initialization
 //
-// Message layout for job initialization
-// [MANAGER ---> NODE]
-//
-// |-00-------------|-01-------------04------------|-05-------------06-------------|-07--------------70------------|-71----------------|
-// | CODE_START     |         PROGRAM_LENGTH       |        WORKER_INDEX           |             JOB_ID            |     PROGRAM       |
-// | JOB            |           <uint32>           |           <uint16>            |            <string>           |     BYTECODE      | (... Other data? ...)
-// |----------------|------------------------------|-------------------------------|-------------------------------|-------------------|
-// |     1 Byte     |            4 Byte            |                               |             64 Byte           |  <PROGRAM_LENGTH> |
-//
-//
-// Message layout for job started / rejected
-// [NODE ---> MANAGER]
-//
-// |-00-------------|-01-------------04------------|-05-------------68------|
-// | CODE_STARTED   |         WORKER_INDEX         |		 JOB_ID         |
-// | JOB            |           <uint32>           |        <string>        |
-// |----------------|------------------------------|------------------------|
-// |     1 Byte     |            4 Byte            |		 64 Byte        |
-//
-//
-//
-// const CODE_START_JOB = 0xC0
-// const CODE_STARTED_JOB = 0xC1
-// const CODE_REJECTED_JOB = 0xC2
 
 func toNodeJobInitializationMessage(
 	workerIndex uint32, // TODO: uint16 is enough.
@@ -124,8 +66,18 @@ func toNodeJobInitializationMessage(
 	return msg.Marshal()
 }
 
-// TODO: migrate into `logic`
-func (m *NodeManagerT) StartJobOnNode(nodeData Node, jobID JobID, workerIdx uint16, programByteCode []byte) error {
+type JobState struct {
+	Progress         float32
+	InterpreterState []byte
+}
+
+func (m *NodeManagerT) StartJobOnNode(
+	nodeData Node,
+	jobID JobID,
+	workerIdx uint16,
+	programByteCode []byte,
+	previousState *JobState,
+) error {
 	msg, err := toNodeJobInitializationMessage(
 		uint32(workerIdx),
 		jobID,
@@ -244,7 +196,7 @@ func (m *NodeManagerT) findFreeNode() (nodeID NodeID, workerIdx uint16, found bo
 	return nodeID, 0, false
 }
 
-func (m *NodeManagerT) StartJobOnFreeNode(jobID JobID) (couldStart bool, err error) {
+func (m *NodeManagerT) StartJobOnFreeNode(jobID JobID, jobState *JobState) (couldStart bool, err error) {
 	nodeID, workerIndex, nodeFound := m.findFreeNode()
 	if !nodeFound {
 		return false, nil
@@ -263,10 +215,10 @@ func (m *NodeManagerT) StartJobOnFreeNode(jobID JobID) (couldStart bool, err err
 		return false, nil
 	}
 
-	log.Debugf("[node] Found free worker index %d on node `%s`", workerIndex, IdToString(nodeID))
+	log.Debugf("[node] Found free worker index %d on node `%s`", workerIndex, IDToString(nodeID))
 
-	if err := m.StartJobOnNode(node, jobID, workerIndex, programByteCode); err != nil {
-		log.Errorf("[node] Could not start job `%s` on node `%s`: %s", jobID, IdToString(nodeID), err.Error())
+	if err := m.StartJobOnNode(node, jobID, workerIndex, programByteCode, jobState); err != nil {
+		log.Errorf("[node] Could not start job `%s` on node `%s`: %s", jobID, IDToString(nodeID), err.Error())
 		return false, nil
 	}
 
@@ -285,18 +237,6 @@ func (m *NodeManagerT) StartJobOnFreeNode(jobID JobID) (couldStart bool, err err
 //
 // Job logging.
 //
-// Message layout for job (logging / progress) report.
-// [NODE ---> MANAGER]
-//
-// |-00-------------|-01-------------02------------|-03-------------04-------------|-05--------------06------------|-07----------------|
-// |  CODE_JOB_LOG  |           LOG_KIND           |        WORKER_INDEX           |          CONTENT_LENGTH       |        LOG        |
-// |                |           <uint16>           |           <uint16>            |             <uint16>          |    CONTENT_BYTES  | (... Other data? ...)
-// |----------------|------------------------------|-------------------------------|-------------------------------|-------------------|
-// |     1 Byte     |            2 Byte            |                               |             2 Byte            |  <CONTENT_LENGTH> |
-//
-//
-
-const CODE_JOB_LOG = 0xD0
 
 type NodeLogMessage struct {
 	LogKind       database.LogKind
@@ -314,66 +254,47 @@ func (m *NodeManagerT) NodeLogCallBack(nodeID NodeID, message []byte) (err error
 		return err
 	}
 
+	// TODO: what to do here?
 	fmt.Printf("parsed kind from log: %d\n", parsed.LogKind)
 
 	return nil
 }
 
 func (m *NodeManagerT) nodeLogCallBackInternal(nodeID NodeID, message []byte) (parsed NodeLogMessage, err error) {
-	const leadingBytes = 1 // Due to the leading signal byte.
-	uint16Size := binary.Size(uint16(0))
+	// TODO: implement this!
+	panic("TODO")
 
-	logKindSize := uint16Size
-	workerIndexSize := uint16Size
-	contentLengthSize := uint16Size
-
-	expectedLen := leadingBytes + logKindSize + workerIndexSize + contentLengthSize
-	msgLen := len(message)
-
-	if msgLen < expectedLen {
-		return parsed, fmt.Errorf("expected message to be at least of length %d, got %d", expectedLen, msgLen)
-	}
-
-	logKind := binary.BigEndian.Uint16(message[leadingBytes : leadingBytes+logKindSize])
-	workerIndex := binary.BigEndian.Uint16(message[leadingBytes+logKindSize : leadingBytes+logKindSize+workerIndexSize])
-	contentLength := binary.BigEndian.Uint16(message[leadingBytes+logKindSize+workerIndexSize : leadingBytes+logKindSize+workerIndexSize+contentLengthSize])
-
-	msgLen += int(contentLength)
-	if msgLen < expectedLen {
-		return parsed, fmt.Errorf("expected message with content length to be of length %d, got %d", expectedLen, msgLen)
-	}
-
-	if !database.IsValidLogKind(logKind) {
-		return parsed, fmt.Errorf("node `%s` sent invalid log kind `%d`", IdToString(nodeID), logKind)
-	}
-
-	m.Nodes.Lock.RLock()
-	numWorkersForThisNode := m.Nodes.Map[nodeID].Info.NumWorkers
-	m.Nodes.Lock.RUnlock()
-
-	if workerIndex >= numWorkersForThisNode {
-		return parsed, fmt.Errorf("worker index returned from node is %d (>= %d)", workerIndex, numWorkersForThisNode)
-	}
-
-	m.Nodes.Lock.RLock()
-	// spew.Dump(m.Nodes.Map[nodeID])
-	currWorkerJobId := m.Nodes.Map[nodeID].WorkerState[workerIndex]
-	m.Nodes.Lock.RUnlock()
-
-	if currWorkerJobId == nil {
-		return parsed, fmt.Errorf("worker index (%d) returned from node (%s) is free", workerIndex, IdToString(nodeID))
-	}
-
-	// m.Nodes.Lock.Lock()
-	// jobId := m.Nodes.Map[nodeID].WorkerState[workerIndex]
-	// m.Nodes.Lock.Unlock()
-
-	log.Debugf("[node] Received log from node `%s` for job `%s` on worker IDX %d", IdToString(nodeID), *currWorkerJobId, workerIndex)
-
-	return NodeLogMessage{
-		LogKind:       database.LogKind(logKind),
-		WorkerIndex:   workerIndex,
-		ContentLength: contentLength,
-		LogContents:   []byte{},
-	}, nil
+	// if !database.IsValidLogKind(logKind) {
+	// 	return parsed, fmt.Errorf("node `%s` sent invalid log kind `%d`", IDToString(nodeID), logKind)
+	// }
+	//
+	// m.Nodes.Lock.RLock()
+	// numWorkersForThisNode := m.Nodes.Map[nodeID].Info.NumWorkers
+	// m.Nodes.Lock.RUnlock()
+	//
+	// if workerIndex >= numWorkersForThisNode {
+	// 	return parsed, fmt.Errorf("worker index returned from node is %d (>= %d)", workerIndex, numWorkersForThisNode)
+	// }
+	//
+	// m.Nodes.Lock.RLock()
+	// // spew.Dump(m.Nodes.Map[nodeID])
+	// currWorkerJobId := m.Nodes.Map[nodeID].WorkerState[workerIndex]
+	// m.Nodes.Lock.RUnlock()
+	//
+	// if currWorkerJobId == nil {
+	// 	return parsed, fmt.Errorf("worker index (%d) returned from node (%s) is free", workerIndex, IDToString(nodeID))
+	// }
+	//
+	// // m.Nodes.Lock.Lock()
+	// // jobId := m.Nodes.Map[nodeID].WorkerState[workerIndex]
+	// // m.Nodes.Lock.Unlock()
+	//
+	// log.Debugf("[node] Received log from node `%s` for job `%s` on worker IDX %d", IDToString(nodeID), *currWorkerJobId, workerIndex)
+	//
+	// return NodeLogMessage{
+	// 	LogKind:       database.LogKind(logKind),
+	// 	WorkerIndex:   workerIndex,
+	// 	ContentLength: contentLength,
+	// 	LogContents:   []byte{},
+	// }, nil
 }
