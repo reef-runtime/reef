@@ -1,9 +1,6 @@
 #include "./lib.h"
 #include "./input.c"
 
-void reef_log(char *ptr, int bytes_len)
-    __attribute__((__import_module__("reef"), __import_name__("log"), ));
-
 int reef_strlen(char *ptr) {
   int len = 0;
   while (ptr && ptr[len] != '\0') {
