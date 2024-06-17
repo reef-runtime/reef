@@ -7,8 +7,7 @@ use crate::{cold, unlikely};
 
 pub(crate) const MIN_VALUE_STACK_SIZE: usize = 1024 * 128;
 
-#[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct ValueStack(Vec<RawWasmValue>);
 
 impl Default for ValueStack {

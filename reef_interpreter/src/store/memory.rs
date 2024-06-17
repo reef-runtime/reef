@@ -7,11 +7,13 @@ use crate::{MAX_PAGES, MAX_SIZE, PAGE_SIZE};
 /// A WebAssembly Memory Instance
 ///
 /// See <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct MemoryInstance {
     pub(crate) kind: MemoryType,
-    pub(crate) data: Vec<u8>,
     pub(crate) page_count: usize,
+    /// ignored during serialization
+    pub(crate) ignored_page_region: (usize, usize),
+    pub(crate) data: Vec<u8>,
 }
 
 impl MemoryInstance {
@@ -22,6 +24,7 @@ impl MemoryInstance {
             kind,
             data: vec![0; PAGE_SIZE * kind.page_count_initial as usize],
             page_count: kind.page_count_initial as usize,
+            ignored_page_region: (0, 0),
         }
     }
 
@@ -169,3 +172,167 @@ macro_rules! impl_mem_loadable_for_primitive {
 impl_mem_loadable_for_primitive!(
     u8, 1, i8, 1, u16, 2, i16, 2, u32, 4, i32, 4, f32, 4, u64, 8, i64, 8, f64, 8, u128, 16, i128, 16
 );
+
+impl serde::Serialize for MemoryInstance {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use crate::PAGE_SIZE;
+        use serde::ser::SerializeStruct;
+
+        let mut state = serializer.serialize_struct("MemoryInstance", 4)?;
+        state.serialize_field("kind", &self.kind)?;
+        state.serialize_field("page_count", &self.page_count)?;
+        state.serialize_field("ignored_page_region", &self.ignored_page_region)?;
+        state.serialize_field("data_before_ignore", &self.data[..self.ignored_page_region.0 * PAGE_SIZE])?;
+        state.serialize_field("data_after_ignore", &self.data[self.ignored_page_region.1 * PAGE_SIZE..])?;
+
+        state.end()
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for MemoryInstance {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::{self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
+        use std::fmt;
+
+        enum Field {
+            Kind,
+            PageCount,
+            IgnoredPageRegion,
+            DataBeforeIgnore,
+            DataAfterIgnore,
+        }
+
+        impl<'de> Deserialize<'de> for Field {
+            fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                struct FieldVisitor;
+
+                impl<'de> Visitor<'de> for FieldVisitor {
+                    type Value = Field;
+
+                    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                        formatter.write_str(
+                            "`kind`, `page_count`, `ignored_page_region`, `data_before_ignore` or `data_after_ignore`",
+                        )
+                    }
+
+                    fn visit_str<E>(self, value: &str) -> Result<Field, E>
+                    where
+                        E: de::Error,
+                    {
+                        match value {
+                            "kind" => Ok(Field::Kind),
+                            "page_count" => Ok(Field::PageCount),
+                            "ignored_page_region" => Ok(Field::IgnoredPageRegion),
+                            "data_before_ignore" => Ok(Field::DataBeforeIgnore),
+                            "data_after_ignore" => Ok(Field::DataAfterIgnore),
+                            _ => Err(de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+
+                deserializer.deserialize_identifier(FieldVisitor)
+            }
+        }
+
+        struct MemoryInstanceVisitor;
+
+        impl<'de> Visitor<'de> for MemoryInstanceVisitor {
+            type Value = MemoryInstance;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("struct MemoryInstance")
+            }
+
+            fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
+            where
+                V: SeqAccess<'de>,
+            {
+                let kind = seq.next_element()?.ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                let page_count = seq.next_element()?.ok_or_else(|| de::Error::invalid_length(1, &self))?;
+                let ignored_page_region: (usize, usize) =
+                    seq.next_element()?.ok_or_else(|| de::Error::invalid_length(1, &self))?;
+
+                let data_before_ignore: &[u8] =
+                    seq.next_element()?.ok_or_else(|| de::Error::invalid_length(1, &self))?;
+                let data_after_ignore: &[u8] =
+                    seq.next_element()?.ok_or_else(|| de::Error::invalid_length(1, &self))?;
+
+                let mut data = vec![0; page_count * PAGE_SIZE];
+                data[..ignored_page_region.0 * PAGE_SIZE].copy_from_slice(data_before_ignore);
+                data[ignored_page_region.1 * PAGE_SIZE..].copy_from_slice(data_after_ignore);
+
+                Ok(MemoryInstance { kind, page_count, ignored_page_region, data })
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
+            where
+                V: MapAccess<'de>,
+            {
+                let mut kind = None;
+                let mut page_count = None;
+                let mut ignored_page_region: Option<(usize, usize)> = None;
+                let mut data = None;
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::Kind => {
+                            if kind.is_some() {
+                                return Err(de::Error::duplicate_field("kind"));
+                            }
+                            kind = Some(map.next_value()?);
+                        }
+                        Field::PageCount => {
+                            if page_count.is_some() {
+                                return Err(de::Error::duplicate_field("page_count"));
+                            }
+                            page_count = Some(map.next_value()?);
+                            data = Some(vec![0u8; page_count.unwrap() * PAGE_SIZE]);
+                        }
+                        Field::IgnoredPageRegion => {
+                            if ignored_page_region.is_some() {
+                                return Err(de::Error::duplicate_field("ignored_page_region"));
+                            }
+                            ignored_page_region = Some(map.next_value()?);
+                        }
+                        Field::DataBeforeIgnore => {
+                            let Some(data) = &mut data else {
+                                return Err(de::Error::missing_field("page_count"));
+                            };
+                            let Some(ignored_page_region) = ignored_page_region else {
+                                return Err(de::Error::missing_field("ignored_page_region"));
+                            };
+                            data[..ignored_page_region.0 * PAGE_SIZE].copy_from_slice(map.next_value()?);
+                        }
+                        Field::DataAfterIgnore => {
+                            let Some(data) = &mut data else {
+                                return Err(de::Error::missing_field("page_count"));
+                            };
+                            let Some(ignored_page_region) = ignored_page_region else {
+                                return Err(de::Error::missing_field("ignored_page_region"));
+                            };
+                            data[ignored_page_region.1 * PAGE_SIZE..].copy_from_slice(map.next_value()?);
+                        }
+                    }
+                }
+                let kind = kind.ok_or_else(|| de::Error::missing_field("kind"))?;
+                let page_count = page_count.ok_or_else(|| de::Error::missing_field("page_count"))?;
+                let ignored_page_region: (usize, usize) =
+                    ignored_page_region.ok_or_else(|| de::Error::missing_field("ignored_page_region"))?;
+                let data = data.ok_or_else(|| de::Error::missing_field("page_count"))?;
+
+                Ok(MemoryInstance { kind, page_count, ignored_page_region, data })
+            }
+        }
+
+        const FIELDS: &[&str] = &["secs", "nanos"];
+        deserializer.deserialize_struct("Duration", FIELDS, MemoryInstanceVisitor)
+    }
+}

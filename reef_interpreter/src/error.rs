@@ -39,12 +39,14 @@ pub enum Error {
     /// The store is not the one that the module instance was instantiated in
     InvalidStore,
 
-    #[cfg(feature = "std")]
     /// An I/O error occurred
-    Io(crate::std::io::Error),
+    Io(std::io::Error),
 
     /// A parsing error occurred
     ParseError(ParseError),
+
+    /// Bincode error
+    Bincode(bincode::Error),
 }
 
 #[derive(Debug)]
@@ -178,7 +180,6 @@ impl From<LinkingError> for Error {
     }
 }
 
-#[cfg(feature = "std")]
 impl From<std::io::Error> for Error {
     fn from(value: std::io::Error) -> Self {
         Self::Io(value)
@@ -189,8 +190,8 @@ impl Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::ParseError(err) => write!(f, "error parsing module: {:?}", err),
+            Self::Bincode(err) => write!(f, "bincode error: {:?}", err),
 
-            #[cfg(feature = "std")]
             Self::Io(err) => write!(f, "I/O error: {}", err),
 
             Self::Trap(trap) => write!(f, "trap: {}", trap),
@@ -210,7 +211,9 @@ impl Display for Error {
 impl Display for LinkingError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::UnknownImport { module, name } => write!(f, "unknown import: {}.{}", module, name),
+            Self::UnknownImport { module, name } => {
+                write!(f, "unknown import: {}.{}", module, name)
+            }
             Self::IncompatibleImportType { module, name } => {
                 write!(f, "incompatible import type: {}.{}", module, name)
             }
@@ -243,8 +246,7 @@ impl Display for Trap {
     }
 }
 
-#[cfg(feature = "std")]
-impl crate::std::error::Error for Error {}
+impl std::error::Error for Error {}
 
 impl From<ParseError> for Error {
     fn from(value: ParseError) -> Self {
@@ -252,5 +254,11 @@ impl From<ParseError> for Error {
     }
 }
 
+impl From<bincode::Error> for Error {
+    fn from(value: bincode::Error) -> Self {
+        Self::Bincode(value)
+    }
+}
+
 /// A wrapper around [`core::result::Result`] for this crates operations
-pub type Result<T, E = Error> = crate::std::result::Result<T, E>;
+pub type Result<T, E = Error> = std::result::Result<T, E>;

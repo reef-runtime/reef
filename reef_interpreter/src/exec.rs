@@ -1,19 +1,12 @@
 //! Modules for types related to controlling the execution of Wasm
 
 use alloc::vec::Vec;
-use core::mem::take;
-
-use rkyv::{
-    ser::{
-        serializers::{AlignedSerializer, CompositeSerializer, HeapScratch, SharedSerializeMap},
-        Serializer,
-    },
-    AlignedVec,
-};
+use std::io::Write;
 
 use crate::error::Result;
 use crate::func::{FromWasmValueTuple, FuncHandle};
 use crate::runtime::{RawWasmValue, Stack};
+use crate::store::memory::MemoryInstance;
 use crate::types::value::WasmValue;
 
 /// Retuened by [`run`](ExecHandle::run) to indicate if the function finsihed execution with the given max_cycles
@@ -56,22 +49,14 @@ impl ExecHandle {
     }
 
     /// Take the current execution state and serialize it
-    pub fn serialize(&mut self, buf: AlignedVec) -> Result<AlignedVec> {
-        let memory = &mut self.func_handle.instance.memories[0];
+    pub fn serialize<W: Write>(&mut self, writer: W) -> Result<()> {
+        let memory = &self.func_handle.instance.memories[0];
         let globals = self.func_handle.instance.globals.iter().map(|g| g.value).collect();
-        let data = SerializationState { stack: take(&mut self.stack), memory: take(&mut memory.data), globals };
+        let data = SerializationState { stack: &self.stack, memory, globals };
 
-        let mut serializer = CompositeSerializer::new(
-            AlignedSerializer::new(buf),
-            HeapScratch::<0x1000>::new(),
-            SharedSerializeMap::new(),
-        );
-        serializer.serialize_value(&data).expect("Failed to serialize state");
+        bincode::serialize_into(writer, &data)?;
 
-        memory.data = data.memory;
-        self.stack = data.stack;
-
-        Ok(serializer.into_serializer().into_inner())
+        Ok(())
     }
 }
 
@@ -104,15 +89,21 @@ impl<R: FromWasmValueTuple> ExecHandleTyped<R> {
     }
 
     /// See [`ExecHandle::serialize`]
-    pub fn serialize(&mut self, buf: AlignedVec) -> Result<AlignedVec> {
-        self.exec_handle.serialize(buf)
+    pub fn serialize<W: Write>(&mut self, writer: W) -> Result<()> {
+        self.exec_handle.serialize(writer)
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
-pub(crate) struct SerializationState {
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub(crate) struct SerializationState<'a> {
+    pub(crate) stack: &'a Stack,
+    pub(crate) memory: &'a MemoryInstance,
+    pub(crate) globals: Vec<RawWasmValue>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+pub(crate) struct DeserializationState {
     pub(crate) stack: Stack,
-    pub(crate) memory: Vec<u8>,
+    pub(crate) memory: MemoryInstance,
     pub(crate) globals: Vec<RawWasmValue>,
 }

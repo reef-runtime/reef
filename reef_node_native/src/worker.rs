@@ -16,10 +16,7 @@ use reef_interpreter::{
     reference::MemoryStringExt,
     Instance,
 };
-use rkyv::AlignedVec;
 use tungstenite::Message;
-// use tungstenite::stream::MaybeTlsStream;
-// use tungstenite::WebSocket;
 
 use crate::WSConn;
 
@@ -61,7 +58,7 @@ pub(crate) struct ReefLog {
 //
 
 #[derive(Debug)]
-pub(crate) struct Worker {
+pub(crate) struct Job {
     pub(crate) last_sync: Instant,
     pub(crate) sleep_until: Arc<Mutex<Option<Instant>>>,
 
@@ -71,25 +68,20 @@ pub(crate) struct Worker {
     pub(crate) signal_to_worker: Arc<AtomicU8>,
     pub(crate) channel_from_worker: mpsc::Receiver<FromWorkerMessage>,
 
-    pub(crate) handle: WorkerThreadHandle,
+    pub(crate) handle: JobThreadHandle,
 
     pub(crate) logs_to_be_flushed: Vec<ReefLog>,
     pub(crate) progress: f32,
 }
 
-impl Worker {
-    pub(crate) fn flush_state(
-        &mut self,
-        state: AlignedVec,
-        socket: &mut WSConn,
-    ) -> anyhow::Result<()> {
+impl Job {
+    pub(crate) fn flush_state(&mut self, state: &[u8], socket: &mut WSConn) -> anyhow::Result<()> {
         let mut message = capnp::message::Builder::new_default();
-        let mut root: reef_protocol_node::message_capnp::job_state_sync::Builder =
-            message.init_root();
+        let mut root: reef_protocol_node::message_capnp::job_state_sync::Builder = message.init_root();
 
         root.set_worker_index(self.worker_index as u16);
         root.set_progress(self.progress);
-        root.set_interpreter(&state);
+        root.set_interpreter(state);
 
         // Logs.
         let mut logs = root.init_logs(self.logs_to_be_flushed.len() as u32);
@@ -102,12 +94,9 @@ impl Worker {
         }
 
         let mut buffer = vec![];
-        capnp::serialize::write_message(&mut buffer, &message)
-            .with_context(|| "could not encode message")?;
+        capnp::serialize::write_message(&mut buffer, &message).with_context(|| "could not encode message")?;
 
-        socket
-            .send(Message::Binary(buffer))
-            .with_context(|| "could not send state sync")?;
+        socket.send(Message::Binary(buffer)).with_context(|| "could not send state sync")?;
 
         self.last_sync = Instant::now();
 
@@ -120,7 +109,7 @@ impl Worker {
 //
 
 pub(crate) enum FromWorkerMessage {
-    State(AlignedVec),
+    State(Vec<u8>),
     Log(ReefLog),
     Progress(f32),
     Sleep(f32),
@@ -128,9 +117,7 @@ pub(crate) enum FromWorkerMessage {
 
 pub(crate) type WorkerSender = mpsc::Sender<FromWorkerMessage>;
 
-fn reef_std_lib(
-    sender: WorkerSender,
-) -> std::result::Result<Imports, reef_interpreter::error::Error> {
+fn reef_std_lib(sender: WorkerSender) -> std::result::Result<Imports, reef_interpreter::error::Error> {
     let mut imports = Imports::new();
 
     //
@@ -147,10 +134,7 @@ fn reef_std_lib(
             let log_string = mem.load_string(ptr, len)?;
 
             sender_log
-                .send(FromWorkerMessage::Log(ReefLog {
-                    content: log_string,
-                    kind: TODO_LOG_KIND_DEFAULT,
-                }))
+                .send(FromWorkerMessage::Log(ReefLog { content: log_string, kind: TODO_LOG_KIND_DEFAULT }))
                 .unwrap();
 
             Ok(())
@@ -171,9 +155,7 @@ fn reef_std_lib(
                 ));
             }
 
-            sender_progress
-                .send(FromWorkerMessage::Progress(done.0))
-                .unwrap();
+            sender_progress.send(FromWorkerMessage::Progress(done.0)).unwrap();
 
             Ok(())
         }),
@@ -186,7 +168,7 @@ fn reef_std_lib(
     imports.define(
         REEF_SLEEP_NAME.0,
         REEF_SLEEP_NAME.1,
-        Extern::typed_func(move |mut _ctx: FuncContext<'_>, done: ReefProgressArgs| {
+        Extern::typed_func(move |mut _ctx: FuncContext<'_>, done: ReefSleepArgs| {
             sender_sleep.send(FromWorkerMessage::Sleep(done.0)).unwrap();
 
             Ok(())
@@ -206,9 +188,7 @@ fn setup_interpreter(
     let imports = reef_std_lib(sender)?;
 
     let (instance, stack) = Instance::instantiate(module, imports, state)?;
-    let entry_fn_handle = instance
-        .exported_func::<ReefMainArgs, ReefMainReturn>(REEF_MAIN_NAME)
-        .unwrap();
+    let entry_fn_handle = instance.exported_func::<ReefMainArgs, ReefMainReturn>(REEF_MAIN_NAME).unwrap();
     let exec_handle = entry_fn_handle.call((0,), stack)?;
 
     Ok(exec_handle)
@@ -226,7 +206,7 @@ impl From<reef_interpreter::error::Error> for JobError {
     }
 }
 
-pub(crate) type WorkerThreadHandle = JoinHandle<Result<ReefMainReturn, JobError>>;
+pub(crate) type JobThreadHandle = JoinHandle<Result<ReefMainReturn, JobError>>;
 
 #[non_exhaustive]
 pub(crate) struct WorkerSignal;
@@ -245,7 +225,7 @@ pub(crate) fn spawn_worker_thread(
     job_id: String,
     sleep_until: Arc<Mutex<Option<Instant>>>,
     // worker_index: usize,
-) -> WorkerThreadHandle {
+) -> JobThreadHandle {
     thread::spawn(move || -> Result<(i32,), JobError> {
         println!("Instantiating WASM interpreter...");
 
@@ -253,7 +233,7 @@ pub(crate) fn spawn_worker_thread(
         let mut exec_handle = setup_interpreter(sender.clone(), &program, None)?;
 
         // This is not being re-allocated inside the hotloop for performance gains.
-        let mut serialized_state: Option<AlignedVec> = None;
+        let mut serialized_state = Vec::with_capacity(reef_interpreter::PAGE_SIZE * 2);
 
         println!("Executing {}...", job_id);
 
@@ -271,20 +251,12 @@ pub(crate) fn spawn_worker_thread(
                 WorkerSignal::CONTINUE => (),
                 // Perform a state sync.
                 WorkerSignal::SAVE_STATE => {
-                    serialized_state = match serialized_state.is_some() {
-                        true => Some(exec_handle.serialize(serialized_state.take().unwrap())?),
-                        false => Some(AlignedVec::with_capacity(reef_interpreter::PAGE_SIZE * 2)),
-                    };
+                    let mut writer = std::io::Cursor::new(&mut serialized_state);
+                    exec_handle.serialize(&mut writer)?;
 
-                    println!(
-                        "Serialized {} bytes for state of {}.",
-                        serialized_state.as_ref().unwrap().len(),
-                        job_id
-                    );
+                    println!("Serialized {} bytes for state of {}.", serialized_state.len(), job_id);
 
-                    sender
-                        .send(FromWorkerMessage::State(serialized_state.take().unwrap()))
-                        .unwrap();
+                    sender.send(FromWorkerMessage::State(serialized_state.clone())).unwrap();
                 }
                 // Kill the worker.
                 WorkerSignal::ABORT => break Err(JobError::Aborted),
@@ -294,9 +266,7 @@ pub(crate) fn spawn_worker_thread(
             }
 
             if sleep {
-                if Instant::now().duration_since(sleep_until.lock().unwrap().unwrap())
-                    != Duration::ZERO
-                {
+                if Instant::now().duration_since(sleep_until.lock().unwrap().unwrap()) != Duration::ZERO {
                     println!("Sleeping");
                     continue;
                 }

@@ -44,7 +44,9 @@ impl Interpreter {
                 CallIndirect(ty, table) => {
                     skip!(self.exec_call_indirect(ty, table, stack, &mut cf, instance))
                 }
-                If(args, el, end) => skip!(self.exec_if((args).into(), el, end, stack, &mut cf, instance)),
+                If(args, el, end) => {
+                    skip!(self.exec_if((args).into(), el, end, stack, &mut cf, instance))
+                }
                 Loop(args, end) => self.enter_block(stack, cf.instr_ptr, end, BlockType::Loop, args, instance),
                 Block(args, end) => self.enter_block(stack, cf.instr_ptr, end, BlockType::Block, args, instance),
 
@@ -105,30 +107,68 @@ impl Interpreter {
                 MemoryInit(data_idx, mem_idx) => self.exec_memory_init(data_idx, mem_idx, stack, instance)?,
                 DataDrop(data_index) => instance.get_data_mut(data_index)?.drop(),
 
-                I32Store { mem_addr, offset } => mem_store!(i32, (mem_addr, offset), stack, instance),
-                I64Store { mem_addr, offset } => mem_store!(i64, (mem_addr, offset), stack, instance),
-                F32Store { mem_addr, offset } => mem_store!(f32, (mem_addr, offset), stack, instance),
-                F64Store { mem_addr, offset } => mem_store!(f64, (mem_addr, offset), stack, instance),
-                I32Store8 { mem_addr, offset } => mem_store!(i8, i32, (mem_addr, offset), stack, instance),
-                I32Store16 { mem_addr, offset } => mem_store!(i16, i32, (mem_addr, offset), stack, instance),
-                I64Store8 { mem_addr, offset } => mem_store!(i8, i64, (mem_addr, offset), stack, instance),
-                I64Store16 { mem_addr, offset } => mem_store!(i16, i64, (mem_addr, offset), stack, instance),
-                I64Store32 { mem_addr, offset } => mem_store!(i32, i64, (mem_addr, offset), stack, instance),
+                I32Store { mem_addr, offset } => {
+                    mem_store!(i32, (mem_addr, offset), stack, instance)
+                }
+                I64Store { mem_addr, offset } => {
+                    mem_store!(i64, (mem_addr, offset), stack, instance)
+                }
+                F32Store { mem_addr, offset } => {
+                    mem_store!(f32, (mem_addr, offset), stack, instance)
+                }
+                F64Store { mem_addr, offset } => {
+                    mem_store!(f64, (mem_addr, offset), stack, instance)
+                }
+                I32Store8 { mem_addr, offset } => {
+                    mem_store!(i8, i32, (mem_addr, offset), stack, instance)
+                }
+                I32Store16 { mem_addr, offset } => {
+                    mem_store!(i16, i32, (mem_addr, offset), stack, instance)
+                }
+                I64Store8 { mem_addr, offset } => {
+                    mem_store!(i8, i64, (mem_addr, offset), stack, instance)
+                }
+                I64Store16 { mem_addr, offset } => {
+                    mem_store!(i16, i64, (mem_addr, offset), stack, instance)
+                }
+                I64Store32 { mem_addr, offset } => {
+                    mem_store!(i32, i64, (mem_addr, offset), stack, instance)
+                }
 
                 I32Load { mem_addr, offset } => mem_load!(i32, (mem_addr, offset), stack, instance),
                 I64Load { mem_addr, offset } => mem_load!(i64, (mem_addr, offset), stack, instance),
                 F32Load { mem_addr, offset } => mem_load!(f32, (mem_addr, offset), stack, instance),
                 F64Load { mem_addr, offset } => mem_load!(f64, (mem_addr, offset), stack, instance),
-                I32Load8S { mem_addr, offset } => mem_load!(i8, i32, (mem_addr, offset), stack, instance),
-                I32Load8U { mem_addr, offset } => mem_load!(u8, i32, (mem_addr, offset), stack, instance),
-                I32Load16S { mem_addr, offset } => mem_load!(i16, i32, (mem_addr, offset), stack, instance),
-                I32Load16U { mem_addr, offset } => mem_load!(u16, i32, (mem_addr, offset), stack, instance),
-                I64Load8S { mem_addr, offset } => mem_load!(i8, i64, (mem_addr, offset), stack, instance),
-                I64Load8U { mem_addr, offset } => mem_load!(u8, i64, (mem_addr, offset), stack, instance),
-                I64Load16S { mem_addr, offset } => mem_load!(i16, i64, (mem_addr, offset), stack, instance),
-                I64Load16U { mem_addr, offset } => mem_load!(u16, i64, (mem_addr, offset), stack, instance),
-                I64Load32S { mem_addr, offset } => mem_load!(i32, i64, (mem_addr, offset), stack, instance),
-                I64Load32U { mem_addr, offset } => mem_load!(u32, i64, (mem_addr, offset), stack, instance),
+                I32Load8S { mem_addr, offset } => {
+                    mem_load!(i8, i32, (mem_addr, offset), stack, instance)
+                }
+                I32Load8U { mem_addr, offset } => {
+                    mem_load!(u8, i32, (mem_addr, offset), stack, instance)
+                }
+                I32Load16S { mem_addr, offset } => {
+                    mem_load!(i16, i32, (mem_addr, offset), stack, instance)
+                }
+                I32Load16U { mem_addr, offset } => {
+                    mem_load!(u16, i32, (mem_addr, offset), stack, instance)
+                }
+                I64Load8S { mem_addr, offset } => {
+                    mem_load!(i8, i64, (mem_addr, offset), stack, instance)
+                }
+                I64Load8U { mem_addr, offset } => {
+                    mem_load!(u8, i64, (mem_addr, offset), stack, instance)
+                }
+                I64Load16S { mem_addr, offset } => {
+                    mem_load!(i16, i64, (mem_addr, offset), stack, instance)
+                }
+                I64Load16U { mem_addr, offset } => {
+                    mem_load!(u16, i64, (mem_addr, offset), stack, instance)
+                }
+                I64Load32S { mem_addr, offset } => {
+                    mem_load!(i32, i64, (mem_addr, offset), stack, instance)
+                }
+                I64Load32U { mem_addr, offset } => {
+                    mem_load!(u32, i64, (mem_addr, offset), stack, instance)
+                }
 
                 I64Eqz => comp_zero!(==, i64, stack),
                 I32Eqz => comp_zero!(==, i32, stack),

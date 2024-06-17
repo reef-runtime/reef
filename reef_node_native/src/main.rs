@@ -14,7 +14,6 @@ use std::{
 use anyhow::{bail, Context, Result};
 use capnp::{message::ReaderOptions, serialize};
 use clap::Parser;
-use rkyv::AlignedVec;
 use tungstenite::{stream::MaybeTlsStream, Message, WebSocket};
 use url::Url;
 
@@ -26,11 +25,11 @@ use reef_protocol_node::message_capnp::{
 mod comms;
 mod handshake;
 mod worker;
-use worker::{FromWorkerMessage, Worker};
+use worker::{FromWorkerMessage, Job};
 
 type WSConn = WebSocket<MaybeTlsStream<TcpStream>>;
 
-use crate::worker::{spawn_worker_thread, ReefLog, WorkerSignal};
+use crate::worker::{spawn_worker_thread, WorkerSignal};
 
 const NODE_REGISTER_PATH: &str = "/api/node/connect";
 
@@ -57,7 +56,7 @@ struct Args {
     sync_delay_millis: usize,
 }
 
-struct NodeState(Vec<Worker>);
+struct NodeState(Vec<Job>);
 
 impl NodeState {
     fn new(num_workers: usize) -> Self {
@@ -92,28 +91,22 @@ fn main() -> anyhow::Result<()> {
     //
     // Perform handshake.
     //
-    let num_workers = std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(1);
+    let num_workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
 
     let node_name = match args.node_name {
         Some(from_args) => from_args,
         None => {
-            let hostname = sysinfo::System::host_name()
-                .with_context(|| "failed to determine system hostname")?;
+            let hostname = sysinfo::System::host_name().with_context(|| "failed to determine system hostname")?;
             format!("native@{hostname}")
         }
     };
 
     let mut state = NodeState::new(num_workers);
 
-    let node_info = handshake::perform(&node_name, num_workers as u16, &mut socket)
-        .with_context(|| "handshake failed")?;
+    let node_info =
+        handshake::perform(&node_name, num_workers as u16, &mut socket).with_context(|| "handshake failed")?;
 
-    println!(
-        "===> Handshake successful: node {} is connected.",
-        hex::encode(node_info.node_id)
-    );
+    println!("===> Handshake successful: node {} is connected.", hex::encode(node_info.node_id));
 
     let sync_wait_duration = Duration::from_millis(args.sync_delay_millis as u64);
 
@@ -123,9 +116,7 @@ fn main() -> anyhow::Result<()> {
         //
         if socket.can_read() {
             let msg = socket.read().expect("Error reading message");
-            state
-                .handle_websocket(msg)
-                .with_context(|| "evaluating incoming message")?;
+            state.handle_websocket(msg).with_context(|| "evaluating incoming message")?;
         }
 
         //
@@ -144,17 +135,12 @@ fn main() -> anyhow::Result<()> {
                 }
                 Ok(FromWorkerMessage::Sleep(seconds)) => {
                     let sleep_until = &mut worker.sleep_until.lock().unwrap();
-                    **sleep_until = Some(
-                        Instant::now()
-                            .checked_add(Duration::from_millis((seconds * 1000f32) as u64))
-                            .unwrap(),
-                    );
-                    worker
-                        .signal_to_worker
-                        .store(WorkerSignal::SLEEP, Ordering::Relaxed);
+                    **sleep_until =
+                        Some(Instant::now().checked_add(Duration::from_millis((seconds * 1000f32) as u64)).unwrap());
+                    worker.signal_to_worker.store(WorkerSignal::SLEEP, Ordering::Relaxed);
                 }
                 Ok(FromWorkerMessage::State(interpreter_state)) => {
-                    worker.flush_state(interpreter_state, &mut socket)?;
+                    worker.flush_state(&interpreter_state, &mut socket)?;
                 }
                 Err(TryRecvError::Empty) => thread::sleep(MAIN_THREAD_SLEEP),
                 Err(TryRecvError::Disconnected) => unreachable!("all senders have been dropped"),
@@ -171,9 +157,7 @@ fn main() -> anyhow::Result<()> {
             // Send a sync request if enough time has passed.
             //
             if worker.last_sync.duration_since(Instant::now()) >= sync_wait_duration {
-                worker
-                    .signal_to_worker
-                    .store(WorkerSignal::SAVE_STATE, Ordering::Relaxed);
+                worker.signal_to_worker.store(WorkerSignal::SAVE_STATE, Ordering::Relaxed);
             }
         }
 
@@ -181,22 +165,15 @@ fn main() -> anyhow::Result<()> {
         // Remove all finished jobs.
         //
         for worker_idx in finished_worker_indices {
-            let idx_in_vec = state
-                .0
-                .iter()
-                .position(|w| w.worker_index == worker_idx)
-                .unwrap();
+            let idx_in_vec = state.0.iter().position(|w| w.worker_index == worker_idx).unwrap();
 
             let mut worker = state.0.remove(idx_in_vec);
 
             // Transfer any logs and the final progress reading to the manager.
             // State can be empty since it is not required anymore.
-            worker.flush_state(AlignedVec::new(), &mut socket)?;
+            worker.flush_state(&[], &mut socket)?;
 
-            let res = worker
-                .handle
-                .join()
-                .expect("worker thread panic'ed, this is a bug");
+            let res = worker.handle.join().expect("worker thread panic'ed, this is a bug");
 
             match res {
                 Ok(ret_val) => println!("Job has executed successfully! {}", ret_val.0),
@@ -271,7 +248,7 @@ impl NodeState {
             sleep_until.clone(),
         );
 
-        let worker = Worker {
+        let worker = Job {
             worker_index: request.worker_index,
             job_id: request.job_id,
             signal_to_worker: signal.clone(),
@@ -314,21 +291,16 @@ fn handle_binary(bin_slice: &[u8]) -> Result<Action> {
 
     let decoded = message.get_root::<message_to_node::Reader>().unwrap();
 
-    let kind = decoded
-        .get_kind()
-        .with_context(|| "failed to determine incoming binary message kind")?;
+    let kind = decoded.get_kind().with_context(|| "failed to determine incoming binary message kind")?;
 
-    let body = decoded
-        .get_body()
-        .which()
-        .with_context(|| "could not read node ID")?;
+    let body = decoded.get_body().which().with_context(|| "could not read node ID")?;
 
     match (kind, body) {
         (MessageToNodeKind::StartJob, body::Which::StartJob(body)) => {
             let body = body?;
             let worker_index = body.get_worker_index() as usize;
-            let job_id = String::from_utf8(body.get_job_i_d()?.0.to_vec())
-                .with_context(|| "illegal job ID encoding")?;
+            let job_id =
+                String::from_utf8(body.get_job_i_d()?.0.to_vec()).with_context(|| "illegal job ID encoding")?;
 
             let program_byte_code = body.get_program_byte_code()?;
 

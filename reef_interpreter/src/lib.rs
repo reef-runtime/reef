@@ -1,4 +1,4 @@
-#![no_std]
+// #![no_std]
 #![warn(missing_docs, missing_debug_implementations, rust_2018_idioms, unreachable_pub)]
 
 //! A tiny WebAssembly Runtime written in Rust
@@ -25,9 +25,6 @@
 //! See the [`Imports`] documentation for more information.
 
 extern crate alloc;
-
-#[cfg(feature = "std")]
-extern crate std;
 
 pub mod error;
 pub mod exec;

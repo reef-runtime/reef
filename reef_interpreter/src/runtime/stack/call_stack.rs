@@ -7,8 +7,7 @@ use crate::runtime::{BlockType, RawWasmValue};
 use crate::types::{instructions::Instruction, FuncAddr, LocalAddr, WasmFunction};
 use crate::{cold, unlikely, CALL_STACK_SIZE};
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct CallStack(pub(crate) Vec<CallFrame>);
 
 impl CallStack {
@@ -46,8 +45,8 @@ impl CallStack {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+
 pub(crate) struct CallFrame {
     pub(crate) instr_ptr: usize,
     pub(crate) block_ptr: u32,

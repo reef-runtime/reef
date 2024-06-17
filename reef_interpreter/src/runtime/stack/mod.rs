@@ -7,8 +7,7 @@ pub(crate) use call_stack::{CallFrame, CallStack};
 pub(crate) use value_stack::ValueStack;
 
 /// A WebAssembly Stack
-#[derive(Debug, Clone, PartialEq, Eq, Default, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub struct Stack {
     pub(crate) values: ValueStack,
     pub(crate) blocks: BlockStack,

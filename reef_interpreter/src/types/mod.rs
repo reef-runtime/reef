@@ -14,8 +14,8 @@ use value::ValType;
 ///
 /// This is the internal representation of a WebAssembly module in this crate.
 /// Modules are validated before being created, so they are guaranteed to be valid.
-#[derive(Debug, Clone, Default, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+
 pub struct Module {
     /// Optional address of the start function
     ///
@@ -71,8 +71,8 @@ pub struct Module {
 /// A WebAssembly External Kind.
 ///
 /// See <https://webassembly.github.io/spec/core/syntax/types.html#external-types>
-#[derive(Debug, Clone, Copy, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+
 pub enum ExternalKind {
     /// A WebAssembly Function.
     Func,
@@ -141,15 +141,15 @@ impl ExternVal {
 /// The type of a WebAssembly Function.
 ///
 /// See <https://webassembly.github.io/spec/core/syntax/types.html#function-types>
-#[derive(Debug, Clone, PartialEq, Default, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize)]
+
 pub struct FuncType {
     pub params: Box<[ValType]>,
     pub results: Box<[ValType]>,
 }
 
-#[derive(Debug, Clone, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+
 pub struct WasmFunction {
     pub instructions: Box<[Instruction]>,
     pub locals: Box<[ValType]>,
@@ -157,8 +157,8 @@ pub struct WasmFunction {
 }
 
 /// A WebAssembly Module Export
-#[derive(Debug, Clone, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+
 pub struct Export {
     /// The name of the export.
     pub name: Box<str>,
@@ -168,22 +168,22 @@ pub struct Export {
     pub index: u32,
 }
 
-#[derive(Debug, Clone, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+
 pub struct Global {
     pub ty: GlobalType,
     pub init: ConstInstruction,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+
 pub struct GlobalType {
     pub mutable: bool,
     pub ty: ValType,
 }
 
-#[derive(Debug, Clone, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+
 pub struct TableType {
     pub element_type: ValType,
     pub size_initial: u32,
@@ -201,8 +201,8 @@ impl TableType {
 }
 
 /// Represents a memory's type.
-#[derive(Debug, Copy, Clone, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+
 pub struct MemoryType {
     pub arch: MemoryArch,
     pub page_count_initial: u64,
@@ -215,23 +215,23 @@ impl MemoryType {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+
 pub enum MemoryArch {
     I32,
     I64,
 }
 
-#[derive(Debug, Clone, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+
 pub struct Import {
     pub module: Box<str>,
     pub name: Box<str>,
     pub kind: ImportKind,
 }
 
-#[derive(Debug, Clone, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+
 pub enum ImportKind {
     Function(TypeAddr),
     Table(TableType),
@@ -251,23 +251,23 @@ impl From<&ImportKind> for ExternalKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+
 pub struct Data {
     pub data: Box<[u8]>,
     pub range: Range<usize>,
     pub kind: DataKind,
 }
 
-#[derive(Debug, Clone, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+
 pub enum DataKind {
     Active { mem: MemAddr, offset: ConstInstruction },
     Passive,
 }
 
-#[derive(Debug, Clone, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+
 pub struct Element {
     pub kind: ElementKind,
     pub items: Box<[ElementItem]>,
@@ -275,16 +275,16 @@ pub struct Element {
     pub ty: ValType,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+
 pub enum ElementKind {
     Passive,
     Active { table: TableAddr, offset: ConstInstruction },
     Declared,
 }
 
-#[derive(Debug, Clone, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+
 pub enum ElementItem {
     Func(FuncAddr),
     Expr(ConstInstruction),
