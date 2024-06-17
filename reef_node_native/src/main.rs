@@ -216,7 +216,9 @@ impl NodeState {
             Action::Ping => {
                 println!("received ping, would send pong here...");
             }
-            Action::Pong => todo!(),
+            Action::Pong => {
+                print!("received pong, doing nothing...");
+            },
             Action::Disconnect => todo!(),
         }
 
