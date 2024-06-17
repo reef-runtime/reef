@@ -23,9 +23,7 @@ struct MessageToNode {
 
     body :union {
         empty               @1  :Void;
-
         assignID            @2  :AssignIDMessage;
-
         startJob            @3  :JobInitializationMessage;
         resumeJob           @4  :JobResumeMessage;
         abortJob            @5  :JobKillMessage;
@@ -37,19 +35,19 @@ struct AssignIDMessage {
 }
 
 struct JobResumeMessage {
-    job @0 :JobInitializationMessage;
-    previousState @1: PreviousJobState;
+    job             @0 :JobInitializationMessage;
+    previousState   @1: PreviousJobState;
 }
 
 
 struct PreviousJobState {
-    progress @0 :Float32;
-    interpreterState @1 :Data;
+    progress            @0 :Float32;
+    interpreterState    @1 :Data;
 }
 
 struct JobInitializationMessage {
-    workerIndex @0 :UInt32;
-    jobID @1 :Text;
+    workerIndex     @0 :UInt32;
+    jobID           @1 :Text;
     programByteCode @2 :Data;
 }
 
@@ -66,38 +64,37 @@ enum MessageFromNodeKind {
     ping                @0;
     pong                @1;
 
-    jobLog              @2;
-    jobProgressReport   @3;
+    jobStateSync        @2;
 }
 
 struct MessageFromNode {
     kind @0 :MessageFromNodeKind;
 
     body :union {
-        empty                   @1 :Void;
-        jobLog                  @2 :JobLogMessage;
-        jobProgressReport       @3 :JobProgressReportMessage;
+        empty           @1 :Void;
+        jobStateSync    @2 :JobStateSync;
     }
 }
 
 struct HandshakeRespondMessage {
-    numWorkers @0 :UInt16;
-    nodeName @1 :Text;
+    numWorkers  @0 :UInt16;
+    nodeName    @1 :Text;
 }
 
 struct JobStartedMessage {
     workerIndex @0 :UInt32;
-    jobID @1 :Text;
+    jobID       @1 :Text;
 }
 
 struct JobLogMessage {
-    logKind @0 :UInt16;
-    workerIndex @1 :UInt16;
-    content @2 :Data;
+    logKind     @0 :UInt16;
+    content     @1 :Data;
 }
 
-struct JobProgressReportMessage {
+struct JobStateSync {
     workerIndex @0 :UInt16;
-    # Maps from 0..=100 onto the full int range.
-    progress @1 :UInt16;
+    # Maps progress from 0..=1.0
+    progress    @1 :Float32;
+    logs        @2 :List(JobLogMessage);
+    interpreter @3 :Data;
 }

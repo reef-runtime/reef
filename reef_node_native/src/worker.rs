@@ -1,16 +1,14 @@
+use std::mem;
 use std::sync::Mutex;
-// use std::net::TcpStream;
+use std::sync::{
+    atomic::{AtomicU8, Ordering},
+    mpsc, Arc,
+};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
-use std::{
-    sync::{
-        atomic::{AtomicU8, Ordering},
-        mpsc, Arc,
-    },
-    // u32,
-};
 
-// use anyhow::Context;
+use anyhow::Context;
+
 use reef_interpreter::{
     exec::{CallResultTyped, ExecHandleTyped},
     imports::{Extern, FuncContext, Imports},
@@ -19,10 +17,14 @@ use reef_interpreter::{
     Instance,
 };
 use rkyv::AlignedVec;
+use tungstenite::Message;
 // use tungstenite::stream::MaybeTlsStream;
 // use tungstenite::WebSocket;
 
 use crate::WSConn;
+
+// TODO: use a shared constant for this.
+const TODO_LOG_KIND_DEFAULT: u16 = 0;
 
 //
 // Wasm interface declaration
@@ -48,6 +50,12 @@ type ReefSleepArgs = (f32,);
 
 const ITERATION_CYCLES: usize = 0x10000;
 
+#[derive(Debug)]
+pub(crate) struct ReefLog {
+    pub(crate) content: String,
+    pub(crate) kind: u16,
+}
+
 //
 // Worker state.
 //
@@ -65,7 +73,7 @@ pub(crate) struct Worker {
 
     pub(crate) handle: WorkerThreadHandle,
 
-    pub(crate) logs_to_be_flushed: Vec<String>,
+    pub(crate) logs_to_be_flushed: Vec<ReefLog>,
     pub(crate) progress: f32,
 }
 
@@ -75,8 +83,35 @@ impl Worker {
         state: AlignedVec,
         socket: &mut WSConn,
     ) -> anyhow::Result<()> {
+        let mut message = capnp::message::Builder::new_default();
+        let mut root: reef_protocol_node::message_capnp::job_state_sync::Builder =
+            message.init_root();
+
+        root.set_worker_index(self.worker_index as u16);
+        root.set_progress(self.progress);
+        root.set_interpreter(&state);
+
+        // Logs.
+        let mut logs = root.init_logs(self.logs_to_be_flushed.len() as u32);
+        let logs_to_flush = mem::take(&mut self.logs_to_be_flushed);
+
+        for (idx, log) in logs_to_flush.into_iter().enumerate() {
+            let mut log_item = logs.reborrow().get(idx as u32);
+            log_item.set_content(&log.content.into_bytes());
+            log_item.set_log_kind(log.kind);
+        }
+
+        let mut buffer = vec![];
+        capnp::serialize::write_message(&mut buffer, &message)
+            .with_context(|| "could not encode message")?;
+
+        socket
+            .send(Message::Binary(buffer))
+            .with_context(|| "could not send state sync")?;
+
         self.last_sync = Instant::now();
-        todo!("impl this")
+
+        Ok(())
     }
 }
 
@@ -86,7 +121,7 @@ impl Worker {
 
 pub(crate) enum FromWorkerMessage {
     State(AlignedVec),
-    Log(String),
+    Log(ReefLog),
     Progress(f32),
     Sleep(f32),
 }
@@ -111,7 +146,12 @@ fn reef_std_lib(
             let len = args.1 as usize;
             let log_string = mem.load_string(ptr, len)?;
 
-            sender_log.send(FromWorkerMessage::Log(log_string)).unwrap();
+            sender_log
+                .send(FromWorkerMessage::Log(ReefLog {
+                    content: log_string,
+                    kind: TODO_LOG_KIND_DEFAULT,
+                }))
+                .unwrap();
 
             Ok(())
         }),
@@ -257,6 +297,7 @@ pub(crate) fn spawn_worker_thread(
                 if Instant::now().duration_since(sleep_until.lock().unwrap().unwrap())
                     != Duration::ZERO
                 {
+                    println!("Sleeping");
                     continue;
                 }
 

@@ -3,7 +3,7 @@ INPUT_FILES:=$(wildcard $(INPUT_DIR)/*.capnp)
 
 .PHONY: test build init
 
-init: 
+init:
 	go install capnproto.org/go/capnp/v3/capnpc-go@latest
 
 test: ./rust/src/*.rs go

@@ -347,30 +347,33 @@ func handleGenericIncoming(message []byte, pingHandler func(string) error) error
 		return pingHandler(string(message[1:]))
 	case node.MessageFromNodeKind_pong:
 		panic("TODO: implement this.")
-	case node.MessageFromNodeKind_jobLog:
-		return handleJobLog(decoded.Body())
-	case node.MessageFromNodeKind_jobProgressReport:
-		return handleJobProgressReport(decoded.Body())
+		// case node.MessageFromNodeKind_jobLog:
+		// 	return handleJobLog(decoded.Body())
+		// case node.MessageFromNodeKind_jobProgressReport:
+		// 	return handleJobProgressReport(decoded.Body())
+	case node.MessageFromNodeKind_jobStateSync:
+		fmt.Println("State sync is not yet supported")
+		return nil
 	default:
 		// VERY BAD!
 		panic("todo: better error handling")
 	}
 }
 
-func handleJobLog(body node.MessageFromNode_body) error {
-	jobLog, err := node.ReadRootJobLogMessage(body.Message())
-	if err != nil {
-		return err
-	}
+// func handleJobLog(body node.MessageFromNode_body) error {
+// 	jobLog, err := node.ReadRootJobLogMessage(body.Message())
+// 	if err != nil {
+// 		return err
+// 	}
+//
+// 	panic(jobLog)
+// }
 
-	panic(jobLog)
-}
-
-func handleJobProgressReport(body node.MessageFromNode_body) error {
-	jobProgress, err := node.ReadRootJobProgressReportMessage(body.Message())
-	if err != nil {
-		return err
-	}
-
-	panic(jobProgress)
-}
+// func handleJobProgressReport(body node.MessageFromNode_body) error {
+// 	jobProgress, err := node.ReadRootJobProgressReportMessage(body.Message())
+// 	if err != nil {
+// 		return err
+// 	}
+//
+// 	panic(jobProgress)
+// }

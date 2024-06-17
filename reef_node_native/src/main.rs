@@ -14,6 +14,7 @@ use std::{
 use anyhow::{bail, Context, Result};
 use capnp::{message::ReaderOptions, serialize};
 use clap::Parser;
+use rkyv::AlignedVec;
 use tungstenite::{stream::MaybeTlsStream, Message, WebSocket};
 use url::Url;
 
@@ -29,7 +30,7 @@ use worker::{FromWorkerMessage, Worker};
 
 type WSConn = WebSocket<MaybeTlsStream<TcpStream>>;
 
-use crate::worker::{spawn_worker_thread, WorkerSignal};
+use crate::worker::{spawn_worker_thread, ReefLog, WorkerSignal};
 
 const NODE_REGISTER_PATH: &str = "/api/node/connect";
 
@@ -133,10 +134,10 @@ fn main() -> anyhow::Result<()> {
         let mut finished_worker_indices = vec![];
         for worker in state.0.iter_mut() {
             match worker.channel_from_worker.try_recv() {
-                Ok(FromWorkerMessage::Log(contents)) => {
-                    println!("recv log: {} {contents}", worker.worker_index);
+                Ok(FromWorkerMessage::Log(log)) => {
+                    println!("recv log: {}:{} {}", log.content, log.kind, worker.worker_index);
 
-                    worker.logs_to_be_flushed.push(contents);
+                    worker.logs_to_be_flushed.push(log);
                 }
                 Ok(FromWorkerMessage::Progress(new)) => {
                     worker.progress = new;
@@ -186,7 +187,11 @@ fn main() -> anyhow::Result<()> {
                 .position(|w| w.worker_index == worker_idx)
                 .unwrap();
 
-            let worker = state.0.remove(idx_in_vec);
+            let mut worker = state.0.remove(idx_in_vec);
+
+            // Transfer any logs and the final progress reading to the manager.
+            // State can be empty since it is not required anymore.
+            worker.flush_state(AlignedVec::new(), &mut socket)?;
 
             let res = worker
                 .handle
