@@ -1,5 +1,6 @@
 use std::{
     net::{IpAddr, SocketAddr, ToSocketAddrs},
+    path::PathBuf,
     str::FromStr,
 };
 
@@ -10,7 +11,7 @@ use anyhow::{bail, Context, Result};
 use compiler_capnp::compiler;
 use futures::AsyncReadExt;
 use reef_protocol_compiler::compiler_capnp::{self, compiler_response};
-use server::run_server_main;
+use server::{run_server_main, Compiler};
 
 mod server;
 
@@ -20,6 +21,14 @@ pub enum Command {
     Server {
         /// The port on which the server listens.
         port: u16,
+        /// Skeleton path.
+        skeleton_path: PathBuf,
+        /// Compilation / build working dir.
+        build_path: PathBuf,
+
+        #[arg(short = 'c', long)]
+        // Whether to skip cleanup after compilation.
+        no_cleanup: bool,
     },
     /// Connect to an existing server.
     Client {
@@ -43,15 +52,27 @@ pub async fn main() -> Result<()> {
     let args = Args::parse();
 
     match args.subcommand {
-        Command::Server { port } => {
+        Command::Server {
+            port,
+            skeleton_path,
+            build_path,
+            no_cleanup,
+        } => {
             let addr = SocketAddr::new(
                 IpAddr::from_str("0.0.0.0").with_context(|| "IP is always valid")?,
                 port,
             );
 
-            run_server_main(addr)
-                .await
-                .with_context(|| "failed to run server")
+            run_server_main(
+                addr,
+                Compiler {
+                    build_path,
+                    skeleton_path,
+                    no_cleanup,
+                },
+            )
+            .await
+            .with_context(|| "failed to run server")
         }
         Command::Client { ip, port } => {
             let addr = format!("{ip}:{port}")

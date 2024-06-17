@@ -1,9 +1,18 @@
 CLANG:=clang
+CLANG_ARGS:=
+TARGET=wasm32
 
-IN_FILE:=../src/$(HASH)/$(HASH)
-OUT_FILE:=../output/$(HASH)/$(HASH)
+ENTRY_FILE:=lib.c
+
+IN_FILE:=./input.c
+OUT_FILE:./output.wasm
 
 .PHONY: build
 
 build:
-	$(CLANG) -Wl,--allow-undefined -Wl,--no-entry -Wl,--export-all --target=wasm32 --no-standard-libraries -v -o $(OUT_FILE).wasm $(IN_FILE).c
+	$(CLANG) -Wl,--no-entry -Wl,--export-all \
+		--target=$(TARGET) \
+		--no-standard-libraries \
+		$(CLANG_ARGS) \
+		-o $(OUT_FILE) \
+		$(ENTRY_FILE)
