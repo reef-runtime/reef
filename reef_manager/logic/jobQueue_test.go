@@ -36,7 +36,7 @@ func TestJobQueue(t *testing.T) {
 	jobs := NewJobQueue()
 
 	for _, elem := range items {
-		jobs.Push(elem)
+		jobs.Push(elem, nil)
 	}
 
 	assert.False(t, jobs.IsEmpty())
@@ -50,9 +50,9 @@ func TestJobQueue(t *testing.T) {
 			break
 		}
 
-		fmt.Printf("[test] Job ID: %s\n", job.ID)
+		fmt.Printf("[test] Job ID: %s\n", job.Job.ID)
 
-		results = append(results, job)
+		results = append(results, job.Job)
 		count--
 
 		assert.Equal(t, jobs.Len(), count)

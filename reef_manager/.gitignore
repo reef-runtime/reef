@@ -2,3 +2,4 @@ reef_manager
 .docker_ok
 log/
 datasets/
+wasm_cache

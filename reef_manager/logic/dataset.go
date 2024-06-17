@@ -11,6 +11,7 @@ import (
 )
 
 const dataSetFileEnding = ".bin"
+const defaultFilePermissions = 0700
 
 type DatasetManagerT struct {
 	DatasetPath string
@@ -37,7 +38,7 @@ func (m *DatasetManagerT) AddDataset(name string, data []byte) (id string, err e
 
 	path := filepath.Join(m.DatasetPath, fmt.Sprintf("%s%s", id, dataSetFileEnding))
 
-	if err := os.WriteFile(path, data, 0755); err != nil {
+	if err := os.WriteFile(path, data, defaultFilePermissions); err != nil {
 		return "", err
 	}
 
@@ -51,6 +52,21 @@ func (m *DatasetManagerT) DeleteDataset(id string) (found bool, err error) {
 	if err := os.Remove(m.DatasetPath + id + ".bin"); err != nil {
 		return found, err
 	}
+	return true, nil
+}
+
+func (m *DatasetManagerT) DoesDatasetExist(id string) (bool, error) {
+	filename := m.DatasetPath + id + ".bin"
+
+	if _, err := os.Stat(filename); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+
+		log.Errorf("Dataset is not readable: %s", err.Error())
+		return false, err
+	}
+
 	return true, nil
 }
 

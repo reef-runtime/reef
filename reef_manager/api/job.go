@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -30,9 +31,35 @@ func SubmitJob(ctx *gin.Context) {
 		return
 	}
 
-	id, err := logic.JobManager.SubmitJob(submission)
-	if err != nil {
-		ctx.Status(http.StatusInternalServerError)
+	// Validate additional constraints, like validity of the dataset and language.
+	if submission.DatasetID != nil {
+		found, err := logic.DatasetManager.DoesDatasetExist(*submission.DatasetID)
+		if err != nil {
+			serverErr(ctx, err.Error())
+			return
+		}
+
+		if !found {
+			badRequest(ctx, fmt.Sprintf("dataset with id `%s` not found", *submission.DatasetID))
+			return
+		}
+	}
+
+	if err := submission.Language.Validate(); err != nil {
+		badRequest(ctx, err.Error())
+		return
+	}
+
+	// Submit job internally.
+	id, compileErr, systemErr := logic.JobManager.SubmitJob(submission)
+	if systemErr != nil {
+		serverErr(ctx, systemErr.Error())
+		return
+	}
+
+	// Notify user about potential compile error.
+	if compileErr != nil {
+		respondErr(ctx, "compilation error", *compileErr, http.StatusUnprocessableEntity)
 		return
 	}
 

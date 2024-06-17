@@ -1,14 +1,24 @@
 package logic
 
-import "github.com/sirupsen/logrus"
+import (
+	"fmt"
+
+	"github.com/sirupsen/logrus"
+)
 
 var log *logrus.Logger
 
-func Init(logger *logrus.Logger, datasetDirPath string) error {
+func Init(logger *logrus.Logger, compilerConfig CompilerConfig, datasetDirPath string) error {
 	log = logger
 	log.Trace("Initializing logic package...")
 
-	JobManager = newJobManager()
+	compiler, err := NewCompiler(compilerConfig)
+	if err != nil {
+		logger.Errorf("Failed to connect to remote compiler service: %s", err.Error())
+		return fmt.Errorf("compiler system error: %s", err.Error())
+	}
+
+	JobManager = newJobManager(&compiler)
 	if err := JobManager.init(); err != nil {
 		return err
 	}

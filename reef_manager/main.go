@@ -42,7 +42,7 @@ func ship(logger *logrus.Logger) error {
 		return errors.New("database error")
 	}
 
-	if err := logic.Init(logger, DATASET_PATH); err != nil {
+	if err := logic.Init(logger, config.CompilerConfig, DATASET_PATH); err != nil {
 		logger.Fatalf("Initializing logic package failed: %s", err.Error())
 		return errors.New("system error")
 	}
@@ -85,11 +85,6 @@ func ship(logger *logrus.Logger) error {
 	logger.Debugf("Starting web server on port %d...", WEB_PORT)
 
 	go logic.JobManager.JobQueueDaemon()
-
-	if err := logic.InitCompiler(config.CompilerConfig); err != nil {
-		logger.Errorf("Failed to connect to remote compiler service: %s", err.Error())
-		return errors.New("compiler system  error")
-	}
 
 	api.Init(logger)
 	if err := r.Run(":" + fmt.Sprint(WEB_PORT)); err != nil {

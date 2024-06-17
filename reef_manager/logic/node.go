@@ -55,10 +55,6 @@ type NodeWeb struct {
 
 var NodeManager NodeManagerT
 
-func IDToString(id NodeID) string {
-	return hex.EncodeToString(id[0:])
-}
-
 func (m *NodeManagerT) ListNodes() []NodeWeb {
 	m.Nodes.Lock.RLock()
 	defer m.Nodes.Lock.RUnlock()

@@ -29,17 +29,18 @@ func NewJobQueue() JobQueue {
 	}
 }
 
-func (j *JobQueue) Push(job database.Job) {
+func (j *JobQueue) Push(job database.Job, artifact []byte) {
 	j.lock.Lock()
 	defer j.lock.Unlock()
 
 	heap.Push(&j.pq, queuedJob{
-		Job: job,
+		Job:          job,
+		WasmArtifact: artifact,
 	})
 	j.len++
 }
 
-func (j *JobQueue) Pop() (job database.Job, found bool) {
+func (j *JobQueue) Pop() (job queuedJob, found bool) {
 	j.lock.Lock()
 	defer j.lock.Unlock()
 
@@ -50,7 +51,7 @@ func (j *JobQueue) Pop() (job database.Job, found bool) {
 	item := heap.Pop(&j.pq)
 	j.len--
 
-	return item.(*queuedItem[prioritizable]).Inner.(queuedJob).Job, true
+	return item.(*queuedItem[prioritizable]).Inner.(queuedJob), true
 }
 
 func (j *JobQueue) Delete(jobID string) (found bool) {

@@ -44,6 +44,15 @@ func respondOk(ctx *gin.Context, message string) {
 	respond(ctx, newOkResponse(message), http.StatusOK)
 }
 
+func respondErr(ctx *gin.Context, message string, err string, code int) {
+	respond(ctx, newErrResponse(message, err), code)
+}
+
 func badRequest(ctx *gin.Context, err string) {
 	respond(ctx, newErrResponse("bad request", err), http.StatusBadRequest)
+}
+
+func serverErr(ctx *gin.Context, err string) {
+	log.Errorf("Internal server error: %s", err)
+	respond(ctx, newErrResponse("internal server error", "backend error"), http.StatusInternalServerError)
 }

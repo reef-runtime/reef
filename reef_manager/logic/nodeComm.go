@@ -3,7 +3,6 @@ package logic
 import (
 	"encoding/binary"
 	"fmt"
-	"os"
 	"strings"
 
 	"capnproto.org/go/capnp/v3"
@@ -196,15 +195,10 @@ func (m *NodeManagerT) findFreeNode() (nodeID NodeID, workerIdx uint16, found bo
 	return nodeID, 0, false
 }
 
-func (m *NodeManagerT) StartJobOnFreeNode(jobID JobID, jobState *JobState) (couldStart bool, err error) {
+func (m *NodeManagerT) StartJobOnFreeNode(job queuedJob, jobState *JobState) (couldStart bool, err error) {
 	nodeID, workerIndex, nodeFound := m.findFreeNode()
 	if !nodeFound {
 		return false, nil
-	}
-
-	programByteCode, err := os.ReadFile("./c_test.wasm")
-	if err != nil {
-		panic("test file not found")
 	}
 
 	m.Nodes.Lock.Lock()
@@ -217,18 +211,23 @@ func (m *NodeManagerT) StartJobOnFreeNode(jobID JobID, jobState *JobState) (coul
 
 	log.Debugf("[node] Found free worker index %d on node `%s`", workerIndex, IDToString(nodeID))
 
-	if err := m.StartJobOnNode(node, jobID, workerIndex, programByteCode, jobState); err != nil {
-		log.Errorf("[node] Could not start job `%s` on node `%s`: %s", jobID, IDToString(nodeID), err.Error())
+	if err := m.StartJobOnNode(node, job.Job.ID, workerIndex, job.WasmArtifact, jobState); err != nil {
+		log.Errorf(
+			"[node] Could not start job `%s` on node `%s`: %s",
+			job.Job.ID,
+			IDToString(nodeID),
+			err.Error(),
+		)
 		return false, nil
 	}
 
-	found, err := database.ModifyJobStatus(jobID, database.StatusStarting)
+	found, err := database.ModifyJobStatus(job.Job.ID, database.StatusStarting)
 	if err != nil {
 		return false, err
 	}
 
 	if !found {
-		return false, fmt.Errorf("Could not modify job status: job `%s` not found in DB", jobID)
+		return false, fmt.Errorf("Could not modify job status: job `%s` not found in DB", job.Job.ID)
 	}
 
 	return true, nil

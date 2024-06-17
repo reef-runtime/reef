@@ -50,7 +50,7 @@ func initDB(deleteDatabase bool) error {
 
 	time.Sleep(deleteTablesGrace)
 
-	// Prevents bug detection from triggering
+	// Prevents bug detection from triggering.
 	db.db = nil
 	return initDB(false)
 }
