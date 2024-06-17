@@ -1,0 +1,20 @@
+meta {
+  name: [C] Submit Job
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{url}}/api/jobs/submit
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Bruno test job",
+    "datasetId": null,
+    "sourceCode": "void run_() {}",
+    "language": "c"
+  }
+}

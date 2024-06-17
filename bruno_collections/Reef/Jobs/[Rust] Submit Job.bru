@@ -1,0 +1,20 @@
+meta {
+  name: [Rust] Submit Job
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{url}}/api/jobs/submit
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Bruno test job",
+    "datasetId": null,
+    "sourceCode": "fn main() { panic!(\"EHLO3112\"); }",
+    "language": "rust"
+  }
+}
