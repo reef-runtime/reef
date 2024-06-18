@@ -107,7 +107,7 @@ impl Job {
         let mut buffer = vec![];
         capnp::serialize::write_message(&mut buffer, &message).with_context(|| "could not encode message")?;
 
-        socket.send(Message::Binary(buffer)).with_context(|| "could not send state sync")?;
+        socket.write(Message::Binary(buffer)).with_context(|| "could not send state sync")?;
 
         self.last_sync = Instant::now();
 
@@ -273,6 +273,7 @@ pub(crate) fn spawn_worker_thread(
                 WorkerSignal::CONTINUE => (),
                 // Perform a state sync.
                 WorkerSignal::SAVE_STATE => {
+                    serialized_state.clear();
                     let mut writer = std::io::Cursor::new(&mut serialized_state);
                     exec_handle.serialize(&mut writer)?;
 

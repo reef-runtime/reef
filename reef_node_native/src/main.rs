@@ -188,6 +188,8 @@ fn main() -> anyhow::Result<()> {
             }
         }
 
+        socket.flush()?;
+
         if !worked {
             thread::sleep(MAIN_THREAD_SLEEP);
         }
@@ -224,12 +226,8 @@ impl NodeState {
                     eprintln!("Failed to start job: {err}");
                 }
             }
-            Action::Ping => {
-                println!("received ping, would send pong here...");
-            }
-            Action::Pong => {
-                print!("received pong, doing nothing...");
-            }
+            Action::Ping => {}
+            Action::Pong => {}
             Action::Disconnect => todo!(),
         }
 
