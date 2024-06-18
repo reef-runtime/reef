@@ -93,6 +93,7 @@ test: $(GO_SRC)
 	$(GO_TEST_BIN) $(GO_TEST_ARGS)
 
 run: $(GO_SRC)
+	$(GO_BIN) mod tidy
 	$(GO_BIN) run $(GO_FLAGS) .
 
 
