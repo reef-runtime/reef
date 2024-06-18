@@ -1,5 +1,6 @@
+use std::cell::Cell;
 use std::mem;
-use std::sync::Mutex;
+use std::rc::Rc;
 use std::sync::{
     atomic::{AtomicU8, Ordering},
     mpsc, Arc,
@@ -43,7 +44,7 @@ type ReefProgressArgs = (f32,);
 const REEF_SLEEP_NAME: (&str, &str) = ("reef", "sleep");
 // Seconds to sleep.
 type ReefSleepArgs = (f32,);
-// type ReefProgressReturn = ();
+type ReefSleepReturn = ();
 
 const ITERATION_CYCLES: usize = 0x10000;
 
@@ -60,7 +61,6 @@ pub(crate) struct ReefLog {
 #[derive(Debug)]
 pub(crate) struct Job {
     pub(crate) last_sync: Instant,
-    pub(crate) sleep_until: Arc<Mutex<Option<Instant>>>,
 
     pub(crate) worker_index: usize,
     pub(crate) job_id: String,
@@ -112,12 +112,14 @@ pub(crate) enum FromWorkerMessage {
     State(Vec<u8>),
     Log(ReefLog),
     Progress(f32),
-    Sleep(f32),
 }
 
 pub(crate) type WorkerSender = mpsc::Sender<FromWorkerMessage>;
 
-fn reef_std_lib(sender: WorkerSender) -> std::result::Result<Imports, reef_interpreter::error::Error> {
+fn reef_std_lib(
+    sender: WorkerSender,
+    sleep_until: Rc<Cell<Instant>>,
+) -> std::result::Result<Imports, reef_interpreter::error::Error> {
     let mut imports = Imports::new();
 
     //
@@ -127,11 +129,9 @@ fn reef_std_lib(sender: WorkerSender) -> std::result::Result<Imports, reef_inter
     imports.define(
         REEF_LOG_NAME.0,
         REEF_LOG_NAME.1,
-        Extern::typed_func(move |ctx: FuncContext<'_>, args: ReefLogArgs| {
+        Extern::typed_func(move |ctx: FuncContext<'_>, (ptr, len): ReefLogArgs| {
             let mem = ctx.exported_memory("memory")?;
-            let ptr = args.0 as usize;
-            let len = args.1 as usize;
-            let log_string = mem.load_string(ptr, len)?;
+            let log_string = mem.load_string(ptr as usize, len as usize)?;
 
             sender_log
                 .send(FromWorkerMessage::Log(ReefLog { content: log_string, kind: TODO_LOG_KIND_DEFAULT }))
@@ -148,14 +148,14 @@ fn reef_std_lib(sender: WorkerSender) -> std::result::Result<Imports, reef_inter
     imports.define(
         REEF_PROGRESS_NAME.0,
         REEF_PROGRESS_NAME.1,
-        Extern::typed_func(move |mut _ctx: FuncContext<'_>, done: ReefProgressArgs| {
-            if !(0.0..=1.0).contains(&done.0) {
+        Extern::typed_func(move |mut _ctx: FuncContext<'_>, (done,): ReefProgressArgs| {
+            if !(0.0..=1.0).contains(&done) {
                 return Err(reef_interpreter::error::Error::Other(
                     "reef/progress: value not in Range 0.0..=1.0".into(),
                 ));
             }
 
-            sender_progress.send(FromWorkerMessage::Progress(done.0)).unwrap();
+            sender_progress.send(FromWorkerMessage::Progress(done)).unwrap();
 
             Ok(())
         }),
@@ -164,14 +164,19 @@ fn reef_std_lib(sender: WorkerSender) -> std::result::Result<Imports, reef_inter
     //
     // Reef sleep.
     //
-    let sender_sleep = sender.clone();
     imports.define(
         REEF_SLEEP_NAME.0,
         REEF_SLEEP_NAME.1,
-        Extern::typed_func(move |mut _ctx: FuncContext<'_>, done: ReefSleepArgs| {
-            sender_sleep.send(FromWorkerMessage::Sleep(done.0)).unwrap();
+        Extern::typed_func::<_, ReefSleepReturn>(move |mut _ctx: FuncContext<'_>, (seconds,): ReefSleepArgs| {
+            println!("Sleep");
 
-            Ok(())
+            sleep_until.set(
+                Instant::now()
+                    .checked_add(Duration::from_secs_f32(seconds))
+                    .ok_or_else(|| reef_interpreter::Error::Other("reef/sleep: Invalid time.".into()))?,
+            );
+
+            Err(reef_interpreter::Error::PauseExecution)
         }),
     )?;
 
@@ -182,10 +187,10 @@ fn setup_interpreter(
     sender: WorkerSender,
     program: &[u8],
     state: Option<&[u8]>,
-    // worker_index: usize,
+    sleep_until: Rc<Cell<Instant>>,
 ) -> std::result::Result<ReefMainHandle, reef_interpreter::error::Error> {
     let module = parse_bytes(program)?;
-    let imports = reef_std_lib(sender)?;
+    let imports = reef_std_lib(sender, sleep_until)?;
 
     let (instance, stack) = Instance::instantiate(module, imports, state)?;
     let entry_fn_handle = instance.exported_func::<ReefMainArgs, ReefMainReturn>(REEF_MAIN_NAME).unwrap();
@@ -212,10 +217,9 @@ pub(crate) type JobThreadHandle = JoinHandle<Result<ReefMainReturn, JobError>>;
 pub(crate) struct WorkerSignal;
 
 impl WorkerSignal {
-    pub(crate) const SLEEP: u8 = 0;
-    pub(crate) const CONTINUE: u8 = 1;
-    pub(crate) const SAVE_STATE: u8 = 2;
-    pub(crate) const ABORT: u8 = 3;
+    pub(crate) const CONTINUE: u8 = 0;
+    pub(crate) const SAVE_STATE: u8 = 1;
+    pub(crate) const ABORT: u8 = 2;
 }
 
 pub(crate) fn spawn_worker_thread(
@@ -223,30 +227,23 @@ pub(crate) fn spawn_worker_thread(
     signal: Arc<AtomicU8>,
     program: Vec<u8>,
     job_id: String,
-    sleep_until: Arc<Mutex<Option<Instant>>>,
-    // worker_index: usize,
 ) -> JobThreadHandle {
     thread::spawn(move || -> Result<(i32,), JobError> {
         println!("Instantiating WASM interpreter...");
 
+        let sleep_until = Rc::new(Cell::new(Instant::now()));
+
         // TODO get previous state
-        let mut exec_handle = setup_interpreter(sender.clone(), &program, None)?;
+        let mut exec_handle = setup_interpreter(sender.clone(), &program, None, sleep_until.clone())?;
 
         // This is not being re-allocated inside the hotloop for performance gains.
         let mut serialized_state = Vec::with_capacity(reef_interpreter::PAGE_SIZE * 2);
 
         println!("Executing {}...", job_id);
 
-        let mut sleep = false;
-
         loop {
             // Check for signal from manager thread.
-            match signal.swap(0, Ordering::Relaxed) {
-                // Do not perform further execution.
-                WorkerSignal::SLEEP => {
-                    sleep = true;
-                    continue;
-                }
+            match signal.swap(WorkerSignal::CONTINUE, Ordering::Relaxed) {
                 // No signal, perform normal execution.
                 WorkerSignal::CONTINUE => (),
                 // Perform a state sync.
@@ -265,13 +262,11 @@ pub(crate) fn spawn_worker_thread(
                 }
             }
 
-            if sleep {
-                if Instant::now().duration_since(sleep_until.lock().unwrap().unwrap()) != Duration::ZERO {
-                    println!("Sleeping");
-                    continue;
-                }
-
-                sleep = false;
+            let sleep_remaining = sleep_until.get().duration_since(Instant::now());
+            if sleep_remaining != Duration::ZERO {
+                let dur = sleep_remaining.min(Duration::from_millis(100));
+                thread::sleep(dur);
+                continue;
             }
 
             // Execute Wasm.

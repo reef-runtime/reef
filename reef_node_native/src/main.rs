@@ -1,5 +1,4 @@
 use std::sync::atomic::Ordering;
-use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
 use std::{
@@ -133,12 +132,6 @@ fn main() -> anyhow::Result<()> {
                 Ok(FromWorkerMessage::Progress(new)) => {
                     worker.progress = new;
                 }
-                Ok(FromWorkerMessage::Sleep(seconds)) => {
-                    let sleep_until = &mut worker.sleep_until.lock().unwrap();
-                    **sleep_until =
-                        Some(Instant::now().checked_add(Duration::from_millis((seconds * 1000f32) as u64)).unwrap());
-                    worker.signal_to_worker.store(WorkerSignal::SLEEP, Ordering::Relaxed);
-                }
                 Ok(FromWorkerMessage::State(interpreter_state)) => {
                     worker.flush_state(&interpreter_state, &mut socket)?;
                 }
@@ -175,6 +168,7 @@ fn main() -> anyhow::Result<()> {
 
             let res = worker.handle.join().expect("worker thread panic'ed, this is a bug");
 
+            // TODO: transfer result to manager
             match res {
                 Ok(ret_val) => println!("Job has executed successfully! {}", ret_val.0),
                 Err(err) => println!("Job failed: {err:?}"),
@@ -240,17 +234,10 @@ impl NodeState {
 
         let (to_master_sender, from_worker_receiver) = mpsc::channel();
 
-        let sleep_until = Arc::new(Mutex::new(None));
+        let handle =
+            spawn_worker_thread(to_master_sender, signal.clone(), request.program_byte_code, request.job_id.clone());
 
-        let handle = spawn_worker_thread(
-            to_master_sender,
-            signal.clone(),
-            request.program_byte_code,
-            request.job_id.clone(),
-            sleep_until.clone(),
-        );
-
-        let worker = Job {
+        let job = Job {
             worker_index: request.worker_index,
             job_id: request.job_id,
             signal_to_worker: signal.clone(),
@@ -259,10 +246,9 @@ impl NodeState {
             logs_to_be_flushed: Vec::new(),
             progress: 0.0,
             last_sync: Instant::now(),
-            sleep_until,
         };
 
-        self.0.push(worker);
+        self.0.push(job);
 
         Ok(())
     }
