@@ -9,7 +9,7 @@ use std::{
 use anyhow::{bail, Context, Result};
 use capnp::{message::ReaderOptions, serialize};
 use clap::Parser;
-use reef_protocol_node::message_capnp::ResultContentType;
+use reef_protocol_node::message_capnp::{MessageFromNodeKind, ResultContentType};
 use tungstenite::{stream::MaybeTlsStream, Message, WebSocket};
 use url::Url;
 
@@ -186,11 +186,11 @@ fn main() -> anyhow::Result<()> {
 
             let job_result = match thread_res {
                 Ok((contents, content_type)) => {
-                    println!("Job has executed successfully!");
+                    println!("==> Job has executed successfully!");
                     JobResult { success: true, contents, content_type }
                 }
                 Err(err) => {
-                    println!("Job failed: {err:?}");
+                    println!("==> Job failed: {err:?}");
                     JobResult {
                         success: true,
                         contents: format!("{:?}", err).into_bytes(),
@@ -216,7 +216,8 @@ fn main() -> anyhow::Result<()> {
 
 fn send_job_result(worker_index: u16, res: &JobResult, socket: &mut WSConn) -> anyhow::Result<()> {
     let mut message = capnp::message::Builder::new_default();
-    let encapsulating_message: reef_protocol_node::message_capnp::message_from_node::Builder = message.init_root();
+    let mut encapsulating_message: reef_protocol_node::message_capnp::message_from_node::Builder = message.init_root();
+    encapsulating_message.set_kind(MessageFromNodeKind::JobResult);
     let mut state_sync = encapsulating_message.get_body().init_job_result();
 
     state_sync.set_worker_index(worker_index);
@@ -228,7 +229,7 @@ fn send_job_result(worker_index: u16, res: &JobResult, socket: &mut WSConn) -> a
 
     capnp::serialize::write_message(&mut buffer, &message).with_context(|| "could not encode message")?;
 
-    socket.send(Message::Binary(buffer)).with_context(|| "could not job result")?;
+    socket.write(Message::Binary(buffer)).with_context(|| "could not job result")?;
 
     Ok(())
 }

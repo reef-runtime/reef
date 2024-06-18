@@ -75,6 +75,14 @@ func (m *NodeManagerT) ListNodes() []NodeWeb {
 	return nodes
 }
 
+func (m *NodeManagerT) GetNode(id NodeID) (node Node, found bool) {
+	m.Nodes.Lock.RLock()
+	defer m.Nodes.Lock.RUnlock()
+
+	nodeRaw, found := m.Nodes.Map[id]
+	return nodeRaw, found
+}
+
 func (m *NodeManagerT) ConnectNode(node NodeInfo, conn *WSConn) (nodeObj Node) {
 	newID := sha256.Sum256(append([]byte(node.EndpointIP), []byte(node.Name)...))
 	newIDString := hex.EncodeToString(newID[0:])

@@ -1,6 +1,8 @@
 package api
 
 import (
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"sync"
 	"time"
@@ -337,12 +339,12 @@ func handleGenericIncoming(nodeData logic.Node, message []byte, pingHandler func
 		return err
 	}
 
-	decoded, err := node.ReadRootMessageFromNode(unmarshaledRaw)
+	decodedEnclosingMsg, err := node.ReadRootMessageFromNode(unmarshaledRaw)
 	if err != nil {
 		return fmt.Errorf("could not read handshake response: %s", err.Error())
 	}
 
-	kind := decoded.Kind()
+	kind := decodedEnclosingMsg.Kind()
 
 	switch kind {
 	case node.MessageFromNodeKind_ping:
@@ -353,9 +355,74 @@ func handleGenericIncoming(nodeData logic.Node, message []byte, pingHandler func
 	case node.MessageFromNodeKind_jobStateSync:
 		fmt.Println("===== [TODO] State sync is not yet supported")
 		return nil
+	case node.MessageFromNodeKind_jobResult:
+		return processJobResultFromNode(nodeData.ID, decodedEnclosingMsg)
 	default:
 		return fmt.Errorf("Received illegal message kind from node: %d", kind)
 	}
+}
+
+func processJobResultFromNode(nodeID logic.NodeID, message node.MessageFromNode) error {
+	if message.Body().Which() != node.MessageFromNode_body_Which_jobResult {
+		panic("assertion failed: expected body type is job result, got something different")
+	}
+
+	result, err := message.Body().JobResult()
+	if err != nil {
+		return fmt.Errorf("could not parse job result: %s", err.Error())
+	}
+
+	nodeInfo, found := logic.NodeManager.GetNode(nodeID)
+	if !found {
+		return fmt.Errorf("illegal node: node ID `%s` references non-existent node", logic.IDToString(nodeID))
+	}
+
+	workerIndex := result.WorkerIndex()
+	if workerIndex >= nodeInfo.Info.NumWorkers {
+		return fmt.Errorf(
+			"illegal worker index: node returned illegal worker index (%d) when num workers is %d",
+			workerIndex,
+			nodeInfo.Info.NumWorkers,
+		)
+	}
+
+	jobID := nodeInfo.WorkerState[workerIndex]
+
+	if jobID == nil {
+		return fmt.Errorf(
+			"wrong worker index: node returned worker index (%d), this worker is idle",
+			workerIndex,
+		)
+	}
+
+	contents, err := result.Contents()
+	if err != nil {
+		return fmt.Errorf("could not decode result content bytes: %s", err.Error())
+	}
+
+	switch result.Success() {
+	case true:
+		log.Infof("Job `%s` has finished with SUCCESS", *jobID)
+	case false:
+		log.Infof("Job `%s` has finished with ERROR", *jobID)
+	}
+
+	contentType := result.ContentType()
+
+	switch contentType {
+	case node.ResultContentType_stringJSON, node.ResultContentType_stringPlain:
+		strRes := string(contents)
+		log.Infof("[STRING] Job result: `%s`", strRes)
+	case node.ResultContentType_int64:
+		intRes := int64(binary.LittleEndian.Uint64(contents))
+		log.Infof("[INT64] Job result: `%d`", intRes)
+	case node.ResultContentType_bytes:
+		log.Infof("[INT64] Job result: `%s`", hex.EncodeToString(contents))
+	default:
+		return fmt.Errorf("node returned illegal content type: %d", contentType)
+	}
+
+	return nil
 }
 
 // func handleJobLog(body node.MessageFromNode_body) error {

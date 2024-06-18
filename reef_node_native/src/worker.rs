@@ -18,7 +18,7 @@ use reef_interpreter::{
     reference::MemoryStringExt,
     Instance,
 };
-use reef_protocol_node::message_capnp::ResultContentType;
+use reef_protocol_node::message_capnp::{MessageFromNodeKind, ResultContentType};
 use tungstenite::Message;
 
 use crate::WSConn;
@@ -95,7 +95,10 @@ pub(crate) struct JobResult {
 impl Job {
     pub(crate) fn flush_state(&mut self, state: &[u8], socket: &mut WSConn) -> anyhow::Result<()> {
         let mut message = capnp::message::Builder::new_default();
-        let encapsulating_message: reef_protocol_node::message_capnp::message_from_node::Builder = message.init_root();
+        let mut encapsulating_message: reef_protocol_node::message_capnp::message_from_node::Builder =
+            message.init_root();
+        encapsulating_message.set_kind(MessageFromNodeKind::JobStateSync);
+
         let mut state_sync = encapsulating_message.get_body().init_job_state_sync();
 
         state_sync.set_worker_index(self.worker_index as u16);

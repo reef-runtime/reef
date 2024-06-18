@@ -65,6 +65,7 @@ enum MessageFromNodeKind {
     pong                @1;
 
     jobStateSync        @2;
+    jobResult           @3;
 }
 
 struct MessageFromNode {
