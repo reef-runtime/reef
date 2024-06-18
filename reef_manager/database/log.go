@@ -65,14 +65,18 @@ func DeleteLogs(jobID string) (found bool, err error) {
 	return affected != 0, nil
 }
 
-func GetLastLogs(num uint64, jobID string) ([]JobLog, error) {
-	res, err := db.builder.
+func GetLastLogs(limit *uint64, jobID string) ([]JobLog, error) {
+	query := db.builder.
 		Select("*").
 		From(LogTableName).
 		Where("log.job_id=?", jobID).
-		OrderBy("id DESC").
-		Limit(num).
-		Query()
+		OrderBy("created ASC")
+
+	if limit != nil {
+		query = query.Limit(*limit)
+	}
+
+	res, err := query.Query()
 
 	if err != nil {
 		// nolint:goconst

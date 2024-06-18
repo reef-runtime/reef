@@ -16,7 +16,9 @@ func GetLogs(ctx *gin.Context) {
 
 	jobID := ctx.Query("jobid")
 
-	logs, err := database.GetLastLogs(uint64(amount), jobID)
+	amountUint64 := uint64(amount)
+
+	logs, err := database.GetLastLogs(&amountUint64, jobID)
 	if err != nil {
 		ctx.Status(http.StatusInternalServerError)
 		return

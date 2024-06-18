@@ -74,6 +74,27 @@ func (j queuedJob) IsHigherThan(other prioritizable) bool {
 	return j.submittedAt().Before(otherJob.submittedAt())
 }
 
+type Job struct {
+	Data database.Job `json:"data"`
+	// TODO: Other fields can follow.
+}
+
+func (m *JobManagerT) ListJobs() ([]Job, error) {
+	dbJobs, err := database.ListJobs()
+	if err != nil {
+		return nil, err
+	}
+
+	jobs := make([]Job, len(dbJobs))
+	for idx, data := range dbJobs {
+		jobs[idx] = Job{
+			Data: data,
+		}
+	}
+
+	return jobs, nil
+}
+
 func (m *JobManagerT) SubmitJob(submission JobSubmission) (newID string, compilerErr *string, backendErr error) {
 	now := time.Now()
 
