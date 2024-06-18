@@ -80,7 +80,7 @@ dev-db-add-migration:
 	$(MIGRATE) create -ext sql -dir $(MIGRATIONS_DIR) -seq $(MIGRATION_NAME)
 
 dev-db-migrate-run:
-	$(MIGRATE) up $(MIGRATIONS_DIR)
+	$(MIGRATE) -database ${POSTGRESQL_URL} -path $(MIGRATIONS_DIR) up
 
 #
 # Server / GO.
@@ -106,3 +106,4 @@ clean:
 
 env: .env
 	env | $(GREP) REEF
+	env | $(GREP) POSTGRESQL_URL
