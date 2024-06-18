@@ -38,6 +38,7 @@ mod runtime;
 mod store;
 pub mod types;
 
+pub use error::Error;
 pub use instance::Instance;
 pub use module::parse_bytes;
 pub use types::Module;

@@ -13,13 +13,6 @@ mod macros;
 mod traits;
 use {macros::*, traits::*};
 
-#[cfg(not(feature = "std"))]
-mod no_std_floats;
-
-#[cfg(not(feature = "std"))]
-#[allow(unused_imports)]
-use no_std_floats::NoStdFloatExt;
-
 /// The Wasm interpreter.
 #[derive(Debug, Default)]
 pub(crate) struct Interpreter {}
@@ -27,7 +20,6 @@ pub(crate) struct Interpreter {}
 impl Interpreter {
     pub(crate) fn exec(&self, mut instance: &mut Instance, stack: &mut Stack, max_cycles: usize) -> Result<bool> {
         let mut cf = stack.call_stack.pop()?;
-        // let mut instance = store.get_module_instance().unwrap().clone();
 
         for _ in 0..=max_cycles {
             use crate::types::instructions::Instruction::*;
@@ -623,10 +615,19 @@ impl Interpreter {
                 let res = (host_func.func)(
                     FuncContext { module: &instance.module, memories: &mut instance.memories },
                     &params,
-                )?;
-                stack.values.extend_from_typed(&res);
+                );
+
+                let res = match res {
+                    Ok(res) => {
+                        stack.values.extend_from_typed(&res);
+                        Ok(())
+                    }
+                    Err(Error::PauseExecution) => Err(Error::PauseExecution),
+                    Err(err) => return Err(err),
+                };
+
                 cf.instr_ptr += 1;
-                return Ok(());
+                return res;
             }
         };
 
@@ -670,16 +671,23 @@ impl Interpreter {
                     .into());
                 }
 
-                // let host_func = host_func.clone();
                 let params = stack.values.pop_params(&host_func.ty.params)?;
                 let res = (host_func.func)(
                     FuncContext { module: &instance.module, memories: &mut instance.memories },
                     &params,
-                )?;
-                stack.values.extend_from_typed(&res);
+                );
+
+                let res = match res {
+                    Ok(res) => {
+                        stack.values.extend_from_typed(&res);
+                        Ok(())
+                    }
+                    Err(Error::PauseExecution) => Err(Error::PauseExecution),
+                    Err(err) => return Err(err),
+                };
 
                 cf.instr_ptr += 1;
-                return Ok(());
+                return res;
             }
         };
 

@@ -39,6 +39,9 @@ pub enum Error {
     /// The store is not the one that the module instance was instantiated in
     InvalidStore,
 
+    /// An error returned to pause execution
+    PauseExecution,
+
     /// An I/O error occurred
     Io(std::io::Error),
 
@@ -204,6 +207,7 @@ impl Display for Error {
             Self::BlockStackUnderflow => write!(f, "label stack underflow"),
             Self::ValueStackUnderflow => write!(f, "value stack underflow"),
             Self::InvalidStore => write!(f, "invalid store"),
+            Self::PauseExecution => write!(f, "pause execution"),
         }
     }
 }

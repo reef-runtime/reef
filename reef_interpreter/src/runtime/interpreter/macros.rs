@@ -215,6 +215,7 @@ macro_rules! skip {
     ($code:expr) => {
         match $code {
             Ok(_) => continue,
+            Err($crate::Error::PauseExecution) => break,
             Err(e) => return Err(e),
         }
     };

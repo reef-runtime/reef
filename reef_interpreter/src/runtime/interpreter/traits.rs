@@ -11,9 +11,6 @@ pub(crate) trait WasmFloatExt {
     fn tw_nearest(self) -> Self;
 }
 
-#[cfg(not(feature = "std"))]
-use super::no_std_floats::NoStdFloatExt;
-
 macro_rules! impl_wasm_float_ops {
     ($($t:ty)*) => ($(
         impl WasmFloatExt for $t {
