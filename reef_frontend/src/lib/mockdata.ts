@@ -54,7 +54,10 @@ export const mockNodes: INode[] = [
     },
     lastPing: '2023-10-01T12:15:00Z',
     id: '4567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234',
-    workerState: [null],
+    workerState: [
+        null,
+        'todo-efabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdef'
+    ],
   },
 ];
 
@@ -132,7 +135,7 @@ export const mockJobs: IJob[] = [
   },
   {
     id: 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
-    name: 'Image Recognition Job',
+    name: 'Genome Processing',
     submitted: '2023-10-01T10:05:00Z',
     status: IJobStatus.StatusStarting,
     datasetId:
@@ -140,7 +143,7 @@ export const mockJobs: IJob[] = [
   },
   {
     id: '7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456',
-    name: 'Video Encoding Job',
+    name: 'Weather Data Analysis',
     submitted: '2023-10-01T10:10:00Z',
     status: IJobStatus.StatusRunning,
     datasetId:
@@ -165,10 +168,17 @@ export const mockJobs: IJob[] = [
       '7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456',
   },
   {
-    id: 'abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdef',
-    name: 'Machine Learning Model Training',
+    id: 'todo-efabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdef',
+    name: 'TODO APP Create Task',
     submitted: '2023-10-01T10:25:00Z',
-    status: IJobStatus.StatusQueued,
+    status: IJobStatus.StatusDone,
+    result: {
+        jobID: "todo-efabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdef",
+        success: false,
+        content: new TextEncoder().encode("foo.hms: 12:42: something bad happened"),
+        contentType: IJobResultContentType.ContentTypeStringPlain,
+        created: '2023-10-01T10:20:00Z',
+    },
     datasetId:
       'abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdef',
   },
@@ -182,12 +192,12 @@ export const mockDatasets: IDataset[] = [
   },
   {
     id: '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-    name: 'Dataset for Image Recognition Job',
+    name: 'Dataset for Genome Processing',
     size: 2097152, // 2 MB
   },
   {
     id: '4567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234',
-    name: 'Dataset for Video Encoding Job',
+    name: 'Dataset for Weather Data Analysis',
     size: 3145728, // 3 MB
   },
   {
@@ -197,7 +207,7 @@ export const mockDatasets: IDataset[] = [
   },
   {
     id: 'abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdef',
-    name: 'Dataset for Machine Learning Model Training',
+    name: 'Dataset for TODO APP Create Task',
     size: 5242880, // 5 MB
   },
 ];

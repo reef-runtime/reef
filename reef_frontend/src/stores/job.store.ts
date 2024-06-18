@@ -1,4 +1,4 @@
-import { mockJobs } from '../lib/mockdata';
+import { mockJobs } from '@/lib/mockJobs';
 import { IJob } from '../types/job';
 import { create } from 'zustand';
 
