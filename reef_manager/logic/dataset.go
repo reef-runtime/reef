@@ -28,18 +28,23 @@ func (m *DatasetManagerT) AddDataset(name string, data []byte) (id string, err e
 	idBinary := sha256.Sum256(append([]byte(name), data...))
 	id = hex.EncodeToString(idBinary[0:])
 
-	if err := database.AddDataset(database.Dataset{
-		ID:   id,
-		Name: name,
-		Size: uint32(len(data)),
-	}); err != nil {
-		return "", err
-	}
-
 	path := filepath.Join(m.DatasetPath, fmt.Sprintf("%s%s", id, dataSetFileEnding))
 
 	if err := os.WriteFile(path, data, defaultFilePermissions); err != nil {
 		return "", err
+	}
+
+	alreadyExists, err := database.AddDataset(database.Dataset{
+		ID:   id,
+		Name: name,
+		Size: uint32(len(data)),
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if alreadyExists {
+		log.Debugf("Dataset `%s` already exists in database", id)
 	}
 
 	return id, nil
@@ -80,8 +85,12 @@ func (m *DatasetManagerT) LoadDataset(id string) (data []byte, found bool, err e
 	return data, true, nil
 }
 
-func newDatasetManager(datasetPath string) DatasetManagerT {
+func newDatasetManager(datasetPath string) (DatasetManagerT, error) {
+	if err := os.MkdirAll(datasetPath, defaultFilePermissions); err != nil {
+		return DatasetManager, fmt.Errorf("could not create dataset dir: %s", err.Error())
+	}
+
 	return DatasetManagerT{
 		DatasetPath: datasetPath,
-	}
+	}, nil
 }

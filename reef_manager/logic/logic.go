@@ -24,7 +24,11 @@ func Init(logger *logrus.Logger, compilerConfig CompilerConfig, datasetDirPath s
 	}
 
 	NodeManager = newNodeManager()
-	DatasetManager = newDatasetManager(datasetDirPath)
+	dsManager, err := newDatasetManager(datasetDirPath)
+	if err != nil {
+		return fmt.Errorf("initialize dataset subsystem: %s", err.Error())
+	}
+	DatasetManager = dsManager
 
 	log.Debug("Logic package successfully initialized")
 	return nil

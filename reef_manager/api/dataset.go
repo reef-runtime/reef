@@ -9,6 +9,7 @@ import (
 	"github.com/reef-runtime/reef/reef_manager/logic"
 )
 
+const datasetIDURLParam = "id"
 const formFileFieldName = "dataset"
 
 type IDBody struct {
@@ -26,22 +27,20 @@ func GetDatasets(ctx *gin.Context) {
 }
 
 func LoadDataset(ctx *gin.Context) {
-	var datasetID IDBody
-	if err := ctx.ShouldBindJSON(&datasetID); err != nil {
-		badRequest(ctx, err.Error())
-		return
-	}
+	id := ctx.Param(datasetIDURLParam)
 
-	data, found, err := logic.DatasetManager.LoadDataset(datasetID.ID)
+	data, found, err := logic.DatasetManager.LoadDataset(id)
 	if err != nil {
 		badRequest(ctx, err.Error())
 		return
 	}
+
 	if !found {
 		respond(
 			ctx,
+			// nolint:goconst
 			newErrResponse("could not load dataset", "dataset does not exist"),
-			http.StatusUnprocessableEntity,
+			http.StatusNotFound,
 		)
 		return
 	}

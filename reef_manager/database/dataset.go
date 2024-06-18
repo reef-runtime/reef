@@ -1,5 +1,10 @@
 package database
 
+import (
+	"database/sql"
+	"errors"
+)
+
 const DSTableName = "dataset"
 
 type Dataset struct {
@@ -9,17 +14,28 @@ type Dataset struct {
 	Size uint32 `json:"size"` // Size of the dataset in bytes.
 }
 
-func AddDataset(dataset Dataset) error {
+func AddDataset(dataset Dataset) (bool, error) {
+	var _id string
+	err := db.builder.Select("id").From(DSTableName).Where("id=?", dataset.ID).QueryRow().Scan(&_id)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return false, err
+	}
+
+	// Dataset already exists in database.
+	if err == nil {
+		return true, nil
+	}
+
 	if _, err := db.builder.Insert(DSTableName).Values(
 		dataset.ID,
 		dataset.Name,
 		dataset.Size,
 	).Exec(); err != nil {
 		log.Errorf("Could not add dataset to database: executing query failed: %s", err.Error())
-		return err
+		return false, err
 	}
 
-	return nil
+	return false, nil
 }
 
 func DeleteDataset(datasetID string) (found bool, err error) {
