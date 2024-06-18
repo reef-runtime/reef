@@ -164,6 +164,7 @@
             # JS toolchain
             nodejs_20
             nodePackages.npm
+            nodePackages.pnpm
 
             # Wasm tools
             wasmtime

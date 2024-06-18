@@ -22,19 +22,17 @@ export default function Home() {
     <main className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4">
       {nodes.map((node) => (
         <Card key={node.id} className="flex flex-col">
-          <CardHeader>
+          <CardHeader key={node.id}>
             <CardTitle>{node.info.name}</CardTitle>
-            <CardDescription>
-              <ol>
-                <li>{`${node.info.endPointIP}`}</li>
-                <li>
+            <CardDescription className='flex flex-col'>
+                <span>{`${node.info.endPointIP}`}</span>
+                <span>
                   {`Last Ping: ${
                     Math.floor(
                       (Date.now() - new Date(node.lastPing).getTime()) / 60000
                     ) + ' min'
                   }`}
-                </li>
-              </ol>
+                </span>
             </CardDescription>
           </CardHeader>
           <CardContent className="grow">
@@ -47,7 +45,7 @@ export default function Home() {
                   return (
                     <>
                       <div
-                        key={i}
+                        key={`${i}`}
                         className="text-sm flex items-center space-x-1"
                       >
                         <span
