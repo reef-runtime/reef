@@ -3,7 +3,7 @@ module github.com/reef-runtime/reef/reef_manager
 go 1.21.10
 
 require (
-	capnproto.org/go/capnp/v3 v3.0.0-alpha-29
+	capnproto.org/go/capnp/v3 v3.0.1-alpha.1
 	github.com/Masterminds/squirrel v1.5.4
 	github.com/davecgh/go-spew v1.1.1
 	github.com/gin-gonic/gin v1.9.1

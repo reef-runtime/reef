@@ -72,7 +72,10 @@ func (m *DatasetManagerT) DoesDatasetExist(id string) (bool, error) {
 
 func (m *DatasetManagerT) LoadDataset(id string) (data []byte, found bool, err error) {
 	if data, err = os.ReadFile(m.DatasetPath + id + ".bin"); err != nil {
-		return []byte{}, false, err
+		if os.IsNotExist(err) {
+			return nil, false, nil
+		}
+		return nil, false, err
 	}
 	return data, true, nil
 }

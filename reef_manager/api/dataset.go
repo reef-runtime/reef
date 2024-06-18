@@ -25,6 +25,29 @@ func GetDatasets(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, datasets)
 }
 
+func LoadDataset(ctx *gin.Context) {
+	var datasetID IDBody
+	if err := ctx.ShouldBindJSON(&datasetID); err != nil {
+		badRequest(ctx, err.Error())
+		return
+	}
+
+	data, found, err := logic.DatasetManager.LoadDataset(datasetID.ID)
+	if err != nil {
+		badRequest(ctx, err.Error())
+		return
+	}
+	if !found {
+		respond(
+			ctx,
+			newErrResponse("could not load dataset", "dataset does not exist"),
+			http.StatusUnprocessableEntity,
+		)
+		return
+	}
+	ctx.Data(http.StatusOK, "application/octet-stream", data)
+}
+
 func UploadDataset(ctx *gin.Context) {
 	fileHeader, err := ctx.FormFile(formFileFieldName)
 	if err != nil {
