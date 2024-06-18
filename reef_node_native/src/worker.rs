@@ -10,6 +10,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::Context;
 
+use reef_interpreter::PAGE_SIZE;
 use reef_interpreter::{
     exec::{CallResultTyped, ExecHandleTyped},
     imports::{Extern, FuncContext, Imports},
@@ -45,6 +46,14 @@ const REEF_SLEEP_NAME: (&str, &str) = ("reef", "sleep");
 // Seconds to sleep.
 type ReefSleepArgs = (f32,);
 type ReefSleepReturn = ();
+
+const REEF_DATASET_LEN_NAME: (&str, &str) = ("reef", "dataset_len");
+type ReefDatasetLenArgs = ();
+type ReefDatasetLenReturn = (i32,);
+
+const REEF_DATASET_WRITE_NAME: (&str, &str) = ("reef", "dataset_write");
+type ReefDatasetWriteArgs = (i32,);
+type ReefDatasetWriteReturn = ();
 
 const ITERATION_CYCLES: usize = 0x10000;
 
@@ -121,9 +130,7 @@ pub(crate) type WorkerSender = mpsc::Sender<FromWorkerMessage>;
 fn reef_std_lib(sender: WorkerSender, sleep_until: Rc<Cell<Instant>>) -> Result<Imports, reef_interpreter::Error> {
     let mut imports = Imports::new();
 
-    //
     // Reef Log.
-    //
     let sender_log = sender.clone();
     imports.define(
         REEF_LOG_NAME.0,
@@ -140,9 +147,7 @@ fn reef_std_lib(sender: WorkerSender, sleep_until: Rc<Cell<Instant>>) -> Result<
         }),
     )?;
 
-    //
     // Reef report progress.
-    //
     let sender_progress = sender.clone();
     imports.define(
         REEF_PROGRESS_NAME.0,
@@ -158,9 +163,7 @@ fn reef_std_lib(sender: WorkerSender, sleep_until: Rc<Cell<Instant>>) -> Result<
         }),
     )?;
 
-    //
     // Reef sleep.
-    //
     imports.define(
         REEF_SLEEP_NAME.0,
         REEF_SLEEP_NAME.1,
@@ -175,6 +178,31 @@ fn reef_std_lib(sender: WorkerSender, sleep_until: Rc<Cell<Instant>>) -> Result<
 
             Err(reef_interpreter::Error::PauseExecution)
         }),
+    )?;
+
+    // Reef dataset.
+    const TEMP_DATASET_LEN: usize = 100000;
+    imports.define(
+        REEF_DATASET_LEN_NAME.0,
+        REEF_DATASET_LEN_NAME.1,
+        Extern::typed_func::<_, ReefDatasetLenReturn>(move |mut _ctx: FuncContext<'_>, _args: ReefDatasetLenArgs| {
+            Ok((TEMP_DATASET_LEN as i32,))
+        }),
+    )?;
+
+    imports.define(
+        REEF_DATASET_WRITE_NAME.0,
+        REEF_DATASET_WRITE_NAME.1,
+        Extern::typed_func::<_, ReefDatasetWriteReturn>(
+            move |mut ctx: FuncContext<'_>, (ptr,): ReefDatasetWriteArgs| {
+                let mut mem = ctx.exported_memory_mut("memory")?;
+                mem.fill(ptr as usize, TEMP_DATASET_LEN, 69)?;
+                let page = (ptr as usize) / PAGE_SIZE;
+                let count = TEMP_DATASET_LEN.div_ceil(PAGE_SIZE);
+                mem.set_ignored_page_region(page, count);
+                Ok(())
+            },
+        ),
     )?;
 
     Ok(imports)
@@ -239,7 +267,7 @@ pub(crate) fn spawn_worker_thread(
         let mut exec_handle = setup_interpreter(sender.clone(), &program, None, sleep_until.clone())?;
 
         // This is not being re-allocated inside the hotloop for performance gains.
-        let mut serialized_state = Vec::with_capacity(reef_interpreter::PAGE_SIZE * 2);
+        let mut serialized_state = Vec::with_capacity(PAGE_SIZE * 2);
 
         println!("Executing {}...", job_id);
 

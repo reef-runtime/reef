@@ -14,7 +14,7 @@ body:json {
   {
     "name": "Bruno test job",
     "datasetId": null,
-    "sourceCode": "fn main() { panic!(\"EHLO3112\"); }",
+    "sourceCode": "pub fn run(dataset: &[u8]) { let msg = \"Hello World!\"; reef::reef_log(msg); reef::reef_log(&format!(\"dataset[42]: {:?}\", dataset[42])); println!(\"Println log.\"); if dataset[0] == 13 { panic!(\"Bad dataset!\"); } }",
     "language": "rust"
   }
 }
