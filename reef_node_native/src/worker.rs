@@ -123,6 +123,7 @@ pub(crate) enum FromWorkerMessage {
     State(Vec<u8>),
     Log(ReefLog),
     Progress(f32),
+    Done,
 }
 
 pub(crate) type WorkerSender = mpsc::Sender<FromWorkerMessage>;
@@ -229,19 +230,7 @@ fn setup_interpreter(
     Ok(exec_handle)
 }
 
-#[derive(Debug)]
-pub(crate) enum JobError {
-    Aborted,
-    Interpreter(reef_interpreter::Error),
-}
-
-impl From<reef_interpreter::Error> for JobError {
-    fn from(err: reef_interpreter::Error) -> Self {
-        Self::Interpreter(err)
-    }
-}
-
-pub(crate) type JobThreadHandle = JoinHandle<Result<ReefMainReturn, JobError>>;
+pub(crate) type JobThreadHandle = JoinHandle<Result<ReefMainReturn, reef_interpreter::Error>>;
 
 #[non_exhaustive]
 pub(crate) struct WorkerSignal;
@@ -258,20 +247,26 @@ pub(crate) fn spawn_worker_thread(
     program: Vec<u8>,
     job_id: String,
 ) -> JobThreadHandle {
-    thread::spawn(move || -> Result<(i32,), JobError> {
+    thread::spawn(move || -> Result<(i32,), reef_interpreter::Error> {
         println!("Instantiating WASM interpreter...");
 
         let sleep_until = Rc::new(Cell::new(Instant::now()));
 
         // TODO get previous state
-        let mut exec_handle = setup_interpreter(sender.clone(), &program, None, sleep_until.clone())?;
+        let mut exec_handle = match setup_interpreter(sender.clone(), &program, None, sleep_until.clone()) {
+            Ok(handle) => handle,
+            Err(err) => {
+                sender.send(FromWorkerMessage::Done).unwrap();
+                return Err(err.into());
+            }
+        };
 
         // This is not being re-allocated inside the hotloop for performance gains.
         let mut serialized_state = Vec::with_capacity(PAGE_SIZE * 2);
 
         println!("Executing {}...", job_id);
 
-        loop {
+        let res = loop {
             // Check for signal from manager thread.
             match signal.swap(WorkerSignal::CONTINUE, Ordering::Relaxed) {
                 // No signal, perform normal execution.
@@ -286,7 +281,7 @@ pub(crate) fn spawn_worker_thread(
                     sender.send(FromWorkerMessage::State(serialized_state.clone())).unwrap();
                 }
                 // Kill the worker.
-                WorkerSignal::ABORT => break Err(JobError::Aborted),
+                WorkerSignal::ABORT => break Err(reef_interpreter::Error::Other("Job aborted".into())),
                 other => {
                     unreachable!("internal bug: master thread has sent invalid signal: {other}")
                 }
@@ -306,8 +301,11 @@ pub(crate) fn spawn_worker_thread(
                     break Ok(return_value);
                 }
                 Ok(CallResultTyped::Incomplete) => {}
-                Err(err) => return Err(JobError::Interpreter(err)),
+                Err(err) => break Err(err),
             }
-        }
+        };
+
+        sender.send(FromWorkerMessage::Done).unwrap();
+        res
     })
 }

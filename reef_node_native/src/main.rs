@@ -3,11 +3,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 use std::{
     net::TcpStream,
-    sync::{
-        atomic::AtomicU8,
-        mpsc::{self, TryRecvError},
-        Arc,
-    },
+    sync::{atomic::AtomicU8, mpsc, Arc},
 };
 
 use anyhow::{bail, Context, Result};
@@ -105,58 +101,75 @@ fn main() -> anyhow::Result<()> {
     let node_info =
         handshake::perform(&node_name, num_workers as u16, &mut socket).with_context(|| "handshake failed")?;
 
-    println!("===> Handshake successful: node {} is connected.", hex::encode(node_info.node_id));
+    println!("==> Handshake successful: node {} is connected.", hex::encode(node_info.node_id));
+
+    // switch to non blocking after handshake
+    match socket.get_mut() {
+        MaybeTlsStream::Plain(stream) => {
+            stream.set_nonblocking(true).unwrap();
+        }
+        _ => {
+            panic!("Unknown stream type!");
+        }
+    }
 
     let sync_wait_duration = Duration::from_millis(args.sync_delay_millis as u64);
 
+    let mut worked;
     loop {
-        //
+        worked = false;
+
         // Websocket communications.
-        //
-        if socket.can_read() {
-            let msg = socket.read().expect("Error reading message");
-            state.handle_websocket(msg).with_context(|| "evaluating incoming message")?;
+        match socket.read() {
+            Ok(msg) => {
+                state.handle_websocket(msg).with_context(|| "evaluating incoming message")?;
+                worked = true;
+            }
+            Err(tungstenite::Error::Io(ref err)) if err.kind() == std::io::ErrorKind::WouldBlock => {}
+            Err(err) => {
+                panic!("Error reading socket: {err}");
+            }
         }
 
         //
         // Worker channels communications.
         //
         let mut finished_worker_indices = vec![];
-        for worker in state.0.iter_mut() {
-            match worker.channel_from_worker.try_recv() {
-                Ok(FromWorkerMessage::Log(log)) => {
-                    println!("recv log: {}:{} {}", log.content, log.kind, worker.worker_index);
+        for job in state.0.iter_mut() {
+            // read channel until empty
+            loop {
+                let msg = job.channel_from_worker.try_recv();
+                if msg.is_ok() {
+                    worked = true
+                }
+                match msg {
+                    Ok(FromWorkerMessage::Log(log)) => {
+                        println!("recv log: {}:{} {}", log.content, log.kind, job.worker_index);
 
-                    worker.logs_to_be_flushed.push(log);
+                        job.logs_to_be_flushed.push(log);
+                    }
+                    Ok(FromWorkerMessage::Progress(new)) => {
+                        job.progress = new;
+                    }
+                    Ok(FromWorkerMessage::State(interpreter_state)) => {
+                        job.flush_state(&interpreter_state, &mut socket)?;
+                    }
+                    Ok(FromWorkerMessage::Done) => {
+                        finished_worker_indices.push(job.worker_index);
+                    }
+                    // either empty or disconnected
+                    Err(_) => break,
                 }
-                Ok(FromWorkerMessage::Progress(new)) => {
-                    worker.progress = new;
-                }
-                Ok(FromWorkerMessage::State(interpreter_state)) => {
-                    worker.flush_state(&interpreter_state, &mut socket)?;
-                }
-                Err(TryRecvError::Empty) => thread::sleep(MAIN_THREAD_SLEEP),
-                Err(TryRecvError::Disconnected) => unreachable!("all senders have been dropped"),
             }
 
-            //
-            // Checking whether a thread has finished.
-            //
-            if worker.handle.is_finished() {
-                finished_worker_indices.push(worker.worker_index);
-            }
-
-            //
             // Send a sync request if enough time has passed.
-            //
-            if worker.last_sync.duration_since(Instant::now()) >= sync_wait_duration {
-                worker.signal_to_worker.store(WorkerSignal::SAVE_STATE, Ordering::Relaxed);
+            if job.last_sync.duration_since(Instant::now()) >= sync_wait_duration {
+                job.signal_to_worker.store(WorkerSignal::SAVE_STATE, Ordering::Relaxed);
+                worked = true;
             }
         }
 
-        //
         // Remove all finished jobs.
-        //
         for worker_idx in finished_worker_indices {
             let idx_in_vec = state.0.iter().position(|w| w.worker_index == worker_idx).unwrap();
 
@@ -170,9 +183,13 @@ fn main() -> anyhow::Result<()> {
 
             // TODO: transfer result to manager
             match res {
-                Ok(ret_val) => println!("Job has executed successfully! {}", ret_val.0),
-                Err(err) => println!("Job failed: {err:?}"),
+                Ok(ret_val) => println!("==> Done: Job has executed successfully! {}", ret_val.0),
+                Err(err) => println!("==> Done: Job failed: {err}"),
             }
+        }
+
+        if !worked {
+            thread::sleep(MAIN_THREAD_SLEEP);
         }
     }
 
@@ -212,7 +229,7 @@ impl NodeState {
             }
             Action::Pong => {
                 print!("received pong, doing nothing...");
-            },
+            }
             Action::Disconnect => todo!(),
         }
 
@@ -226,8 +243,11 @@ impl NodeState {
         }
 
         println!(
-            "starting job with id {:?} on worker {} with program: {:?}...",
-            request.job_id, request.worker_index, request.program_byte_code
+            "==> Starting job with id {:?} on worker {} with program: [{}]{:?}...",
+            request.job_id,
+            request.worker_index,
+            request.program_byte_code.len(),
+            &request.program_byte_code[0..20]
         );
 
         let signal = Arc::new(AtomicU8::new(0));
