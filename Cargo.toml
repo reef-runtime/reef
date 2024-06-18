@@ -2,6 +2,7 @@
 # keep in sync with flake.nix
 members = [
     "reef_compiler",
+    # "reef_compiler/skeletons/rust",
     "reef_interpreter",
     "reef_node_native",
     "reef_protocol/compiler/rust",

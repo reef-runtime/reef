@@ -64,6 +64,7 @@ pub mod reef {
                 $crate::reef::reef_log(&format!($($arg)*));
             }};
         }
+        pub use println;
 
         #[macro_export]
         macro_rules! print {
@@ -71,6 +72,7 @@ pub mod reef {
                 panic!("'print!' not supported in Reef!");
             };
         }
+        pub use print;
 
         #[macro_export]
         macro_rules! dbg {
@@ -78,6 +80,7 @@ pub mod reef {
                 panic!("'dbg!' not supported in Reef!");
             };
         }
+        pub use dbg;
     }
 }
 
