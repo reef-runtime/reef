@@ -1,3 +1,13 @@
+# General
+
+- Framework: Next.js
+  - SSR Framework for React. We don't use SSR though
+  - We use it for the routing and the file-based routing
+- Component Library: https://ui.shadcn.com/docs
+  - Install new components with `npx shadcn-ui@latest add <component-name>`
+
+# Next JS Shit
+
 This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
 ## Getting Started

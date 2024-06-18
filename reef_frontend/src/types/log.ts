@@ -2,7 +2,7 @@
 // Reef data / schema definition file for job logs.
 //
 
-export enum LogKind {
+export enum ILogKind {
     // Logs that the program generates,
     // be it a print-like function or a panic message.
     LogKindProgram,
@@ -14,11 +14,11 @@ export enum LogKind {
     LogKindSystem,
 }
 
-export interface LogEntry {
+export interface ILogEntry {
     // Logs can be filtered based on their kind.
     // As a default, only the `program` kind is shown.
     // The user can use a dropdown / checkbox to select kinds to be shown.
-    kind: LogKind,
+    kind: ILogKind,
     // RFC 3339 time format with sub-second precision.
     created: string,
     // UTF-8 encoded log content.

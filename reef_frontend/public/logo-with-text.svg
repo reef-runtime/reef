@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1466.98 1013.66">
+  <defs>
+    <style>
+      .cls-1 {
+        letter-spacing: -.02em;
+      }
+
+      .cls-2 {
+        fill: url(#linear-gradient);
+        stroke-width: 0px;
+      }
+
+      .cls-3 {
+        letter-spacing: -.02em;
+      }
+
+      .cls-4 {
+        fill: #000;
+        font-family: NeoSansW1G-Italic, 'Neo Sans W1G';
+        font-size: 506px;
+        font-style: italic;
+      }
+    </style>
+    <linearGradient id="linear-gradient" x1="202.17" y1="871.09" x2="610.51" y2="29.42" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fdbdd6"/>
+      <stop offset=".31" stop-color="#ee8efc"/>
+      <stop offset=".58" stop-color="#725dfd"/>
+      <stop offset="1" stop-color="#06ffb8"/>
+    </linearGradient>
+  </defs>
+  <g id="Layer_2-2" data-name="Layer 2">
+    <g>
+      <path class="cls-2" d="M684.57,22.44c-72.73-61.32-124,18-141,60s-41,154-64,145-18-41-8-83-10-77-48-61-10,90-22,158-5,111-22,113-55-32-61-60-22-74-56-54-27.19,72.17-6.1,114.08,133.1,198.92,37.1,222.92-108-141-109-202-9-122-48-121-23,34-16,48,2,23-7,23-33-12-43-31-21-38-40-17-5,42,16,73,59,54,76,99,32,87,11,98-56,0-77-17-36-25-54,0,62,77,132,104,74,70,67,128,14,168,116,160,156-111,177-210,54-135,129-137,206,15,203-52-92.5-58.5-137.5-54.5c-45,4-77,21-133,19s-59-7-58-29,29-33,62-38,82-6,76-52-46-34-76-30-43-9-27-42,81-107,125-149,77.5-82.5,26.5-125.5Z"/>
+      <text class="cls-4" transform="translate(526.05 904.36)"><tspan class="cls-3" x="0" y="0">r</tspan><tspan x="160.91" y="0">e</tspan><tspan class="cls-1" x="436.17" y="0">e</tspan><tspan x="701.32" y="0">f</tspan></text>
+    </g>
+  </g>
+</svg>

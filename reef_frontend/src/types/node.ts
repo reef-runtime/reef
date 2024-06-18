@@ -3,9 +3,9 @@
 //
 
 // If this is `null`, no job is being executed on the worker.
-export type JobID = string | null;
+export type IJobID = string | null;
 
-export interface NodeInfo {
+export interface INodeInfo {
     // IP address of the node.
     endPointIP: string,
     // Name or hostname of the node.
@@ -16,8 +16,8 @@ export interface NodeInfo {
 }
 
 // Nodes can not be added manually as the connection is initiated by the node.
-export interface Node {
-    info: NodeInfo,
+export interface INode {
+    info: INodeInfo,
     // RFC 3339 time format with sub-second precision.
     // Last time that the node was alive.
     lastPing: string,
@@ -25,5 +25,5 @@ export interface Node {
     id: string,
     // Length of this array is guaranteed to be `info.numWorkers`.
     // Maps a node's worker to a job that is being executed.
-    workerState: JobID[];
+    workerState: IJobID[];
 }

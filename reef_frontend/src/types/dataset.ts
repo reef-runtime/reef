@@ -4,7 +4,7 @@
 
 // Datasets can be listed, and uploaded on a separate page.
 // When submitting a job, a dataset can be attached.
-export interface Dateset {
+export interface IDataset {
     // Primary key, is unique. Always 64 characters long.
     id: string,
     // User-friendly name for this dataset.
