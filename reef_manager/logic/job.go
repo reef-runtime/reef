@@ -53,7 +53,7 @@ type JobSubmission struct {
 	Language   JobProgrammingLanguage `json:"language"`
 }
 
-type queuedJob struct {
+type QueuedJob struct {
 	Job          database.Job
 	WasmArtifact []byte
 }
@@ -65,12 +65,12 @@ type queuedJob struct {
 // }
 
 // Implements Prioritizable.
-func (j queuedJob) submittedAt() time.Time {
+func (j QueuedJob) submittedAt() time.Time {
 	return j.Job.Submitted
 }
 
-func (j queuedJob) IsHigherThan(other prioritizable) bool {
-	otherJob := other.(queuedJob)
+func (j QueuedJob) IsHigherThan(other prioritizable) bool {
+	otherJob := other.(QueuedJob)
 	return j.submittedAt().Before(otherJob.submittedAt())
 }
 
@@ -270,7 +270,7 @@ func (m *JobManagerT) TryToStartQueuedJobs() error {
 		return nil
 	}
 
-	notStarted := make([]queuedJob, 0)
+	notStarted := make([]QueuedJob, 0)
 
 	for !m.JobQueue.IsEmpty() {
 		job, found := m.JobQueue.Pop()

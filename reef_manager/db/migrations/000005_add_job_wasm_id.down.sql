@@ -1,0 +1,2 @@
+ALTER TABLE job
+DROP COLUMN wasm_id;

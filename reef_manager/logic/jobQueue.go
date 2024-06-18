@@ -33,14 +33,18 @@ func (j *JobQueue) Push(job database.Job, artifact []byte) {
 	j.lock.Lock()
 	defer j.lock.Unlock()
 
-	heap.Push(&j.pq, queuedJob{
+	if len(artifact) == 0 {
+		panic("Pushed with no Wasm code")
+	}
+
+	heap.Push(&j.pq, QueuedJob{
 		Job:          job,
 		WasmArtifact: artifact,
 	})
 	j.len++
 }
 
-func (j *JobQueue) Pop() (job queuedJob, found bool) {
+func (j *JobQueue) Pop() (job QueuedJob, found bool) {
 	j.lock.Lock()
 	defer j.lock.Unlock()
 
@@ -51,7 +55,7 @@ func (j *JobQueue) Pop() (job queuedJob, found bool) {
 	item := heap.Pop(&j.pq)
 	j.len--
 
-	return item.(*queuedItem[prioritizable]).Inner.(queuedJob), true
+	return item.(*queuedItem[prioritizable]).Inner.(QueuedJob), true
 }
 
 func (j *JobQueue) Delete(jobID string) (found bool) {
@@ -64,7 +68,7 @@ func (j *JobQueue) Delete(jobID string) (found bool) {
 	deleteIndex := notFound
 
 	for currIdx, job := range j.pq {
-		if job.Inner.(queuedJob).Job.ID == jobID {
+		if job.Inner.(QueuedJob).Job.ID == jobID {
 			deleteIndex = currIdx
 			break
 		}

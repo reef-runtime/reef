@@ -40,7 +40,7 @@ type Job struct {
 	Name string `json:"name"`
 
 	// Hash of the compiled Wasm artifact.
-	WasmID string `json:"wasmID"`
+	WasmID string `json:"wasmId"`
 
 	Submitted time.Time `json:"submitted"`
 	Status    JobStatus `json:"status"`
@@ -60,6 +60,7 @@ func AddJob(job Job) error {
 		job.Name,
 		job.Submitted,
 		job.Status,
+		job.WasmID,
 	).Exec(); err != nil {
 		log.Errorf("Could not add job to database: executing query failed: %s", err.Error())
 		return err
@@ -146,6 +147,7 @@ func listJobsGeneric(stateFilter *JobStatus) ([]Job, error) {
 			&job.Name,
 			&job.Submitted,
 			&job.Status,
+			&job.WasmID,
 		); err != nil {
 			log.Errorf("Could not list jobs: scanning results failed: %s", err.Error())
 			return nil, err
@@ -164,6 +166,7 @@ func GetJob(jobID string) (job Job, found bool, err error) {
 		&job.Name,
 		&job.Submitted,
 		&job.Status,
+		&job.WasmID,
 	)
 
 	if errors.Is(err, sql.ErrNoRows) {

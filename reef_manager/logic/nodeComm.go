@@ -195,7 +195,7 @@ func (m *NodeManagerT) findFreeNode() (nodeID NodeID, workerIdx uint16, found bo
 	return nodeID, 0, false
 }
 
-func (m *NodeManagerT) StartJobOnFreeNode(job queuedJob, jobState *JobState) (couldStart bool, err error) {
+func (m *NodeManagerT) StartJobOnFreeNode(job QueuedJob, jobState *JobState) (couldStart bool, err error) {
 	nodeID, workerIndex, nodeFound := m.findFreeNode()
 	if !nodeFound {
 		return false, nil
@@ -210,6 +210,10 @@ func (m *NodeManagerT) StartJobOnFreeNode(job queuedJob, jobState *JobState) (co
 	}
 
 	log.Debugf("[node] Found free worker index %d on node `%s`", workerIndex, IDToString(nodeID))
+
+	if len(job.WasmArtifact) == 0 {
+		panic("is zero")
+	}
 
 	if err := m.StartJobOnNode(node, job.Job.ID, workerIndex, job.WasmArtifact, jobState); err != nil {
 		log.Errorf(
