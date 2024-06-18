@@ -259,16 +259,17 @@ impl<'de> serde::Deserialize<'de> for MemoryInstance {
                 let kind = seq.next_element()?.ok_or_else(|| de::Error::invalid_length(0, &self))?;
                 let page_count = seq.next_element()?.ok_or_else(|| de::Error::invalid_length(1, &self))?;
                 let ignored_page_region: (usize, usize) =
-                    seq.next_element()?.ok_or_else(|| de::Error::invalid_length(1, &self))?;
+                    seq.next_element()?.ok_or_else(|| de::Error::invalid_length(2, &self))?;
 
-                let data_before_ignore: &[u8] =
-                    seq.next_element()?.ok_or_else(|| de::Error::invalid_length(1, &self))?;
-                let data_after_ignore: &[u8] =
-                    seq.next_element()?.ok_or_else(|| de::Error::invalid_length(1, &self))?;
+                // TODO: avoid allocation
+                let data_before_ignore: Vec<u8> =
+                    seq.next_element()?.ok_or_else(|| de::Error::invalid_length(3, &self))?;
+                let data_after_ignore: Vec<u8> =
+                    seq.next_element()?.ok_or_else(|| de::Error::invalid_length(4, &self))?;
 
                 let mut data = vec![0; page_count * PAGE_SIZE];
-                data[..ignored_page_region.0 * PAGE_SIZE].copy_from_slice(data_before_ignore);
-                data[ignored_page_region.1 * PAGE_SIZE..].copy_from_slice(data_after_ignore);
+                data[..ignored_page_region.0 * PAGE_SIZE].copy_from_slice(&data_before_ignore);
+                data[ignored_page_region.1 * PAGE_SIZE..].copy_from_slice(&data_after_ignore);
 
                 Ok(MemoryInstance { kind, page_count, ignored_page_region, data })
             }
@@ -309,7 +310,8 @@ impl<'de> serde::Deserialize<'de> for MemoryInstance {
                             let Some(ignored_page_region) = ignored_page_region else {
                                 return Err(de::Error::missing_field("ignored_page_region"));
                             };
-                            data[..ignored_page_region.0 * PAGE_SIZE].copy_from_slice(map.next_value()?);
+                            // TODO: avoid allocation
+                            data[..ignored_page_region.0 * PAGE_SIZE].copy_from_slice(&map.next_value::<Vec<u8>>()?);
                         }
                         Field::DataAfterIgnore => {
                             let Some(data) = &mut data else {
@@ -318,7 +320,8 @@ impl<'de> serde::Deserialize<'de> for MemoryInstance {
                             let Some(ignored_page_region) = ignored_page_region else {
                                 return Err(de::Error::missing_field("ignored_page_region"));
                             };
-                            data[ignored_page_region.1 * PAGE_SIZE..].copy_from_slice(map.next_value()?);
+                            // TODO: avoid allocation
+                            data[ignored_page_region.1 * PAGE_SIZE..].copy_from_slice(&map.next_value::<Vec<u8>>()?);
                         }
                     }
                 }
@@ -332,7 +335,8 @@ impl<'de> serde::Deserialize<'de> for MemoryInstance {
             }
         }
 
-        const FIELDS: &[&str] = &["secs", "nanos"];
-        deserializer.deserialize_struct("Duration", FIELDS, MemoryInstanceVisitor)
+        const FIELDS: &[&str] =
+            &["kind", "page_count", "ignored_page_region", "data_before_ignore", "data_after_ignore"];
+        deserializer.deserialize_struct("MemoryInstance", FIELDS, MemoryInstanceVisitor)
     }
 }
