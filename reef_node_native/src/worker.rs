@@ -48,6 +48,8 @@ type ReefSleepReturn = ();
 
 const ITERATION_CYCLES: usize = 0x10000;
 
+const MAX_CONTINUES_SLEEP: Duration = Duration::from_millis(100);
+
 #[derive(Debug)]
 pub(crate) struct ReefLog {
     pub(crate) content: String,
@@ -264,7 +266,7 @@ pub(crate) fn spawn_worker_thread(
 
             let sleep_remaining = sleep_until.get().duration_since(Instant::now());
             if sleep_remaining != Duration::ZERO {
-                let dur = sleep_remaining.min(Duration::from_millis(100));
+                let dur = sleep_remaining.min(MAX_CONTINUES_SLEEP);
                 thread::sleep(dur);
                 continue;
             }
