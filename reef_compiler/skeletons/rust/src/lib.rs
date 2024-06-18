@@ -87,13 +87,11 @@ pub mod reef {
 mod input;
 
 #[no_mangle]
-pub extern "C" fn reef_main(_arg: i32) -> i32 {
+pub extern "C" fn reef_main() {
     std::panic::set_hook(Box::new(|info| {
         reef::reef_log(&format!("PANIC: {}", info.to_string()));
     }));
 
     let dataset = unsafe { reef::_get_dataset() };
     input::run(&dataset);
-
-    return 0;
 }
