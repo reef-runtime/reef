@@ -9,7 +9,7 @@ import (
 	"github.com/reef-runtime/reef/reef_manager/logic"
 )
 
-const NumLastLogs = 100
+const jobIDUrlParam = "job_id"
 
 type JobResponse struct {
 	Name     string            `json:"name"`
@@ -20,7 +20,7 @@ type JobResponse struct {
 }
 
 func GetJobs(ctx *gin.Context) {
-	jobs, err := database.ListJobs()
+	jobs, err := logic.JobManager.ListJobs()
 	if err != nil {
 		ctx.Status(http.StatusInternalServerError)
 		return
@@ -30,45 +30,45 @@ func GetJobs(ctx *gin.Context) {
 }
 
 func GetJob(ctx *gin.Context) {
-	var jobID IDBody
-	if err := ctx.ShouldBindJSON(&jobID); err != nil {
-		badRequest(ctx, err.Error())
-		return
-	}
+	jobID := ctx.Param(jobIDUrlParam)
 
-	job, found, err := database.GetJob(jobID.ID)
+	job, found, err := database.GetJob(jobID)
 	if err != nil {
 		serverErr(ctx, err.Error())
 		return
 	}
 
 	if !found {
-		badRequest(ctx, fmt.Sprintf("job with id `%s` not found", jobID.ID))
+		respondErr(
+			ctx,
+			"illegal job",
+			fmt.Sprintf("job with id `%s` not found", jobID),
+			http.StatusUnprocessableEntity,
+		)
 		return
 	}
 
-	logs, err := database.GetLastLogs(NumLastLogs, jobID.ID)
+	logs, err := database.GetLastLogs(nil, jobID)
 	if err != nil {
 		serverErr(ctx, err.Error())
 		return
 	}
 
-	result, resultFound, err := database.GetResult(jobID.ID)
+	result, resultFound, err := database.GetResult(jobID)
 	if err != nil {
 		serverErr(ctx, err.Error())
 		return
 	}
 
-	// TODO: Get job progress and state
+	jobResponse := JobResponse{
+		Name:     job.Name,
+		Logs:     logs,
+		State:    nil, // TODO: get state.
+		Progress: 0,   // TODO: get progress.
+		Result:   nil, // TODO: get result.
+	}
 
-	var jobResponse JobResponse
-
-	jobResponse.Name = job.Name
-	jobResponse.Logs = logs
-	jobResponse.State = nil
-	jobResponse.Progress = 0.0
-	jobResponse.Result = nil
-
+	// Attach result if it exists.
 	if resultFound {
 		jobResponse.Result = &result
 	}
