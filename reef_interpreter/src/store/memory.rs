@@ -34,6 +34,15 @@ impl MemoryInstance {
         Error::Trap(Trap::MemoryOutOfBounds { offset: addr, len, max: self.data.len() })
     }
 
+    #[inline]
+    pub(crate) fn page_count(&self) -> usize {
+        self.page_count
+    }
+
+    pub(crate) fn max_pages(&self) -> usize {
+        self.kind.page_count_max.unwrap_or(MAX_PAGES as u64) as usize
+    }
+
     pub(crate) fn store(&mut self, addr: usize, len: usize, data: &[u8]) -> Result<()> {
         let Some(end) = addr.checked_add(len) else {
             return Err(self.trap_oob(addr, data.len()));
@@ -45,10 +54,6 @@ impl MemoryInstance {
 
         self.data[addr..end].copy_from_slice(data);
         Ok(())
-    }
-
-    pub(crate) fn max_pages(&self) -> usize {
-        self.kind.page_count_max.unwrap_or(MAX_PAGES as u64) as usize
     }
 
     pub(crate) fn load(&self, addr: usize, len: usize) -> Result<&[u8]> {
@@ -78,11 +83,6 @@ impl MemoryInstance {
         });
 
         Ok(val)
-    }
-
-    #[inline]
-    pub(crate) fn page_count(&self) -> usize {
-        self.page_count
     }
 
     pub(crate) fn fill(&mut self, addr: usize, len: usize, val: u8) -> Result<()> {

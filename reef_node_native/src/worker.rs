@@ -116,10 +116,7 @@ pub(crate) enum FromWorkerMessage {
 
 pub(crate) type WorkerSender = mpsc::Sender<FromWorkerMessage>;
 
-fn reef_std_lib(
-    sender: WorkerSender,
-    sleep_until: Rc<Cell<Instant>>,
-) -> std::result::Result<Imports, reef_interpreter::error::Error> {
+fn reef_std_lib(sender: WorkerSender, sleep_until: Rc<Cell<Instant>>) -> Result<Imports, reef_interpreter::Error> {
     let mut imports = Imports::new();
 
     //
@@ -150,9 +147,7 @@ fn reef_std_lib(
         REEF_PROGRESS_NAME.1,
         Extern::typed_func(move |mut _ctx: FuncContext<'_>, (done,): ReefProgressArgs| {
             if !(0.0..=1.0).contains(&done) {
-                return Err(reef_interpreter::error::Error::Other(
-                    "reef/progress: value not in Range 0.0..=1.0".into(),
-                ));
+                return Err(reef_interpreter::Error::Other("reef/progress: value not in Range 0.0..=1.0".into()));
             }
 
             sender_progress.send(FromWorkerMessage::Progress(done)).unwrap();
@@ -188,11 +183,16 @@ fn setup_interpreter(
     program: &[u8],
     state: Option<&[u8]>,
     sleep_until: Rc<Cell<Instant>>,
-) -> std::result::Result<ReefMainHandle, reef_interpreter::error::Error> {
+) -> Result<ReefMainHandle, reef_interpreter::Error> {
     let module = parse_bytes(program)?;
     let imports = reef_std_lib(sender, sleep_until)?;
 
     let (instance, stack) = Instance::instantiate(module, imports, state)?;
+    if stack.is_some() {
+        // TODO: reload dataset
+        // instance.exported_memory_mut("memory")?.copy_into_ignored_page_region(...);
+    }
+
     let entry_fn_handle = instance.exported_func::<ReefMainArgs, ReefMainReturn>(REEF_MAIN_NAME).unwrap();
     let exec_handle = entry_fn_handle.call((0,), stack)?;
 
@@ -202,11 +202,11 @@ fn setup_interpreter(
 #[derive(Debug)]
 pub(crate) enum JobError {
     Aborted,
-    Interpreter(reef_interpreter::error::Error),
+    Interpreter(reef_interpreter::Error),
 }
 
-impl From<reef_interpreter::error::Error> for JobError {
-    fn from(err: reef_interpreter::error::Error) -> Self {
+impl From<reef_interpreter::Error> for JobError {
+    fn from(err: reef_interpreter::Error) -> Self {
         Self::Interpreter(err)
     }
 }
