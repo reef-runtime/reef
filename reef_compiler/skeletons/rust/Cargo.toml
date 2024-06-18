@@ -1,10 +1,11 @@
 [package]
-name = "PLACEHOLDER"
+name = "placeholder"
 version = "0.1.0"
 edition = "2021"
 
-# NOTE: this is only relevant during development.
-# This prevents cargo from complaining that the crate belongs to the reef workspace.
 [workspace]
+
+[lib]
+crate-type = ["cdylib"]
 
 [dependencies]
