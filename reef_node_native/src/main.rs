@@ -9,6 +9,7 @@ use std::{
 use anyhow::{bail, Context, Result};
 use capnp::{message::ReaderOptions, serialize};
 use clap::Parser;
+use reef_protocol_node::message_capnp::ResultContentType;
 use tungstenite::{stream::MaybeTlsStream, Message, WebSocket};
 use url::Url;
 
@@ -24,7 +25,7 @@ use worker::{FromWorkerMessage, Job};
 
 type WSConn = WebSocket<MaybeTlsStream<TcpStream>>;
 
-use crate::worker::{spawn_worker_thread, WorkerSignal};
+use crate::worker::{spawn_worker_thread, JobResult, WorkerSignal};
 
 const NODE_REGISTER_PATH: &str = "/api/node/connect";
 
@@ -179,13 +180,27 @@ fn main() -> anyhow::Result<()> {
             // State can be empty since it is not required anymore.
             worker.flush_state(&[], &mut socket)?;
 
-            let res = worker.handle.join().expect("worker thread panic'ed, this is a bug");
+            let worker_index = worker.worker_index as u16;
 
-            // TODO: transfer result to manager
-            match res {
-                Ok(ret_val) => println!("==> Done: Job has executed successfully! {}", ret_val.0),
-                Err(err) => println!("==> Done: Job failed: {err}"),
-            }
+            let thread_res = worker.handle.join().expect("worker thread panic'ed, this is a bug");
+
+            let job_result = match thread_res {
+                Ok((contents, content_type)) => {
+                    println!("Job has executed successfully!");
+                    JobResult { success: true, contents, content_type }
+                }
+                Err(err) => {
+                    println!("Job failed: {err:?}");
+                    JobResult {
+                        success: true,
+                        contents: format!("{:?}", err).into_bytes(),
+                        content_type: ResultContentType::StringPlain,
+                    }
+                }
+            };
+
+            send_job_result(worker_index, &job_result, &mut socket)
+                .with_context(|| "could not send final job result to manager")?;
         }
 
         socket.flush()?;
@@ -197,6 +212,25 @@ fn main() -> anyhow::Result<()> {
 
     // TODO: implement a close (also on reef protocol layer)
     // socket.close(None);
+}
+
+fn send_job_result(worker_index: u16, res: &JobResult, socket: &mut WSConn) -> anyhow::Result<()> {
+    let mut message = capnp::message::Builder::new_default();
+    let encapsulating_message: reef_protocol_node::message_capnp::message_from_node::Builder = message.init_root();
+    let mut state_sync = encapsulating_message.get_body().init_job_result();
+
+    state_sync.set_worker_index(worker_index);
+    state_sync.set_success(res.success);
+    state_sync.set_contents(&res.contents);
+    state_sync.set_content_type(res.content_type);
+
+    let mut buffer = vec![];
+
+    capnp::serialize::write_message(&mut buffer, &message).with_context(|| "could not encode message")?;
+
+    socket.send(Message::Binary(buffer)).with_context(|| "could not job result")?;
+
+    Ok(())
 }
 
 impl NodeState {
@@ -226,9 +260,13 @@ impl NodeState {
                     eprintln!("Failed to start job: {err}");
                 }
             }
-            Action::Ping => {}
-            Action::Pong => {}
-            Action::Disconnect => todo!(),
+            Action::Ping => {
+                println!("received ping, would send pong here...");
+            }
+            Action::Pong => {
+                print!("received pong, doing nothing...");
+            }
+            Action::Disconnect => bail!("disconnected: connection lost"),
         }
 
         Ok(())

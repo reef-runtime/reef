@@ -297,7 +297,7 @@ func HandleNodeConnection(c *gin.Context) {
 		case websocket.BinaryMessage:
 			log.Tracef("[node] received binary message: %s", logic.FormatBinarySliceAsHex(message))
 
-			if err := handleGenericIncoming(message, pingHandler); err != nil {
+			if err := handleGenericIncoming(node, message, pingHandler); err != nil {
 				log.Errorf("[node] failed to act upon message: %s", err.Error())
 				dropNode(wsConn, websocket.CloseAbnormalClosure, node.ID)
 				return
@@ -331,7 +331,7 @@ func HandleNodeConnection(c *gin.Context) {
 	}
 }
 
-func handleGenericIncoming(message []byte, pingHandler func(string) error) error {
+func handleGenericIncoming(nodeData logic.Node, message []byte, pingHandler func(string) error) error {
 	unmarshaledRaw, err := capnp.Unmarshal(message)
 	if err != nil {
 		return err
@@ -342,23 +342,19 @@ func handleGenericIncoming(message []byte, pingHandler func(string) error) error
 		return fmt.Errorf("could not read handshake response: %s", err.Error())
 	}
 
-	switch decoded.Kind() {
+	kind := decoded.Kind()
+
+	switch kind {
 	case node.MessageFromNodeKind_ping:
 		return pingHandler(string(message[1:]))
 	case node.MessageFromNodeKind_pong:
-		fmt.Println("===== [TODO] State sync is not yet supported")
+		log.Tracef("Received pong from node `%s` (%s)", logic.IDToString(nodeData.ID), nodeData.Info.EndpointIP)
 		return nil
-		// panic("TODO: implement this.")
-		// case node.MessageFromNodeKind_jobLog:
-		// 	return handleJobLog(decoded.Body())
-		// case node.MessageFromNodeKind_jobProgressReport:
-		// 	return handleJobProgressReport(decoded.Body())
 	case node.MessageFromNodeKind_jobStateSync:
 		fmt.Println("===== [TODO] State sync is not yet supported")
 		return nil
 	default:
-		// VERY BAD!
-		panic("todo: better error handling")
+		return fmt.Errorf("Received illegal message kind from node: %d", kind)
 	}
 }
 

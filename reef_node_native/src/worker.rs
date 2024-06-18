@@ -18,6 +18,7 @@ use reef_interpreter::{
     reference::MemoryStringExt,
     Instance,
 };
+use reef_protocol_node::message_capnp::ResultContentType;
 use tungstenite::Message;
 
 use crate::WSConn;
@@ -30,8 +31,8 @@ const TODO_LOG_KIND_DEFAULT: u16 = 0;
 //
 
 const REEF_MAIN_NAME: &str = "reef_main";
-type ReefMainArgs = (i32,);
-type ReefMainReturn = (i32,);
+type ReefMainArgs = ();
+type ReefMainReturn = ();
 type ReefMainHandle = ExecHandleTyped<ReefMainReturn>;
 
 const REEF_LOG_NAME: (&str, &str) = ("reef", "log");
@@ -85,17 +86,24 @@ pub(crate) struct Job {
     pub(crate) progress: f32,
 }
 
+pub(crate) struct JobResult {
+    pub(crate) success: bool,
+    pub(crate) contents: Vec<u8>,
+    pub(crate) content_type: ResultContentType,
+}
+
 impl Job {
     pub(crate) fn flush_state(&mut self, state: &[u8], socket: &mut WSConn) -> anyhow::Result<()> {
         let mut message = capnp::message::Builder::new_default();
-        let mut root: reef_protocol_node::message_capnp::job_state_sync::Builder = message.init_root();
+        let encapsulating_message: reef_protocol_node::message_capnp::message_from_node::Builder = message.init_root();
+        let mut state_sync = encapsulating_message.get_body().init_job_state_sync();
 
-        root.set_worker_index(self.worker_index as u16);
-        root.set_progress(self.progress);
-        root.set_interpreter(state);
+        state_sync.set_worker_index(self.worker_index as u16);
+        state_sync.set_progress(self.progress);
+        state_sync.set_interpreter(state);
 
         // Logs.
-        let mut logs = root.init_logs(self.logs_to_be_flushed.len() as u32);
+        let mut logs = state_sync.init_logs(self.logs_to_be_flushed.len() as u32);
         let logs_to_flush = mem::take(&mut self.logs_to_be_flushed);
 
         for (idx, log) in logs_to_flush.into_iter().enumerate() {
@@ -105,6 +113,7 @@ impl Job {
         }
 
         let mut buffer = vec![];
+
         capnp::serialize::write_message(&mut buffer, &message).with_context(|| "could not encode message")?;
 
         socket.write(Message::Binary(buffer)).with_context(|| "could not send state sync")?;
@@ -225,12 +234,13 @@ fn setup_interpreter(
     }
 
     let entry_fn_handle = instance.exported_func::<ReefMainArgs, ReefMainReturn>(REEF_MAIN_NAME).unwrap();
-    let exec_handle = entry_fn_handle.call((0,), stack)?;
+    let exec_handle = entry_fn_handle.call((), stack)?;
 
     Ok(exec_handle)
 }
 
-pub(crate) type JobThreadHandle = JoinHandle<Result<ReefMainReturn, reef_interpreter::Error>>;
+type ReefJobOutput = (Vec<u8>, ResultContentType);
+pub(crate) type JobThreadHandle = JoinHandle<Result<ReefJobOutput, reef_interpreter::Error>>;
 
 #[non_exhaustive]
 pub(crate) struct WorkerSignal;
@@ -247,7 +257,7 @@ pub(crate) fn spawn_worker_thread(
     program: Vec<u8>,
     job_id: String,
 ) -> JobThreadHandle {
-    thread::spawn(move || -> Result<(i32,), reef_interpreter::Error> {
+    thread::spawn(move || -> Result<ReefJobOutput, reef_interpreter::Error> {
         println!("Instantiating WASM interpreter...");
 
         let sleep_until = Rc::new(Cell::new(Instant::now()));
@@ -298,8 +308,9 @@ pub(crate) fn spawn_worker_thread(
             // Execute Wasm.
             let run_res = exec_handle.run(ITERATION_CYCLES);
             match run_res {
-                Ok(CallResultTyped::Done(return_value)) => {
-                    break Ok(return_value);
+                Ok(CallResultTyped::Done(_)) => {
+                    // TODO: @konsti, do this.
+                    break Ok((vec![1, 2, 3, 4], ResultContentType::Bytes));
                 }
                 Ok(CallResultTyped::Incomplete) => {}
                 Err(err) => break Err(err),
