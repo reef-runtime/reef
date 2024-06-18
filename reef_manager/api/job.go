@@ -9,6 +9,16 @@ import (
 	"github.com/reef-runtime/reef/reef_manager/logic"
 )
 
+const NumLastLogs = 100
+
+type JobResponse struct {
+	Name     string            `json:"name"`
+	Logs     []database.JobLog `json:"logs"`
+	State    []byte            `json:"state"`
+	Progress float32           `json:"progress"`
+	Result   *database.Result  `json:"result"`
+}
+
 func GetJobs(ctx *gin.Context) {
 	jobs, err := database.ListJobs()
 	if err != nil {
@@ -17,6 +27,53 @@ func GetJobs(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, jobs)
+}
+
+func GetJob(ctx *gin.Context) {
+	var jobID IDBody
+	if err := ctx.ShouldBindJSON(&jobID); err != nil {
+		badRequest(ctx, err.Error())
+		return
+	}
+
+	job, found, err := database.GetJob(jobID.ID)
+	if err != nil {
+		serverErr(ctx, err.Error())
+		return
+	}
+
+	if !found {
+		badRequest(ctx, fmt.Sprintf("job with id `%s` not found", jobID.ID))
+		return
+	}
+
+	logs, err := database.GetLastLogs(NumLastLogs, jobID.ID)
+	if err != nil {
+		serverErr(ctx, err.Error())
+		return
+	}
+
+	result, resultFound, err := database.GetResult(jobID.ID)
+	if err != nil {
+		serverErr(ctx, err.Error())
+		return
+	}
+
+	// TODO: Get job progress and state
+
+	var jobResponse JobResponse
+
+	jobResponse.Name = job.Name
+	jobResponse.Logs = logs
+	jobResponse.State = nil
+	jobResponse.Progress = 0.0
+	jobResponse.Result = nil
+
+	if resultFound {
+		jobResponse.Result = &result
+	}
+
+	ctx.JSON(http.StatusOK, jobResponse)
 }
 
 //
