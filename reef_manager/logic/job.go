@@ -8,8 +8,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/reef-runtime/reef/reef_manager/database"
 )
+
+const jobDaemonFreq = time.Second * 5
 
 //
 // Job manager.
@@ -94,6 +97,8 @@ func (m *JobManagerT) SubmitJob(submission JobSubmission) (newID string, compile
 	if compileErr != nil {
 		return "", compileErr, nil
 	}
+
+	fmt.Println(spew.Sdump(artifact.Wasm)[0:1000])
 
 	job := database.Job{
 		ID:        newID,
@@ -278,8 +283,6 @@ func (m *JobManagerT) TryToStartQueuedJobs() error {
 
 	return nil
 }
-
-const jobDaemonFreq = time.Second * 5
 
 func (m *JobManagerT) JobQueueDaemon() {
 	log.Info("Job queue daemon is running...")

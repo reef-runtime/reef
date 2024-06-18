@@ -124,13 +124,16 @@ func (c *CompilerManager) getCached(hash string) ([]byte, error) {
 	file, err := os.ReadFile(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
+			log.Debugf("[compiler] Could not load cache from `%s`: file does not exist", filePath)
 			return nil, nil
 		}
 
 		log.Errorf("Could not load cached Wasm artifact from compiler: %s", err.Error())
 		return nil, err
 	}
+
 	log.Debugf("[compiler] Loaded cached artifact `%s`", filePath)
+
 	return file, nil
 }
 
@@ -140,7 +143,7 @@ func (c *CompilerManager) writeCached(hash string, artifact []byte) error {
 		log.Errorf("Could not write Wasm artifact cache from compiler: %s", err.Error())
 		return err
 	}
-	log.Debugf("[compiler] Cached artifact `%s`", filePath)
+	log.Debugf("[compiler] Created artifact cache `%s`", filePath)
 	return nil
 }
 
@@ -184,15 +187,15 @@ func (c *CompilerManager) Compile(
 	hash := c.hashInput(programSrc, parsedLanguage)
 
 	// Check if there is already a cached artifact.
-	artifactBytes, err := c.getCached(hash)
+	cachedBytes, err := c.getCached(hash)
 	if err != nil {
 		return artifact, nil, err
 	}
 
 	// Success, there is already a cached version available.
-	if artifactBytes != nil {
+	if cachedBytes != nil {
 		return CompileArtifact{
-			Wasm: artifactBytes,
+			Wasm: cachedBytes,
 			Hash: hash,
 		}, nil, nil
 	}
@@ -233,8 +236,11 @@ func (c *CompilerManager) Compile(
 			return artifact, nil, err
 		}
 
+		fileBuf := make([]byte, len(file))
+		copy(fileBuf, file)
+
 		return CompileArtifact{
-			Wasm: file,
+			Wasm: fileBuf,
 			Hash: hash,
 		}, nil, nil
 	case compiler.CompilerResponse_Which_systemError:
