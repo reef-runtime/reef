@@ -1,5 +1,5 @@
 CLANG:=clang
-CLANG_ARGS:=
+CLANG_ARGS:=-Ofast
 TARGET=wasm32
 
 ENTRY_FILE:=lib.c
@@ -16,3 +16,5 @@ build:
 		$(CLANG_ARGS) \
 		-o $(OUT_FILE) \
 		$(ENTRY_FILE)
+	wasm-opt -o $(OUT_FILE) -O4 --strip-debug $(OUT_FILE)
+

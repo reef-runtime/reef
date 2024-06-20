@@ -1,22 +1,44 @@
 #include "./lib.h"
+#include "walloc.c"
 
-int reef_strlen(char *ptr) {
-  int len = 0;
-  while (ptr && ptr[len] != '\0') {
-    len++;
-  }
+size_t reef_strlen(char *ptr) {
+    int len = 0;
+    while (ptr && ptr[len] != '\0') {
+        len++;
+    }
 
-  return len;
+    return len;
+}
+
+#define BASE 10
+void reef_log_int(int val) {
+    // max len of 32bit int as dec in base 10
+    char buf[10];
+
+    int i;
+    for (i = 0; i < BASE; i++) {
+        buf[BASE - 1 - i] = '0' + (val % BASE);
+        val = val / BASE;
+        if (val == 0)
+            break;
+    }
+
+    reef_log(buf + (BASE - 1 - i), i + 1);
 }
 
 // user main function definition
-void run(byte *dataset, int len);
+void run(uint8_t *dataset, size_t len);
 // user main function declaration
 #include "./input.c"
 
 void reef_main() {
-#define DS_LEN 3
-  byte dataset[DS_LEN] = {1, 2, 3};
+    size_t len = _reef_dataset_len();
+    size_t pages = (len + PAGE_SIZE - 1) / PAGE_SIZE;
 
-  run(dataset, DS_LEN);
+    // TODO: can we get this page aligned?
+    uint8_t *dataset_mem = malloc(pages * PAGE_SIZE);
+
+    _reef_dataset_write(dataset_mem);
+
+    run(dataset_mem, len);
 }

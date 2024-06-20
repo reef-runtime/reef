@@ -208,6 +208,10 @@ fn reef_std_lib(sender: WorkerSender, sleep_until: Rc<Cell<Instant>>) -> Result<
         REEF_DATASET_WRITE_NAME.1,
         Extern::typed_func::<_, ReefDatasetWriteReturn>(
             move |mut ctx: FuncContext<'_>, (ptr,): ReefDatasetWriteArgs| {
+                if ptr as usize % PAGE_SIZE != 0 {
+                    println!("WARM: wasm wants dataset written to non page aligned ptr {ptr}");
+                }
+
                 let mut mem = ctx.exported_memory_mut("memory")?;
                 mem.fill(ptr as usize, TEMP_DATASET_LEN, 69)?;
                 let page = (ptr as usize) / PAGE_SIZE;

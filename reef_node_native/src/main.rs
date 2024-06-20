@@ -145,7 +145,7 @@ fn main() -> anyhow::Result<()> {
                 }
                 match msg {
                     Ok(FromWorkerMessage::Log(log)) => {
-                        println!("recv log: {}:{} {}", log.content, log.kind, job.worker_index);
+                        println!("recv log: [{}:{}] '{}'", job.worker_index, log.kind, log.content,);
 
                         job.logs_to_be_flushed.push(log);
                     }

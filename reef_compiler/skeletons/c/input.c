@@ -5,4 +5,4 @@
 // It only exists so that we don't get errors during development.
 //
 
-void run(byte *dataset, int len) {}
+void run(uint8_t *dataset, size_t len) {}
