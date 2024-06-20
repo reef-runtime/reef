@@ -43,18 +43,25 @@ func toNodeJobInitializationMessage(
 
 	toNodeMsg.SetKind(node.MessageToNodeKind_startJob)
 
-	nestedBody, err := node.NewJobInitializationMessage(seg)
+	nestedBody, err := node.NewJobStartMessage(seg)
 	if err != nil {
 		return nil, err
 	}
 
 	nestedBody.SetWorkerIndex(workerIndex)
 
-	if err := nestedBody.SetJobID(jobID); err != nil {
+	if err := nestedBody.SetJobId(jobID); err != nil {
 		return nil, err
 	}
 
 	if err := nestedBody.SetProgramByteCode(programByteCode); err != nil {
+		return nil, err
+	}
+
+	// TODO: actually load this data
+	nestedBody.SetProgress(0)
+
+	if err := nestedBody.SetInterpreterState([]byte{}); err != nil {
 		return nil, err
 	}
 
@@ -143,7 +150,7 @@ func (m *JobManagerT) jobStartedJobCallbackInternal(nodeID NodeID, message []byt
 	m.Nodes.Lock.RUnlock()
 
 	if currWorkerJobId == nil {
-		return "", fmt.Errorf("worker index returned from node (%d) is not busy with job ID `%s` -> node sent bogus value", workerIndex, *currWorkerJobId)
+		return "", fmt.Errorf("worker index returned from node (%d) is not busy with job ID `nil` -> node sent bogus value", workerIndex)
 	}
 
 	// TODO: sanity check between received and real job ID
@@ -174,7 +181,7 @@ func (m *JobManagerT) JobStartedJobCallback(nodeID NodeID, message []byte) error
 	}
 
 	if !found {
-		return fmt.Errorf("Failed to set job to running: job `%s` not found in database", jobID)
+		return fmt.Errorf("failed to set job to running: job `%s` not found in database", jobID)
 	}
 
 	return nil
@@ -231,7 +238,7 @@ func (m *JobManagerT) StartJobOnFreeNode(job QueuedJob, jobState *JobState) (cou
 	}
 
 	if !found {
-		return false, fmt.Errorf("Could not modify job status: job `%s` not found in DB", job.Job.ID)
+		return false, fmt.Errorf("could not modify job status: job `%s` not found in DB", job.Job.ID)
 	}
 
 	return true, nil

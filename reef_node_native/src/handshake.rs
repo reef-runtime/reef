@@ -30,12 +30,8 @@ fn read_binary(socket: &mut WSConn) -> Result<Vec<u8>> {
             Message::Text(_) => {
                 bail!("received unexpected message of type `text` instead of handshake initializer")
             }
-            Message::Ping(_) => {
-                todo!("respond to ping")
-            }
-            Message::Pong(_) => {
-                todo!("respond to pong")
-            }
+            Message::Ping(_) => {}
+            Message::Pong(_) => {}
             Message::Close(_) => {
                 bail!("connection was closed prematurely");
             }
@@ -64,9 +60,7 @@ pub(crate) fn perform(node_name: &str, num_workers: u16, socket: &mut WSConn) ->
                 println!("received handshake initializer...");
                 break;
             }
-            MessageToNodeKind::Ping | MessageToNodeKind::Pong => {
-                println!("received ping, waiting for init handshake...")
-            }
+            MessageToNodeKind::Ping | MessageToNodeKind::Pong => {}
             other => bail!("first binary message from server is not the expected handshake initializer, got {other:?}"),
         }
     }
@@ -94,10 +88,10 @@ pub(crate) fn perform(node_name: &str, num_workers: u16, socket: &mut WSConn) ->
             let kind = decoded.get_kind().unwrap();
 
             match (kind, decoded.get_body().which().with_context(|| "could not read node ID")?) {
-                (MessageToNodeKind::AssignID, message_to_node::body::Which::AssignID(id_reader)) => {
+                (MessageToNodeKind::AssignId, message_to_node::body::Which::AssignId(id_reader)) => {
                     let id = id_reader.with_context(|| "could not read node IP")?;
-                    let id_reader: message_capnp::assign_i_d_message::Reader = id;
-                    let id_vec = id_reader.get_node_i_d().with_context(|| "failed to read node IP")?.to_vec();
+                    let id_reader: message_capnp::assign_id_message::Reader = id;
+                    let id_vec = id_reader.get_node_id().with_context(|| "failed to read node IP")?.to_vec();
 
                     let Ok(id_final): Result<[u8; 32], _> = id_vec.try_into() else {
                         bail!("node ID size mismatch or general failure");

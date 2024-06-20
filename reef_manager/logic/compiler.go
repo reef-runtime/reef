@@ -62,7 +62,7 @@ type compilerConn struct {
 }
 
 func (c *CompilerManager) connect() (compilerConn, error) {
-	log.Debugf("Establishing connection to compiler at `%s:%s`", c.config.IP, c.config.Port)
+	log.Debugf("Establishing connection to compiler at `%s:%d`", c.config.IP, c.config.Port)
 	netConn, err := net.Dial(compilerServiceDialType, fmt.Sprintf("%s:%d", c.config.IP, c.config.Port))
 	if err != nil {
 		return compilerConn{}, err

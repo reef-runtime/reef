@@ -291,8 +291,15 @@ impl NodeState {
 
         let (to_master_sender, from_worker_receiver) = mpsc::channel();
 
-        let handle =
-            spawn_worker_thread(to_master_sender, signal.clone(), request.program_byte_code, request.job_id.clone());
+        let state = if request.interpreter_state.is_empty() { None } else { Some(request.interpreter_state) };
+
+        let handle = spawn_worker_thread(
+            to_master_sender,
+            signal.clone(),
+            request.job_id.clone(),
+            request.program_byte_code,
+            state,
+        );
 
         let job = Job {
             worker_index: request.worker_index,
@@ -301,7 +308,7 @@ impl NodeState {
             channel_from_worker: from_worker_receiver,
             handle,
             logs_to_be_flushed: Vec::new(),
-            progress: 0.0,
+            progress: request.progress,
             last_sync: Instant::now(),
         };
 
@@ -314,7 +321,10 @@ impl NodeState {
 struct StartJobRequest {
     worker_index: usize,
     job_id: String,
+    progress: f32,
+
     program_byte_code: Vec<u8>,
+    interpreter_state: Vec<u8>,
 }
 
 enum Action {
@@ -343,20 +353,19 @@ fn handle_binary(bin_slice: &[u8]) -> Result<Action> {
     match (kind, body) {
         (MessageToNodeKind::StartJob, body::Which::StartJob(body)) => {
             let body = body?;
-            let worker_index = body.get_worker_index() as usize;
-            let job_id =
-                String::from_utf8(body.get_job_i_d()?.0.to_vec()).with_context(|| "illegal job ID encoding")?;
-
-            let program_byte_code = body.get_program_byte_code()?;
+            let job_id = String::from_utf8(body.get_job_id()?.0.to_vec()).with_context(|| "illegal job ID encoding")?;
 
             Ok(Action::StartJob(StartJobRequest {
-                worker_index,
+                worker_index: body.get_worker_index() as usize,
                 job_id,
-                program_byte_code: program_byte_code.to_vec(),
+                progress: body.get_progress(),
+
+                program_byte_code: body.get_program_byte_code()?.to_vec(),
+                interpreter_state: body.get_interpreter_state()?.to_vec(),
             }))
         }
         (MessageToNodeKind::Pong, body::Which::Empty(_)) => Ok(Action::Pong),
         (MessageToNodeKind::Ping, body::Which::Empty(_)) => Ok(Action::Ping),
-        (_, _) => bail!("illegal message received instead of ID"),
+        (_, _) => bail!("Illegal message received instead of Job control."),
     }
 }

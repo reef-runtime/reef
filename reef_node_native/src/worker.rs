@@ -261,8 +261,9 @@ impl WorkerSignal {
 pub(crate) fn spawn_worker_thread(
     sender: WorkerSender,
     signal: Arc<AtomicU8>,
-    program: Vec<u8>,
     job_id: String,
+    program: Vec<u8>,
+    state: Option<Vec<u8>>,
 ) -> JobThreadHandle {
     thread::spawn(move || -> Result<ReefJobOutput, reef_interpreter::Error> {
         println!("Instantiating WASM interpreter...");
@@ -270,7 +271,7 @@ pub(crate) fn spawn_worker_thread(
         let sleep_until = Rc::new(Cell::new(Instant::now()));
 
         // TODO get previous state
-        let mut exec_handle = match setup_interpreter(sender.clone(), &program, None, sleep_until.clone()) {
+        let mut exec_handle = match setup_interpreter(sender.clone(), &program, state.as_deref(), sleep_until.clone()) {
             Ok(handle) => handle,
             Err(err) => {
                 sender.send(FromWorkerMessage::Done).unwrap();

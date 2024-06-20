@@ -57,22 +57,22 @@ func MessageToNodeAssignID(nodeID logic.NodeID) ([]byte, error) {
 		return nil, err
 	}
 
-	toNodeMsg.SetKind(node.MessageToNodeKind_assignID)
+	toNodeMsg.SetKind(node.MessageToNodeKind_assignId)
 
 	//
 	// Nested.
 	//
 
-	assignIDMsg, err := node.NewAssignIDMessage(seg)
+	assignIDMsg, err := node.NewAssignIdMessage(seg)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := assignIDMsg.SetNodeID(nodeID[:]); err != nil {
+	if err := assignIDMsg.SetNodeId(nodeID[:]); err != nil {
 		return nil, err
 	}
 
-	if err := toNodeMsg.Body().SetAssignID(assignIDMsg); err != nil {
+	if err := toNodeMsg.Body().SetAssignId(assignIDMsg); err != nil {
 		return nil, err
 	}
 
@@ -344,7 +344,7 @@ func handleGenericIncoming(nodeData logic.Node, message []byte, pingHandler func
 	case node.MessageFromNodeKind_jobResult:
 		return processJobResultFromNode(nodeData.ID, decodedEnclosingMsg)
 	default:
-		return fmt.Errorf("Received illegal message kind from node: %d", kind)
+		return fmt.Errorf("received illegal message kind from node: %d", kind)
 	}
 }
 

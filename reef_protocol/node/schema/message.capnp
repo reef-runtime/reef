@@ -13,9 +13,10 @@ enum MessageToNodeKind {
     ping                @0;
     pong                @1;
 
-    assignID            @2;
+    assignId            @2;
     initHandShake       @3;
     startJob            @4;
+    abortJob            @5;
 }
 
 struct MessageToNode {
@@ -23,36 +24,27 @@ struct MessageToNode {
 
     body :union {
         empty           @1  :Void;
-        assignID        @2  :AssignIDMessage;
-        startJob        @3  :JobInitializationMessage;
-        resumeJob       @4  :JobResumeMessage;
-        abortJob        @5  :JobKillMessage;
+        assignId        @2  :AssignIdMessage;
+        startJob        @3  :JobStartMessage;
+        abortJob        @4  :JobKillMessage;
     }
 }
 
-struct AssignIDMessage {
-    nodeID @0: Data;
+struct AssignIdMessage {
+    nodeId @0: Data;
 }
 
-struct JobResumeMessage {
-    job                 @0 :JobInitializationMessage;
-    previousState       @1 :PreviousJobState;
-}
-
-
-struct PreviousJobState {
-    progress            @0 :Float32;
-    interpreterState    @1 :Data;
-}
-
-struct JobInitializationMessage {
+struct JobStartMessage {
     workerIndex         @0 :UInt32;
-    jobID               @1 :Text;
+    jobId               @1 :Text;
     programByteCode     @2 :Data;
+    # If the job has just been started these will be 0/empty
+    progress            @3 :Float32;
+    interpreterState    @4 :Data;  
 }
 
 struct JobKillMessage {
-    jobID @0 :Text;
+    jobId @0 :Text;
 }
 
 
@@ -85,7 +77,7 @@ struct HandshakeRespondMessage {
 
 struct JobStartedMessage {
     workerIndex         @0 :UInt32;
-    jobID               @1 :Text;
+    jobId               @1 :Text;
 }
 
 struct JobLogMessage {
