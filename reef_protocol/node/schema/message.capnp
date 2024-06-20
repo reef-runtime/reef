@@ -94,10 +94,10 @@ struct JobStateSync {
 }
 
 enum ResultContentType {
-	stringJSON          @0;
-	stringPlain         @1;
-	int64               @2;
-	bytes               @3;
+	int64               @0;
+	bytes               @1;
+	stringPlain         @2;
+	stringJSON          @3;
 }
 
 struct JobResult {

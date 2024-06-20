@@ -21,7 +21,7 @@ use reef_protocol_node::message_capnp::{
 mod comms;
 mod handshake;
 mod worker;
-use worker::{FromWorkerMessage, Job};
+use worker::{FromWorkerMessage, Job, WorkerData};
 
 type WSConn = WebSocket<MaybeTlsStream<TcpStream>>;
 
@@ -185,16 +185,16 @@ fn main() -> anyhow::Result<()> {
             let thread_res = worker.handle.join().expect("worker thread panic'ed, this is a bug");
 
             let job_result = match thread_res {
-                Ok((contents, content_type)) => {
+                Ok((content_type, contents)) => {
                     println!("==> Job has executed successfully!");
-                    JobResult { success: true, contents, content_type }
+                    JobResult { success: true, content_type, contents }
                 }
                 Err(err) => {
                     println!("==> Job failed: {err:?}");
                     JobResult {
-                        success: true,
-                        contents: format!("{:?}", err).into_bytes(),
+                        success: false,
                         content_type: ResultContentType::StringPlain,
+                        contents: format!("{:?}", err).into_bytes(),
                     }
                 }
             };
@@ -294,11 +294,9 @@ impl NodeState {
         let state = if request.interpreter_state.is_empty() { None } else { Some(request.interpreter_state) };
 
         let handle = spawn_worker_thread(
-            to_master_sender,
             signal.clone(),
             request.job_id.clone(),
-            request.program_byte_code,
-            state,
+            WorkerData { sender: to_master_sender, program: request.program_byte_code, state: state },
         );
 
         let job = Job {

@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::mem;
 use std::rc::Rc;
 use std::sync::{
@@ -13,7 +13,7 @@ use anyhow::Context;
 use reef_interpreter::PAGE_SIZE;
 use reef_interpreter::{
     exec::{CallResultTyped, ExecHandleTyped},
-    imports::{Extern, FuncContext, Imports},
+    imports::{Extern, Imports},
     parse_bytes,
     reference::MemoryStringExt,
     Instance,
@@ -30,31 +30,40 @@ const TODO_LOG_KIND_DEFAULT: u16 = 0;
 // Wasm interface declaration
 //
 
+// Entrypoint
+
 const REEF_MAIN_NAME: &str = "reef_main";
 type ReefMainArgs = ();
 type ReefMainReturn = ();
 type ReefMainHandle = ExecHandleTyped<ReefMainReturn>;
 
-const REEF_LOG_NAME: (&str, &str) = ("reef", "log");
+// Imports
+const REEF_MODULE_NAME: &str = "reef";
+
+const REEF_LOG_NAME: &str = "log";
 type ReefLogArgs = (i32, i32);
 // type ReefLogReturn = ();
 
-const REEF_PROGRESS_NAME: (&str, &str) = ("reef", "progress");
+const REEF_PROGRESS_NAME: &str = "progress";
 type ReefProgressArgs = (f32,);
 // type ReefProgressReturn = ();
 
-const REEF_SLEEP_NAME: (&str, &str) = ("reef", "sleep");
+const REEF_SLEEP_NAME: &str = "sleep";
 // Seconds to sleep.
 type ReefSleepArgs = (f32,);
 type ReefSleepReturn = ();
 
-const REEF_DATASET_LEN_NAME: (&str, &str) = ("reef", "dataset_len");
+const REEF_DATASET_LEN_NAME: &str = "dataset_len";
 type ReefDatasetLenArgs = ();
 type ReefDatasetLenReturn = (i32,);
 
-const REEF_DATASET_WRITE_NAME: (&str, &str) = ("reef", "dataset_write");
+const REEF_DATASET_WRITE_NAME: &str = "dataset_write";
 type ReefDatasetWriteArgs = (i32,);
 type ReefDatasetWriteReturn = ();
+
+const REEF_RESULT_NAME: &str = "result";
+type ReefResultArgs = (i32, i32, i32);
+type ReefResultReturn = ();
 
 const ITERATION_CYCLES: usize = 0x10000;
 
@@ -65,11 +74,6 @@ pub(crate) struct ReefLog {
     pub(crate) content: String,
     pub(crate) kind: u16,
 }
-
-//
-// Worker state.
-//
-
 #[derive(Debug)]
 pub(crate) struct Job {
     pub(crate) last_sync: Instant,
@@ -88,8 +92,8 @@ pub(crate) struct Job {
 
 pub(crate) struct JobResult {
     pub(crate) success: bool,
-    pub(crate) contents: Vec<u8>,
     pub(crate) content_type: ResultContentType,
+    pub(crate) contents: Vec<u8>,
 }
 
 impl Job {
@@ -127,10 +131,6 @@ impl Job {
     }
 }
 
-//
-// End worker state.
-//
-
 pub(crate) enum FromWorkerMessage {
     State(Vec<u8>),
     Log(ReefLog),
@@ -140,113 +140,14 @@ pub(crate) enum FromWorkerMessage {
 
 pub(crate) type WorkerSender = mpsc::Sender<FromWorkerMessage>;
 
-fn reef_std_lib(sender: WorkerSender, sleep_until: Rc<Cell<Instant>>) -> Result<Imports, reef_interpreter::Error> {
-    let mut imports = Imports::new();
-
-    // Reef Log.
-    let sender_log = sender.clone();
-    imports.define(
-        REEF_LOG_NAME.0,
-        REEF_LOG_NAME.1,
-        Extern::typed_func(move |ctx: FuncContext<'_>, (ptr, len): ReefLogArgs| {
-            let mem = ctx.exported_memory("memory")?;
-            let log_string = mem.load_string(ptr as usize, len as usize)?;
-
-            sender_log
-                .send(FromWorkerMessage::Log(ReefLog { content: log_string, kind: TODO_LOG_KIND_DEFAULT }))
-                .unwrap();
-
-            Ok(())
-        }),
-    )?;
-
-    // Reef report progress.
-    let sender_progress = sender.clone();
-    imports.define(
-        REEF_PROGRESS_NAME.0,
-        REEF_PROGRESS_NAME.1,
-        Extern::typed_func(move |mut _ctx: FuncContext<'_>, (done,): ReefProgressArgs| {
-            if !(0.0..=1.0).contains(&done) {
-                return Err(reef_interpreter::Error::Other("reef/progress: value not in Range 0.0..=1.0".into()));
-            }
-
-            sender_progress.send(FromWorkerMessage::Progress(done)).unwrap();
-
-            Ok(())
-        }),
-    )?;
-
-    // Reef sleep.
-    imports.define(
-        REEF_SLEEP_NAME.0,
-        REEF_SLEEP_NAME.1,
-        Extern::typed_func::<_, ReefSleepReturn>(move |mut _ctx: FuncContext<'_>, (seconds,): ReefSleepArgs| {
-            println!("Sleep");
-
-            sleep_until.set(
-                Instant::now()
-                    .checked_add(Duration::from_secs_f32(seconds))
-                    .ok_or_else(|| reef_interpreter::Error::Other("reef/sleep: Invalid time.".into()))?,
-            );
-
-            Err(reef_interpreter::Error::PauseExecution)
-        }),
-    )?;
-
-    // Reef dataset.
-    const TEMP_DATASET_LEN: usize = 100000;
-    imports.define(
-        REEF_DATASET_LEN_NAME.0,
-        REEF_DATASET_LEN_NAME.1,
-        Extern::typed_func::<_, ReefDatasetLenReturn>(move |mut _ctx: FuncContext<'_>, _args: ReefDatasetLenArgs| {
-            Ok((TEMP_DATASET_LEN as i32,))
-        }),
-    )?;
-
-    imports.define(
-        REEF_DATASET_WRITE_NAME.0,
-        REEF_DATASET_WRITE_NAME.1,
-        Extern::typed_func::<_, ReefDatasetWriteReturn>(
-            move |mut ctx: FuncContext<'_>, (ptr,): ReefDatasetWriteArgs| {
-                if ptr as usize % PAGE_SIZE != 0 {
-                    println!("WARM: wasm wants dataset written to non page aligned ptr {ptr}");
-                }
-
-                let mut mem = ctx.exported_memory_mut("memory")?;
-                mem.fill(ptr as usize, TEMP_DATASET_LEN, 69)?;
-                let page = (ptr as usize) / PAGE_SIZE;
-                let count = TEMP_DATASET_LEN.div_ceil(PAGE_SIZE);
-                mem.set_ignored_page_region(page, count);
-                Ok(())
-            },
-        ),
-    )?;
-
-    Ok(imports)
+#[derive(Debug)]
+pub(crate) struct WorkerData {
+    pub(crate) sender: WorkerSender,
+    pub(crate) program: Vec<u8>,
+    pub(crate) state: Option<Vec<u8>>,
 }
 
-fn setup_interpreter(
-    sender: WorkerSender,
-    program: &[u8],
-    state: Option<&[u8]>,
-    sleep_until: Rc<Cell<Instant>>,
-) -> Result<ReefMainHandle, reef_interpreter::Error> {
-    let module = parse_bytes(program)?;
-    let imports = reef_std_lib(sender, sleep_until)?;
-
-    let (instance, stack) = Instance::instantiate(module, imports, state)?;
-    if stack.is_some() {
-        // TODO: reload dataset
-        // instance.exported_memory_mut("memory")?.copy_into_ignored_page_region(...);
-    }
-
-    let entry_fn_handle = instance.exported_func::<ReefMainArgs, ReefMainReturn>(REEF_MAIN_NAME).unwrap();
-    let exec_handle = entry_fn_handle.call((), stack)?;
-
-    Ok(exec_handle)
-}
-
-type ReefJobOutput = (Vec<u8>, ResultContentType);
+type ReefJobOutput = (ResultContentType, Vec<u8>);
 pub(crate) type JobThreadHandle = JoinHandle<Result<ReefJobOutput, reef_interpreter::Error>>;
 
 #[non_exhaustive]
@@ -258,20 +159,15 @@ impl WorkerSignal {
     pub(crate) const ABORT: u8 = 2;
 }
 
-pub(crate) fn spawn_worker_thread(
-    sender: WorkerSender,
-    signal: Arc<AtomicU8>,
-    job_id: String,
-    program: Vec<u8>,
-    state: Option<Vec<u8>>,
-) -> JobThreadHandle {
+pub(crate) fn spawn_worker_thread(signal: Arc<AtomicU8>, job_id: String, data: WorkerData) -> JobThreadHandle {
     thread::spawn(move || -> Result<ReefJobOutput, reef_interpreter::Error> {
         println!("Instantiating WASM interpreter...");
 
         let sleep_until = Rc::new(Cell::new(Instant::now()));
+        let job_output = Rc::new(RefCell::new((ResultContentType::Bytes, Vec::new())));
 
-        // TODO get previous state
-        let mut exec_handle = match setup_interpreter(sender.clone(), &program, state.as_deref(), sleep_until.clone()) {
+        let sender = data.sender.clone();
+        let mut exec_handle = match setup_interpreter(data, sleep_until.clone(), job_output.clone()) {
             Ok(handle) => handle,
             Err(err) => {
                 sender.send(FromWorkerMessage::Done).unwrap();
@@ -317,8 +213,7 @@ pub(crate) fn spawn_worker_thread(
             let run_res = exec_handle.run(ITERATION_CYCLES);
             match run_res {
                 Ok(CallResultTyped::Done(_)) => {
-                    // TODO: @konsti, do this.
-                    break Ok((vec![1, 2, 3, 4], ResultContentType::Bytes));
+                    break Ok(());
                 }
                 Ok(CallResultTyped::Incomplete) => {}
                 Err(err) => break Err(err),
@@ -326,6 +221,138 @@ pub(crate) fn spawn_worker_thread(
         };
 
         sender.send(FromWorkerMessage::Done).unwrap();
-        res
+        drop(exec_handle);
+
+        let job_output = Rc::try_unwrap(job_output).unwrap().into_inner();
+        res.map(|_| job_output)
     })
+}
+
+fn setup_interpreter(
+    data: WorkerData,
+    sleep_until: Rc<Cell<Instant>>,
+    job_output: Rc<RefCell<(ResultContentType, Vec<u8>)>>,
+) -> Result<ReefMainHandle, reef_interpreter::Error> {
+    let module = parse_bytes(&data.program)?;
+    let imports = reef_std_lib(data.sender, sleep_until, job_output)?;
+
+    let (instance, stack) = Instance::instantiate(module, imports, data.state.as_deref())?;
+    if stack.is_some() {
+        // TODO: reload dataset
+        // instance.exported_memory_mut("memory")?.copy_into_ignored_page_region(...);
+    }
+
+    let entry_fn_handle = instance.exported_func::<ReefMainArgs, ReefMainReturn>(REEF_MAIN_NAME).unwrap();
+    let exec_handle = entry_fn_handle.call((), stack)?;
+
+    Ok(exec_handle)
+}
+
+fn reef_std_lib(
+    sender: WorkerSender,
+    sleep_until: Rc<Cell<Instant>>,
+    job_output: Rc<RefCell<(ResultContentType, Vec<u8>)>>,
+) -> Result<Imports, reef_interpreter::Error> {
+    let mut imports = Imports::new();
+
+    // Reef Log.
+    let sender_log = sender.clone();
+    imports.define(
+        REEF_MODULE_NAME,
+        REEF_LOG_NAME,
+        Extern::typed_func(move |ctx, (ptr, len): ReefLogArgs| {
+            let mem = ctx.exported_memory("memory")?;
+            let log_string = mem.load_string(ptr as usize, len as usize)?;
+
+            sender_log
+                .send(FromWorkerMessage::Log(ReefLog { content: log_string, kind: TODO_LOG_KIND_DEFAULT }))
+                .unwrap();
+
+            Ok(())
+        }),
+    )?;
+
+    // Reef report progress.
+    let sender_progress = sender.clone();
+    imports.define(
+        REEF_MODULE_NAME,
+        REEF_PROGRESS_NAME,
+        Extern::typed_func(move |_ctx, (done,): ReefProgressArgs| {
+            if !(0.0..=1.0).contains(&done) {
+                return Err(reef_interpreter::Error::Other("reef/progress: value not in Range 0.0..=1.0".into()));
+            }
+
+            sender_progress.send(FromWorkerMessage::Progress(done)).unwrap();
+
+            Ok(())
+        }),
+    )?;
+
+    // Reef sleep.
+    imports.define(
+        REEF_MODULE_NAME,
+        REEF_SLEEP_NAME,
+        Extern::typed_func::<_, ReefSleepReturn>(move |_ctx, (seconds,): ReefSleepArgs| {
+            println!("Sleep");
+
+            sleep_until.set(
+                Instant::now()
+                    .checked_add(Duration::from_secs_f32(seconds))
+                    .ok_or_else(|| reef_interpreter::Error::Other("reef/sleep: Invalid time.".into()))?,
+            );
+
+            Err(reef_interpreter::Error::PauseExecution)
+        }),
+    )?;
+
+    // Reef dataset.
+    const TEMP_DATASET_LEN: usize = 100000;
+    imports.define(
+        REEF_MODULE_NAME,
+        REEF_DATASET_LEN_NAME,
+        Extern::typed_func::<_, ReefDatasetLenReturn>(move |_ctx, _args: ReefDatasetLenArgs| {
+            Ok((TEMP_DATASET_LEN as i32,))
+        }),
+    )?;
+    imports.define(
+        REEF_MODULE_NAME,
+        REEF_DATASET_WRITE_NAME,
+        Extern::typed_func::<_, ReefDatasetWriteReturn>(move |mut ctx, (ptr,): ReefDatasetWriteArgs| {
+            if ptr as usize % PAGE_SIZE != 0 {
+                // TODO: actyually handle properly
+                println!("WARM: wasm wants dataset written to non page aligned ptr {ptr}");
+            }
+
+            let mut mem = ctx.exported_memory_mut("memory")?;
+            mem.fill(ptr as usize, TEMP_DATASET_LEN, 69)?;
+            let page = (ptr as usize) / PAGE_SIZE;
+            let count = TEMP_DATASET_LEN.div_ceil(PAGE_SIZE);
+            mem.set_ignored_page_region(page, count);
+            Ok(())
+        }),
+    )?;
+
+    // Reef result
+    imports.define(
+        REEF_MODULE_NAME,
+        REEF_RESULT_NAME,
+        Extern::typed_func::<_, ReefResultReturn>(move |ctx, (result_type, ptr, len): ReefResultArgs| {
+            let mem = ctx.exported_memory("memory")?;
+            let data = mem.load_vec(ptr as usize, len as usize)?;
+
+            let content_type = match result_type {
+                0 => ResultContentType::Int64,
+                1 => ResultContentType::Bytes,
+                2 => ResultContentType::StringPlain,
+                3 => ResultContentType::StringJSON,
+                _ => return Err(reef_interpreter::Error::Other("invalid ResultContentType".into())),
+            };
+
+            *job_output.borrow_mut() = (content_type, data);
+
+            Ok(())
+        }),
+    )?;
+
+    Ok(imports)
 }
