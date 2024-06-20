@@ -8,6 +8,6 @@ import (
 )
 
 func GetNodes(ctx *gin.Context) {
-	nodes := logic.NodeManager.ListNodes()
+	nodes := logic.JobManager.ListNodes()
 	ctx.JSON(http.StatusOK, nodes)
 }

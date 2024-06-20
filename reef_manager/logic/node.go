@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/reef-runtime/reef/reef_manager/database"
 )
 
 type JobID = string
@@ -42,10 +43,6 @@ type NodeMap struct {
 	Lock sync.RWMutex
 }
 
-type NodeManagerT struct {
-	Nodes NodeMap
-}
-
 type NodeWeb struct {
 	Info        NodeInfo   `json:"info"`
 	LastPing    *time.Time `json:"lastPing"`
@@ -53,9 +50,7 @@ type NodeWeb struct {
 	WorkerState []*JobID   `json:"workerState"`
 }
 
-var NodeManager NodeManagerT
-
-func (m *NodeManagerT) ListNodes() []NodeWeb {
+func (m *JobManagerT) ListNodes() []NodeWeb {
 	m.Nodes.Lock.RLock()
 	defer m.Nodes.Lock.RUnlock()
 
@@ -75,7 +70,40 @@ func (m *NodeManagerT) ListNodes() []NodeWeb {
 	return nodes
 }
 
-func (m *NodeManagerT) GetNode(id NodeID) (node Node, found bool) {
+type StateSync struct {
+	WorkerIndex      uint16
+	JobID            string
+	Progress         float32
+	Logs             []database.JobLog
+	InterpreterState []byte
+}
+
+func (m *JobManagerT) StateSync(nodeId NodeID, state StateSync) error {
+	panic("TODO")
+
+	m.Nodes.Lock.Lock()
+	defer m.Nodes.Lock.Unlock()
+
+	node, found := m.Nodes.Map[nodeId]
+	if !found {
+		return fmt.Errorf("state sync: node `%s` was not found", IDToString(nodeId))
+	}
+
+	if state.WorkerIndex >= node.Info.NumWorkers {
+		return fmt.Errorf("state sync: worker %d is illegal", state.WorkerIndex)
+	}
+
+	jobID := node.WorkerState[state.WorkerIndex]
+	if jobID == nil {
+		return fmt.Errorf("state sync: worker %d on node `%s` is idle", state.WorkerIndex, IDToString(nodeId))
+	}
+
+	// job, found := m.JobQueueDaemon()
+
+	return nil
+}
+
+func (m *JobManagerT) GetNode(id NodeID) (node Node, found bool) {
 	m.Nodes.Lock.RLock()
 	defer m.Nodes.Lock.RUnlock()
 
@@ -83,7 +111,7 @@ func (m *NodeManagerT) GetNode(id NodeID) (node Node, found bool) {
 	return nodeRaw, found
 }
 
-func (m *NodeManagerT) ConnectNode(node NodeInfo, conn *WSConn) (nodeObj Node) {
+func (m *JobManagerT) ConnectNode(node NodeInfo, conn *WSConn) (nodeObj Node) {
 	newID := sha256.Sum256(append([]byte(node.EndpointIP), []byte(node.Name)...))
 	newIDString := hex.EncodeToString(newID[0:])
 
@@ -117,7 +145,7 @@ func (m *NodeManagerT) ConnectNode(node NodeInfo, conn *WSConn) (nodeObj Node) {
 	return nodeObj
 }
 
-func (m *NodeManagerT) DropNode(id NodeID) bool {
+func (m *JobManagerT) DropNode(id NodeID) bool {
 	m.Nodes.Lock.Lock()
 	defer m.Nodes.Lock.Unlock()
 
@@ -155,7 +183,7 @@ func (m *NodeManagerT) DropNode(id NodeID) bool {
 	return true
 }
 
-func (m *NodeManagerT) RegisterPing(id NodeID) bool {
+func (m *JobManagerT) RegisterPing(id NodeID) bool {
 	m.Nodes.Lock.Lock()
 	defer m.Nodes.Lock.Unlock()
 
@@ -175,8 +203,8 @@ func (m *NodeManagerT) RegisterPing(id NodeID) bool {
 // TODO: write code that looks at the queued jobs and dispatches it to a free node.
 //
 
-func newNodeManager() NodeManagerT {
-	return NodeManagerT{
+func newNodeManager() JobManagerT {
+	return JobManagerT{
 		Nodes: NodeMap{
 			Map:  make(map[NodeID]Node),
 			Lock: sync.RWMutex{},

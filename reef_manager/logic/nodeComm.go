@@ -70,7 +70,7 @@ type JobState struct {
 	InterpreterState []byte
 }
 
-func (m *NodeManagerT) StartJobOnNode(
+func (m *JobManagerT) StartJobOnNode(
 	nodeData Node,
 	jobID JobID,
 	workerIdx uint16,
@@ -115,7 +115,7 @@ func (m *NodeManagerT) StartJobOnNode(
 	return nil
 }
 
-func (m *NodeManagerT) jobStartedJobCallbackInternal(nodeID NodeID, message []byte) (jobID JobID, err error) {
+func (m *JobManagerT) jobStartedJobCallbackInternal(nodeID NodeID, message []byte) (jobID JobID, err error) {
 	const leadingBytes = 1 // Due to the leading signal byte.
 	workerIdxByteSize := binary.Size(uint16(0))
 	jobIDBytes := 64
@@ -157,7 +157,7 @@ func (m *NodeManagerT) jobStartedJobCallbackInternal(nodeID NodeID, message []by
 	return jobID, nil
 }
 
-func (m *NodeManagerT) JobStartedJobCallback(nodeID NodeID, message []byte) error {
+func (m *JobManagerT) JobStartedJobCallback(nodeID NodeID, message []byte) error {
 	jobID, err := m.jobStartedJobCallbackInternal(nodeID, message)
 	if err != nil {
 		if !m.DropNode(nodeID) {
@@ -180,7 +180,7 @@ func (m *NodeManagerT) JobStartedJobCallback(nodeID NodeID, message []byte) erro
 	return nil
 }
 
-func (m *NodeManagerT) findFreeNode() (nodeID NodeID, workerIdx uint16, found bool) {
+func (m *JobManagerT) findFreeNode() (nodeID NodeID, workerIdx uint16, found bool) {
 	m.Nodes.Lock.Lock()
 	defer m.Nodes.Lock.Unlock()
 
@@ -195,7 +195,7 @@ func (m *NodeManagerT) findFreeNode() (nodeID NodeID, workerIdx uint16, found bo
 	return nodeID, 0, false
 }
 
-func (m *NodeManagerT) StartJobOnFreeNode(job QueuedJob, jobState *JobState) (couldStart bool, err error) {
+func (m *JobManagerT) StartJobOnFreeNode(job QueuedJob, jobState *JobState) (couldStart bool, err error) {
 	nodeID, workerIndex, nodeFound := m.findFreeNode()
 	if !nodeFound {
 		return false, nil
@@ -248,8 +248,8 @@ type NodeLogMessage struct {
 	LogContents   []byte
 }
 
-func (m *NodeManagerT) NodeLogCallBack(nodeID NodeID, message []byte) (err error) {
-	parsed, err := NodeManager.nodeLogCallBackInternal(nodeID, message)
+func (m *JobManagerT) NodeLogCallBack(nodeID NodeID, message []byte) (err error) {
+	parsed, err := JobManager.nodeLogCallBackInternal(nodeID, message)
 	if err != nil {
 		if !m.DropNode(nodeID) {
 			panic("Impossible: node which should be dropped does not exist")
@@ -263,7 +263,7 @@ func (m *NodeManagerT) NodeLogCallBack(nodeID NodeID, message []byte) (err error
 	return nil
 }
 
-func (m *NodeManagerT) nodeLogCallBackInternal(nodeID NodeID, message []byte) (parsed NodeLogMessage, err error) {
+func (m *JobManagerT) nodeLogCallBackInternal(nodeID NodeID, message []byte) (parsed NodeLogMessage, err error) {
 	// TODO: implement this!
 	panic("TODO")
 

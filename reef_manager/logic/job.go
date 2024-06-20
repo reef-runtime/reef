@@ -21,6 +21,8 @@ const jobDaemonFreq = time.Second * 5
 type JobManagerT struct {
 	JobQueue JobQueue
 	Compiler *CompilerManager
+
+	Nodes NodeMap
 }
 
 var JobManager JobManagerT
@@ -281,7 +283,7 @@ func (m *JobManagerT) TryToStartQueuedJobs() error {
 		log.Debugf("Attempting to start job `%s`...", job.Job.ID)
 
 		// TODO: here is the place where we can give the node a previous state to resume from.
-		couldStart, err := NodeManager.StartJobOnFreeNode(job, nil)
+		couldStart, err := JobManager.StartJobOnFreeNode(job, nil)
 		if err != nil {
 			log.Errorf("HARD ERROR: Could not start job `%s`: %s", job.Job.ID, err.Error())
 			return err

@@ -10,6 +10,7 @@ import (
 	"capnproto.org/go/capnp/v3"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/reef-runtime/reef/reef_manager/database"
 	"github.com/reef-runtime/reef/reef_manager/logic"
 	node "github.com/reef-runtime/reef/reef_protocol_node"
 )
@@ -132,7 +133,7 @@ func performHandshake(conn *logic.WSConn) (logic.Node, error) {
 	// Adding the node.
 	//
 
-	newNode := logic.NodeManager.ConnectNode(logic.NodeInfo{
+	newNode := logic.JobManager.ConnectNode(logic.NodeInfo{
 		EndpointIP: endpointIP.String(),
 		Name:       nodeName,
 		NumWorkers: numWorkers,
@@ -187,7 +188,7 @@ func dropNode(conn *logic.WSConn, closeCode int, nodeID logic.NodeID) {
 		log.Warnf("[node] could not close TCP connection")
 	}
 
-	if !logic.NodeManager.DropNode(nodeID) {
+	if !logic.JobManager.DropNode(nodeID) {
 		log.Errorf("[node] dropping unknown node `%s`, this is a bug", nodeIDString)
 	}
 }
@@ -234,7 +235,7 @@ func nodePingHandler(conn *logic.WSConn, nodeID logic.NodeID) func(string) error
 			return err
 		}
 
-		if !logic.NodeManager.RegisterPing(nodeID) {
+		if !logic.JobManager.RegisterPing(nodeID) {
 			log.Errorf(
 				"[node] could not register ping, node `%s` does not exist, this is a bug",
 				logic.IDToString(nodeID),
@@ -304,29 +305,15 @@ func HandleNodeConnection(c *gin.Context) {
 				dropNode(wsConn, websocket.CloseAbnormalClosure, node.ID)
 				return
 			}
-
-			// switch message[0] {
-			// case CODE_PING:
-			// 	if err := pingHandler(string(message[1:])); err != nil {
-			// 		dropNode(wsConn, websocket.CloseAbnormalClosure, nodeID)
-			// 		return
-			// 	}
-			// case logic.CODE_STARTED_JOB:
-			// 	if err := logic.NodeManager.JobStartedJobCallback(nodeID, message); err != nil {
-			// 		log.Errorf("job started error: %s", err.Error())
-			// 		return
-			// 	}
-			// case logic.CODE_JOB_LOG:
-			// 	if err := logic.NodeManager.NodeLogCallBack(nodeID, message); err != nil {
-			// 		log.Errorf("job log error: %s", err.Error())
-			// 		return
-			// 	}
-			// }
 		case websocket.PingMessage:
-			fmt.Printf("ping: %x\n", message)
+			if err := pingHandler(string(message[1:])); err != nil {
+				dropNode(wsConn, websocket.CloseAbnormalClosure, node.ID)
+				return
+			}
 		case websocket.PongMessage:
 			fmt.Printf("pong: %x\n", message)
 		case websocket.CloseMessage:
+			// TODO: handle close
 			fmt.Println("closing...")
 			return
 		}
@@ -353,13 +340,112 @@ func handleGenericIncoming(nodeData logic.Node, message []byte, pingHandler func
 		log.Tracef("Received pong from node `%s` (%s)", logic.IDToString(nodeData.ID), nodeData.Info.EndpointIP)
 		return nil
 	case node.MessageFromNodeKind_jobStateSync:
-		fmt.Println("===== [TODO] State sync is not yet supported")
-		return nil
+		return processStateSyncFromNode(nodeData.ID, decodedEnclosingMsg)
 	case node.MessageFromNodeKind_jobResult:
 		return processJobResultFromNode(nodeData.ID, decodedEnclosingMsg)
 	default:
 		return fmt.Errorf("Received illegal message kind from node: %d", kind)
 	}
+}
+
+func processStateSyncFromNode(nodeID logic.NodeID, message node.MessageFromNode) error {
+	parsed, err := parseStateSync(nodeID, message)
+	if err != nil {
+		return err
+	}
+
+	if err := logic.JobManager.StateSync(nodeID, parsed); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func parseStateSync(nodeID logic.NodeID, message node.MessageFromNode) (logic.StateSync, error) {
+	if message.Body().Which() != node.MessageFromNode_body_Which_jobStateSync {
+		panic("assertion failed: expected body type is job state sync, got something different")
+	}
+
+	result, err := message.Body().JobStateSync()
+	if err != nil {
+		return logic.StateSync{}, fmt.Errorf("could not parse job state sync: %s", err.Error())
+	}
+
+	nodeInfo, found := logic.JobManager.GetNode(nodeID)
+	if !found {
+		// nolint:goconst
+		return logic.StateSync{}, fmt.Errorf(
+			"illegal node: node ID `%s` references non-existent node",
+			logic.IDToString(nodeID),
+		)
+	}
+
+	workerIndex := result.WorkerIndex()
+	if workerIndex >= nodeInfo.Info.NumWorkers {
+		// nolint:goconst
+		return logic.StateSync{}, fmt.Errorf(
+			"illegal worker index: node returned illegal worker index (%d) when num workers is %d",
+			workerIndex,
+			nodeInfo.Info.NumWorkers,
+		)
+	}
+
+	jobID := nodeInfo.WorkerState[workerIndex]
+
+	if jobID == nil {
+		// nolint:goconst
+		return logic.StateSync{}, fmt.Errorf(
+			"wrong worker index: node returned worker index (%d), this worker is idle",
+			workerIndex,
+		)
+	}
+
+	interpreterState, err := result.Interpreter()
+	if err != nil {
+		// nolint:goconst
+		return logic.StateSync{}, fmt.Errorf("could not decode interpreter state bytes: %s", err.Error())
+	}
+
+	progress := result.Progress()
+
+	logs, err := result.Logs()
+	if err != nil {
+		return logic.StateSync{}, fmt.Errorf("could not decode interpreter state bytes: %s", err.Error())
+	}
+
+	logsLen := logs.Len()
+	logsOutput := make([]database.JobLog, logsLen)
+
+	for idx := 0; idx < logsLen; idx++ {
+		currLog := logs.At(idx)
+
+		if !database.IsValidLogKind(currLog.LogKind()) {
+			return logic.StateSync{}, fmt.Errorf("invalid log kind `%d` received", currLog.LogKind())
+		}
+
+		logKind := database.LogKind(currLog.LogKind())
+		now := time.Now()
+
+		content, err := currLog.Content()
+		if err != nil {
+			return logic.StateSync{}, fmt.Errorf("could not decode log message content: %s", err.Error())
+		}
+
+		logsOutput[idx] = database.JobLog{
+			Kind:    logKind,
+			Created: now,
+			Content: string(content),
+			JobID:   *jobID,
+		}
+	}
+
+	return logic.StateSync{
+		WorkerIndex:      workerIndex,
+		JobID:            *jobID,
+		Progress:         progress,
+		Logs:             logsOutput,
+		InterpreterState: interpreterState,
+	}, nil
 }
 
 func processJobResultFromNode(nodeID logic.NodeID, message node.MessageFromNode) error {
@@ -372,7 +458,7 @@ func processJobResultFromNode(nodeID logic.NodeID, message node.MessageFromNode)
 		return fmt.Errorf("could not parse job result: %s", err.Error())
 	}
 
-	nodeInfo, found := logic.NodeManager.GetNode(nodeID)
+	nodeInfo, found := logic.JobManager.GetNode(nodeID)
 	if !found {
 		return fmt.Errorf("illegal node: node ID `%s` references non-existent node", logic.IDToString(nodeID))
 	}
