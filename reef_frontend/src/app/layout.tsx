@@ -117,14 +117,14 @@ export default function RootLayout({
             NAV_ITEMS.find((item) => item.path == currentPath)?.title
           } - Reef`}
         </title>
-        <link rel="icon" href="/logo-no-text.svg" type="image/svg+xml" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
       </head>
       <body className={inter.className}>
         <TooltipProvider>
           <div className="flex min-h-screen w-full flex-col bg-muted/40">
             <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex">
               <nav className="flex flex-col items-center gap-4 px-2 sm:py-5">
-                <img src="/logo-no-text.svg" />
+                <img src="/logo-with-text.svg" />
                 {NAV_ITEMS.map((item) => (
                   <Tooltip key={item.title}>
                     <TooltipTrigger asChild>
