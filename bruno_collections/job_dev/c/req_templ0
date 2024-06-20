@@ -1,0 +1,17 @@
+meta {
+  name: AUTOGEN_C_SUBMIT_JOB
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{url}}/api/jobs/submit
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Bruno test job",
+    "datasetId": null,
+    "sourceCode": 
