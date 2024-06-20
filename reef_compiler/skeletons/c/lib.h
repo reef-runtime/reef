@@ -17,3 +17,6 @@ void _reef_dataset_write(uint8_t *ptr) __attribute__((__import_module__("reef"),
 
 size_t reef_strlen(char *ptr);
 void reef_log_int(int val);
+
+// user main function definition
+void run(uint8_t *dataset, size_t len);

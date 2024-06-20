@@ -26,8 +26,6 @@ void reef_log_int(int val) {
     reef_log(buf + (BASE - 1 - i), i + 1);
 }
 
-// user main function definition
-void run(uint8_t *dataset, size_t len);
 // user main function declaration
 #include "./input.c"
 

@@ -14,7 +14,7 @@ body:json {
   {
     "name": "Bruno test job",
     "datasetId": null,
-    "sourceCode": "\nvoid run(byte *ds, long ds_len) {\n  // Your testing code here!\n  reef_log(\"Test\", 4);\n}\n",
+    "sourceCode": "\nvoid run(uint8_t *dataset, size_t ds_len) {\n  // Your testing code here!\n  reef_log(\"Test\", 4);\n}\n",
     "language": "c"
   }
 }
