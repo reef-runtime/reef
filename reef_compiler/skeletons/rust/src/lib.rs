@@ -4,11 +4,11 @@ pub mod reef {
     // Wasm imports
     #[link(wasm_import_module = "reef")]
     extern "C" {
-        fn log(pointer: *const u8, length: i32);
-        fn progress(percent: f32);
+        fn log(ptr: *const u8, len: i32);
+        fn progress(done: f32);
         fn sleep(seconds: f32);
         fn dataset_len() -> usize;
-        fn dataset_write(pointer: i32);
+        fn dataset_write(ptr: i32);
     }
 
     /// Log a string to the Reef output

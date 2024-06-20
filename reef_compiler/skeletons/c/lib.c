@@ -1,5 +1,4 @@
 #include "./lib.h"
-#include "./input.c"
 
 int reef_strlen(char *ptr) {
   int len = 0;
@@ -10,16 +9,14 @@ int reef_strlen(char *ptr) {
   return len;
 }
 
-int reef_main(int arg) {
-  char *msg = "Hello World!";
-  int len = reef_strlen(msg);
+// user main function definition
+void run(byte *dataset, int len);
+// user main function declaration
+#include "./input.c"
 
-  reef_log(msg, len);
-
+void reef_main() {
 #define DS_LEN 3
   byte dataset[DS_LEN] = {1, 2, 3};
 
   run(dataset, DS_LEN);
-
-  return 42;
 }

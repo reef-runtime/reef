@@ -5,7 +5,7 @@ TARGET=wasm32
 ENTRY_FILE:=lib.c
 
 IN_FILE:=./input.c
-OUT_FILE:./output.wasm
+OUT_FILE:=./output.wasm
 
 .PHONY: build
 

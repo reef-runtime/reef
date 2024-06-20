@@ -14,7 +14,7 @@ body:json {
   {
     "name": "Bruno test job",
     "datasetId": null,
-    "sourceCode": "void run(byte *ds, long dslen) {}",
+    "sourceCode": "void run(byte *dataset, int len) {char *msg = \"Hello World!\"; int msg_len = reef_strlen(msg); reef_log(msg, msg_len); for (int i = 0; i < len; i++) { char msg2[1] = \"0\"; msg2[0] += (char)dataset[i]; reef_log(msg2, 1); } }",
     "language": "c"
   }
 }
