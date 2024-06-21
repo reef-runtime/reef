@@ -6,7 +6,7 @@ use crate::reef::{
 
 // User input will be palced below
 
-// pub fn run(dataset: &[u8]) {
+// pub fn run(dataset: &[u8]) -> impl Into<ReefResult> {
 //     let msg = "Hello World!";
 //     reef::reef_log(msg);
 
