@@ -21,8 +21,8 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #pragma clang diagnostic ignored "-Wimplicit-function-declaration"
+
 #include "walloc.h"
-#include "attributes.h"
 
 #define NULL ((void *)0)
 

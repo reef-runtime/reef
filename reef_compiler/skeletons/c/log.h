@@ -1,11 +1,17 @@
 #pragma once
-#include "attributes.h"
+#pragma clang diagnostic ignored "-Wunknown-attributes"
 
+#include "defs.h"
+
+// Call to interpreter to log a string at the specified pointer with specified length
 void reef_log(char *ptr, size_t num_bytes) __attribute__((__import_module__("reef"), __import_name__("log"), ));
 
-size_t reef_strlen(char *ptr);
-
+// Logs a NULL-terminated string
+void reef_puts(char *message);
+// Logs an integer
 void reef_log_int(int val);
 
-// String behind `message` must be NUL-terminated.
-void reef_puts(char *message);
+// Calculates the length of NULL-terminated string
+size_t reef_strlen(char *ptr);
+// Converts an integer into a string
+char *itoa(int value, char *result, int base);

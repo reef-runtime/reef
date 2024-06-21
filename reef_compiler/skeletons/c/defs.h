@@ -1,5 +1,8 @@
 #pragma once
-#pragma clang diagnostic ignored "-Wunknown-attributes"
+
+//
+// Reef C std definitions
+//
 
 typedef __SIZE_TYPE__ size_t;
 typedef __UINTPTR_TYPE__ uintptr_t;
