@@ -22,8 +22,8 @@ export default function Home() {
   const { jobs } = useJobs();
 
   return (
-    <main className="flex flex-col md:flex-row p-4 md:space-x-4">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 grow">
+    <main className="flex flex-col xl:flex-row p-4 space-y-4 xl:space-y-0 xl:space-x-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 grow">
         {nodes.map((node) => (
           <Card key={node.id} className="flex flex-col">
             <CardHeader key={node.id}>
