@@ -90,7 +90,7 @@ fn main() -> anyhow::Result<()> {
 
     env_logger::init();
 
-    let (mut socket, response) = tungstenite::connect(connect_url).expect("Can't connect");
+    let (mut socket, response) = tungstenite::connect(connect_url).with_context(|| "Websocket connection")?;
 
     println!("Connected to the manager");
     println!("Registration response HTTP code: {}", response.status());
@@ -140,7 +140,7 @@ fn main() -> anyhow::Result<()> {
             }
             Err(tungstenite::Error::Io(ref err)) if err.kind() == std::io::ErrorKind::WouldBlock => {}
             Err(err) => {
-                panic!("Error reading socket: {err}");
+                return Err(err).with_context(|| "reading socket");
             }
         }
 

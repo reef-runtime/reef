@@ -242,7 +242,7 @@ fn setup_interpreter(
         // instance.exported_memory_mut("memory")?.copy_into_ignored_page_region(...);
     }
 
-    let entry_fn_handle = instance.exported_func::<ReefMainArgs, ReefMainReturn>(REEF_MAIN_NAME).unwrap();
+    let entry_fn_handle = instance.exported_func::<ReefMainArgs, ReefMainReturn>(REEF_MAIN_NAME)?;
     let exec_handle = entry_fn_handle.call((), stack)?;
 
     Ok(exec_handle)
