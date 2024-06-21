@@ -1,3 +1,4 @@
+use std::fmt::{write, Display};
 use std::sync::atomic::Ordering;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -53,6 +54,12 @@ struct Args {
 }
 
 struct NodeState(Vec<Job>);
+
+impl Display for NodeState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}]", self.0.iter().map(|w| { w.job_id.clone() }).collect::<Vec<String>>().join(", "))
+    }
+}
 
 impl NodeState {
     fn new(num_workers: usize) -> Self {
@@ -125,6 +132,7 @@ fn main() -> anyhow::Result<()> {
             Ok(msg) => {
                 state.handle_websocket(msg).with_context(|| "evaluating incoming message")?;
                 worked = true;
+                println!("{}", state);
             }
             Err(tungstenite::Error::Io(ref err)) if err.kind() == std::io::ErrorKind::WouldBlock => {}
             Err(err) => {
@@ -168,6 +176,10 @@ fn main() -> anyhow::Result<()> {
                 job.signal_to_worker.store(WorkerSignal::SAVE_STATE, Ordering::Relaxed);
                 worked = true;
             }
+        }
+
+        if !finished_worker_indices.is_empty() {
+            println!("{state}");
         }
 
         // Remove all finished jobs.
@@ -296,7 +308,7 @@ impl NodeState {
         let handle = spawn_worker_thread(
             signal.clone(),
             request.job_id.clone(),
-            WorkerData { sender: to_master_sender, program: request.program_byte_code, state: state },
+            WorkerData { sender: to_master_sender, program: request.program_byte_code, state },
         );
 
         let job = Job {
