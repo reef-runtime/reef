@@ -99,10 +99,13 @@ func GetLastLogs(limit *uint64, jobID string) ([]JobLog, error) {
 
 	for res.Next() {
 		var joblog JobLog
+		var id int
+
 		if err := res.Scan(
+			&id,
 			&joblog.Kind,
-			&joblog.Created,
 			&joblog.Content,
+			&joblog.Created,
 			&joblog.JobID,
 		); err != nil {
 			log.Errorf("Could not list logs: scanning results failed: %s", err.Error())

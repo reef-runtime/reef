@@ -56,6 +56,19 @@ func GetJob(ctx *gin.Context) {
 		return
 	}
 
+	jobNonFinished, found := logic.JobManager.NonFinishedJobs.Get(jobID)
+	if found {
+		jobResponse := JobResponse{
+			Name:     job.Name,
+			Logs:     jobNonFinished.Logs,
+			State:    jobNonFinished.InterpreterState,
+			Progress: jobNonFinished.Progress,
+			Result:   nil,
+		}
+
+		ctx.JSON(http.StatusOK, jobResponse)
+	}
+
 	logs, err := database.GetLastLogs(nil, jobID)
 	if err != nil {
 		serverErr(ctx, err.Error())
@@ -68,17 +81,17 @@ func GetJob(ctx *gin.Context) {
 		return
 	}
 
+	if !resultFound {
+		panic("Job is finished but result is not in database")
+	}
+
+	const oneHundred = 100
 	jobResponse := JobResponse{
 		Name:     job.Name,
 		Logs:     logs,
-		State:    nil, // TODO: get state.
-		Progress: 0,   // TODO: get progress.
-		Result:   nil, // TODO: get result.
-	}
-
-	// Attach result if it exists.
-	if resultFound {
-		jobResponse.Result = &result
+		State:    nil,
+		Progress: oneHundred,
+		Result:   &result,
 	}
 
 	ctx.JSON(http.StatusOK, jobResponse)
