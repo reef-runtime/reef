@@ -1,4 +1,4 @@
-use std::fmt::{write, Display};
+use std::fmt::Display;
 use std::sync::atomic::Ordering;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -51,6 +51,10 @@ struct Args {
     #[arg(short = 'm', long)]
     // How many milliseconds to wait before syncs.
     sync_delay_millis: usize,
+
+    #[arg(short = 'w', long)]
+    // How many concurrent workers to offer, default is the number of CPUs.
+    num_workers: Option<usize>,
 }
 
 struct NodeState(Vec<Job>);
@@ -94,7 +98,8 @@ fn main() -> anyhow::Result<()> {
     //
     // Perform handshake.
     //
-    let num_workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
+    let num_workers =
+        args.num_workers.unwrap_or_else(|| std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1));
 
     let node_name = match args.node_name {
         Some(from_args) => from_args,
@@ -132,7 +137,6 @@ fn main() -> anyhow::Result<()> {
             Ok(msg) => {
                 state.handle_websocket(msg).with_context(|| "evaluating incoming message")?;
                 worked = true;
-                println!("{}", state);
             }
             Err(tungstenite::Error::Io(ref err)) if err.kind() == std::io::ErrorKind::WouldBlock => {}
             Err(err) => {
@@ -172,14 +176,11 @@ fn main() -> anyhow::Result<()> {
             }
 
             // Send a sync request if enough time has passed.
-            if job.last_sync.duration_since(Instant::now()) >= sync_wait_duration {
+            let since_last_sync = Instant::now().duration_since(job.last_sync);
+            if since_last_sync >= sync_wait_duration {
                 job.signal_to_worker.store(WorkerSignal::SAVE_STATE, Ordering::Relaxed);
                 worked = true;
             }
-        }
-
-        if !finished_worker_indices.is_empty() {
-            println!("{state}");
         }
 
         // Remove all finished jobs.

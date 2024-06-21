@@ -320,7 +320,7 @@ fn reef_std_lib(
         Extern::typed_func::<_, ReefDatasetWriteReturn>(move |mut ctx, (ptr,): ReefDatasetWriteArgs| {
             if ptr as usize % PAGE_SIZE != 0 {
                 // TODO: actyually handle properly
-                println!("WARM: wasm wants dataset written to non page aligned ptr {ptr}");
+                println!("WARN: wasm wants dataset written to non page aligned ptr {ptr}");
             }
 
             let mut mem = ctx.exported_memory_mut("memory")?;
