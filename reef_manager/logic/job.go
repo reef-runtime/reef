@@ -8,28 +8,18 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/reef-runtime/reef/reef_manager/database"
 )
 
-const jobDaemonFreq = time.Second * 5
-
-//
-// Job manager.
-//
+const jobDaemonFreq = time.Second * 2
 
 type JobManagerT struct {
-	JobQueue JobQueue
-	Compiler *CompilerManager
-
-	Nodes NodeMap
+	Compiler        *CompilerManager
+	Nodes           LockedMap[NodeID, Node]
+	NonFinishedJobs LockedMap[JobID, Job]
 }
 
 var JobManager JobManagerT
-
-//
-// End job manager.
-//
 
 type JobProgrammingLanguage string
 
@@ -47,38 +37,11 @@ func (l JobProgrammingLanguage) Validate() error {
 	}
 }
 
-type JobSubmission struct {
-	Name string `json:"name"`
-	// Attaching a dataset to a job submission is optimal.
-	DatasetID  *string                `json:"datasetId"`
-	SourceCode string                 `json:"sourceCode"`
-	Language   JobProgrammingLanguage `json:"language"`
-}
-
-type QueuedJob struct {
-	Job          database.Job
-	WasmArtifact []byte
-}
-
-// func newQueuedJob(job database.Job) queuedJob {
-// 	return queuedJob{
-// 		Job: job,
-// 	}
-// }
-
-// Implements Prioritizable.
-func (j QueuedJob) submittedAt() time.Time {
-	return j.Job.Submitted
-}
-
-func (j QueuedJob) IsHigherThan(other prioritizable) bool {
-	otherJob := other.(QueuedJob)
-	return j.submittedAt().Before(otherJob.submittedAt())
-}
-
 type Job struct {
-	Data database.Job `json:"data"`
-	// TODO: Other fields can follow.
+	Data             database.Job
+	Progress         float32
+	Logs             []database.JobLog
+	InterpreterState []byte
 }
 
 func (m *JobManagerT) ListJobs() ([]Job, error) {
@@ -97,12 +60,24 @@ func (m *JobManagerT) ListJobs() ([]Job, error) {
 	return jobs, nil
 }
 
-func (m *JobManagerT) SubmitJob(submission JobSubmission) (newID string, compilerErr *string, backendErr error) {
+func (m *JobManagerT) SubmitJob(
+	language JobProgrammingLanguage,
+	sourceCode string,
+	name string,
+) (idString string, compilerErr *string, backendErr error) {
 	now := time.Now()
 
 	// Create a hash for the ID.
 	var buffer bytes.Buffer
-	if err := gob.NewEncoder(&buffer).Encode(submission); err != nil {
+	if err := gob.NewEncoder(&buffer).Encode(struct {
+		Language   JobProgrammingLanguage
+		SourceCode string
+		Name       string
+	}{
+		Language:   language,
+		SourceCode: sourceCode,
+		Name:       name,
+	}); err != nil {
 		return "", nil, err
 	}
 
@@ -111,9 +86,20 @@ func (m *JobManagerT) SubmitJob(submission JobSubmission) (newID string, compile
 		buffer.Bytes()...,
 	))
 
-	newID = hex.EncodeToString(idBinary[0:])
+	idString = hex.EncodeToString(idBinary[0:])
 
-	artifact, compileErr, err := m.Compiler.Compile(submission.Language, submission.SourceCode)
+	// Check if there is already a result for this job.
+	_, found, err := database.GetResult(idString)
+	if err != nil {
+		return "", nil, fmt.Errorf("get result: %s", err.Error())
+	}
+
+	if found {
+		log.Infof("Not submitting job internally: job `%s` was already executed on the system", idString)
+		return idString, nil, nil
+	}
+
+	artifact, compileErr, err := m.Compiler.Compile(language, sourceCode)
 	if err != nil {
 		return "", nil, err
 	}
@@ -121,27 +107,38 @@ func (m *JobManagerT) SubmitJob(submission JobSubmission) (newID string, compile
 		return "", compileErr, nil
 	}
 
-	fmt.Println(spew.Sdump(artifact.Wasm)[0:1000])
+	// fmt.Println(spew.Sdump(artifact.Wasm)[0:1000])
 
-	job := database.Job{
-		ID:        newID,
-		Name:      submission.Name,
-		Submitted: now,
-		Status:    database.StatusQueued,
-		WasmID:    artifact.Hash,
+	job := Job{
+		Data: database.Job{
+			ID:        idString,
+			Name:      name,
+			Submitted: now,
+			Status:    database.StatusQueued,
+			WasmID:    artifact.Hash,
+		},
+		Progress:         0,
+		Logs:             make([]database.JobLog, 0),
+		InterpreterState: nil,
 	}
 
-	if backendErr = database.AddJob(job); backendErr != nil {
+	if backendErr = database.AddJob(job.Data); backendErr != nil {
 		return "", nil, backendErr
 	}
 
-	m.JobQueue.Push(job, artifact.Wasm)
+	// fmt.Println("==================")
+	m.NonFinishedJobs.Insert(idString, job)
+	// fmt.Println("AFTER ==================")
 
-	return newID, nil, nil
+	return idString, nil, nil
 }
 
 // Can only be used while the job is queued.
 func (m *JobManagerT) AbortJob(jobID string) (found bool, err error) {
+	// TODO: also allow cancel
+
+	panic("TODO: CANCEL")
+
 	job, found, err := database.GetJob(jobID)
 	if err != nil || !found {
 		return found, err
@@ -154,7 +151,7 @@ func (m *JobManagerT) AbortJob(jobID string) (found bool, err error) {
 	}
 
 	// Remove the job from the queue and database.
-	if !m.JobQueue.Delete(jobID) {
+	if _, found := m.NonFinishedJobs.Delete(jobID); !found {
 		log.Errorf("Internal state corruption: job to be aborted was not in job queue, fixing...")
 	}
 
@@ -169,139 +166,162 @@ func (m *JobManagerT) AbortJob(jobID string) (found bool, err error) {
 // Places a job back into queued.
 // Would be called if a node disconnects while a job runs on this very node.
 func (m *JobManagerT) ParkJob(jobID string) error {
-	job, found, err := database.GetJob(jobID)
-	if err != nil {
-		return err
-	}
-
+	job, found := m.NonFinishedJobs.Get(jobID)
 	if !found {
 		return fmt.Errorf("could not park job `%s`: job not found", jobID)
 	}
 
-	if job.Status == database.StatusQueued {
-		log.Tracef("Found job `%s` but it is already in <queued> state", jobID)
+	if job.Data.Status == database.StatusQueued {
+		log.Tracef("Park: found job `%s` but it is already in <queued> status", jobID)
 		return nil
 	}
 
-	found, err = database.ModifyJobStatus(jobID, database.StatusQueued)
+	// Put the job back into the queued status.
+	found, err := m.setJobStatus(jobID, database.StatusQueued)
 	if err != nil {
 		return err
 	}
 
 	if !found {
-		return fmt.Errorf("could not park job `%s`: job not found during modification", jobID)
+		return fmt.Errorf("park: job `%s` not found", jobID)
 	}
-
-	// Put the job back into the JPQ.
-	job.Status = database.StatusQueued
-
-	// Load the artifact from storage again.
-	artifact, err := m.Compiler.getCached(job.WasmID)
-	if err != nil {
-		log.Errorf("failed to park job `%s`: could not load job's Wasm from cache", err.Error())
-		return err
-	}
-
-	m.JobQueue.Push(job, artifact)
 
 	log.Debugf("[job] Parked ID `%s`", jobID)
 
 	return nil
 }
 
-// func (m *JobManagerT) SetJobState(jobID JobID, newState database.JobStatus) (found bool) {
-// 	database.ModifyJobStatus(jobID, newState)
-// 	return true
-// }
+func (m *JobManagerT) setJobStatus(jobID string, state database.JobStatus) (bool, error) {
+	return m.setJobStatusLOCK(jobID, state, true)
+}
 
-func (m *JobManagerT) init() error {
-	// Initialize priority queue
-	queuedJobs, err := database.ListJobsFiltered(database.StatusQueued)
+func (m *JobManagerT) setJobStatusLOCK(jobID string, state database.JobStatus, lock bool) (bool, error) {
+	found, err := database.ModifyJobStatus(jobID, state)
+	if err != nil {
+		return false, err
+	}
+
+	if !found {
+		return false, fmt.Errorf("modify job '%s' status: job is not found", jobID)
+	}
+
+	if lock {
+		m.NonFinishedJobs.Lock.Lock()
+	}
+
+	oldJob, found := m.NonFinishedJobs.Map[jobID]
+
+	if lock {
+		m.NonFinishedJobs.Lock.Unlock()
+	}
+
+	if !found {
+		return false, nil
+	}
+	oldJob.Data.Status = state
+	m.NonFinishedJobs.Map[jobID] = oldJob
+
+	return true, nil
+}
+
+func (m *JobManagerT) Init() error {
+	// Initialize 'priority queue'.
+	queuedJobs, err := database.ListJobsFiltered([]database.JobStatus{
+		database.StatusQueued,
+		database.StatusRunning,
+		database.StatusStarting,
+	})
 	if err != nil {
 		return err
 	}
 
-	for _, job := range queuedJobs {
-		log.Tracef("Loaded saved queued job from DB: `%s`", job.ID)
+	for _, dbJob := range queuedJobs {
+		log.Tracef("Loaded saved job from DB as queued: `%s`", dbJob.ID)
 
-		// Load artifact bytes from storage.
-		artifact, err := m.Compiler.getCached(job.WasmID)
-		if err != nil {
-			log.Errorf("Could not restore saved jobs: load cached Wasm: %s", err.Error())
-			return err
+		// Put job back in queued state.
+		job := Job{
+			Data: database.Job{
+				ID:        dbJob.ID,
+				Name:      dbJob.Name,
+				WasmID:    dbJob.WasmID,
+				Submitted: dbJob.Submitted,
+				Status:    database.StatusQueued,
+			},
+			Progress:         0,
+			Logs:             make([]database.JobLog, 0),
+			InterpreterState: nil,
 		}
 
-		m.JobQueue.Push(job, artifact)
+		m.NonFinishedJobs.Insert(dbJob.ID, job)
+
+		found, err := database.ModifyJobStatus(dbJob.ID, database.StatusQueued)
+		if err != nil {
+			return fmt.Errorf("change job state in restore: %s", err.Error())
+		}
+
+		if !found {
+			panic("Impossible: job cannot disappear at this point")
+		}
 	}
+
+	// Launch daemon.
+	go m.JobQueueDaemon()
 
 	return nil
 }
 
-func SaveResult(jobID string, content []byte, contentType database.ContentType) error {
-	now := time.Now().Local()
-
-	result := database.Result{
-		JobID:       jobID,
-		Content:     content,
-		ContentType: contentType,
-		Created:     now,
-	}
-
-	if err := database.SaveResult(result); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func newJobManager(compiler *CompilerManager) JobManagerT {
-	return JobManagerT{
-		JobQueue: NewJobQueue(),
-		Compiler: compiler,
-	}
-}
-
 //
-// When called, fetches all queued jobs and tries to start them.
+// Fetches all queued jobs and tries to start them.
 //
+
+func (m *JobManagerT) QueuedJobs() (j Job, jExists bool) {
+	m.NonFinishedJobs.Lock.RLock()
+
+	var earliest Job
+	hadEarliest := false
+
+	for _, job := range m.NonFinishedJobs.Map {
+		if job.Data.Status != database.StatusQueued {
+			continue
+		}
+
+		if !hadEarliest || job.Data.Submitted.Before(earliest.Data.Submitted) {
+			earliest = job
+			hadEarliest = true
+		}
+	}
+
+	m.NonFinishedJobs.Lock.RUnlock()
+
+	return earliest, hadEarliest
+}
 
 // Error is a critical error, like a database fault.
 func (m *JobManagerT) TryToStartQueuedJobs() error {
-	if m.JobQueue.IsEmpty() {
-		log.Debugf("Job queue is empty, not starting any jobs.")
-		return nil
-	}
+	for {
+		fmt.Println("find first")
+		first, exists := m.QueuedJobs()
+		fmt.Println("has first")
 
-	notStarted := make([]QueuedJob, 0)
-
-	for !m.JobQueue.IsEmpty() {
-		job, found := m.JobQueue.Pop()
-		if !found {
-			panic("Impossible, this is a bug")
+		if !exists {
+			log.Trace("Job queue is empty")
+			break
 		}
 
-		log.Debugf("Attempting to start job `%s`...", job.Job.ID)
+		log.Debugf("Attempting to start job `%s`...", first.Data.ID)
 
-		// TODO: here is the place where we can give the node a previous state to resume from.
-		couldStart, err := JobManager.StartJobOnFreeNode(job, nil)
+		couldStart, err := m.StartJobOnFreeNode(first)
 		if err != nil {
-			log.Errorf("HARD ERROR: Could not start job `%s`: %s", job.Job.ID, err.Error())
+			log.Errorf("HARD ERROR: Could not start job `%s`: %s", first.Data.ID, err.Error())
 			return err
 		}
 
 		if !couldStart {
-			log.Debugf("Could not start job `%s`", job.Job.ID)
-			notStarted = append(notStarted, job)
-			continue
+			log.Debugf("Could not start job `%s`", first.Data.ID)
+			break
 		}
 
-		// TODO: modify in database
-
-		log.Infof("Job `%s` started", job.Job.ID)
-	}
-
-	for _, job := range notStarted {
-		m.JobQueue.Push(job.Job, job.WasmArtifact)
+		log.Infof("Job `%s` started", first.Data.ID)
 	}
 
 	return nil

@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -106,20 +107,32 @@ func DeleteJob(jobID string) (found bool, err error) {
 	return affected != 0, nil
 }
 
-func ListJobsFiltered(stateFilter JobStatus) ([]Job, error) {
-	return listJobsGeneric(&stateFilter)
+func ListJobsFiltered(stateFilter []JobStatus) ([]Job, error) {
+	return listJobsGeneric(stateFilter)
 }
 
 func ListJobs() ([]Job, error) {
 	return listJobsGeneric(nil)
 }
 
-func listJobsGeneric(stateFilter *JobStatus) ([]Job, error) {
+func listJobsGeneric(stateFilter []JobStatus) ([]Job, error) {
 	baseQuery := db.builder.Select("*").From(JobTableName).OrderBy("submitted ASC")
 
 	// Apply optional filter.
-	if stateFilter != nil {
-		baseQuery = baseQuery.Where("job.status=?", *stateFilter)
+	if len(stateFilter) > 0 {
+		completeExpr := ""
+
+		for idx, filter := range stateFilter {
+			expr := fmt.Sprintf("status=%d", filter)
+
+			if idx > 0 {
+				completeExpr += fmt.Sprintf(" OR %s", expr)
+			} else {
+				completeExpr = expr
+			}
+		}
+
+		baseQuery = baseQuery.Where(completeExpr)
 	}
 
 	res, err := baseQuery.Query()
@@ -183,12 +196,14 @@ func GetJob(jobID string) (job Job, found bool, err error) {
 }
 
 func SaveResult(result Result) (err error) {
-	if _, err := db.builder.Insert(ResultTableName).Values(
+	query := db.builder.Insert(ResultTableName).Values(
 		result.JobID,
 		result.Content,
 		result.ContentType,
 		result.Created,
-	).Exec(); err != nil {
+	)
+
+	if _, err := query.Exec(); err != nil {
 		log.Errorf("Could not add result to database: executing query failed: %s", err.Error())
 		return err
 	}
@@ -206,7 +221,6 @@ func GetResult(jobID string) (result Result, found bool, err error) {
 	)
 
 	if errors.Is(err, sql.ErrNoRows) {
-		log.Tracef("Could not get result for job (%s): %s", jobID, err.Error())
 		return result, false, nil
 	}
 

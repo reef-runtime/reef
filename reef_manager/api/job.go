@@ -11,6 +11,14 @@ import (
 
 const jobIDUrlParam = "job_id"
 
+type JobSubmission struct {
+	Name string `json:"name"`
+	// Attaching a dataset to a job submission is optimal.
+	DatasetID  *string                      `json:"datasetId"`
+	SourceCode string                       `json:"sourceCode"`
+	Language   logic.JobProgrammingLanguage `json:"language"`
+}
+
 type JobResponse struct {
 	Name     string            `json:"name"`
 	Logs     []database.JobLog `json:"logs"`
@@ -81,7 +89,7 @@ func GetJob(ctx *gin.Context) {
 //
 
 func SubmitJob(ctx *gin.Context) {
-	var submission logic.JobSubmission
+	var submission JobSubmission
 
 	if err := ctx.ShouldBindJSON(&submission); err != nil {
 		badRequest(ctx, err.Error())
@@ -108,13 +116,18 @@ func SubmitJob(ctx *gin.Context) {
 	}
 
 	// Submit job internally.
-	id, compileErr, systemErr := logic.JobManager.SubmitJob(submission)
+	id, compileErr, systemErr := logic.JobManager.SubmitJob(
+		submission.Language,
+		submission.SourceCode,
+		submission.Name,
+	)
+
 	if systemErr != nil {
 		serverErr(ctx, systemErr.Error())
 		return
 	}
 
-	// Notify user about potential compile error.
+	// Notify the user about a potential compilation error.
 	if compileErr != nil {
 		respondErr(ctx, "compilation error", *compileErr, http.StatusUnprocessableEntity)
 		return

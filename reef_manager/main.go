@@ -86,8 +86,6 @@ func ship(logger *logrus.Logger) error {
 
 	logger.Debugf("Starting web server on port %d...", WEB_PORT)
 
-	go logic.JobManager.JobQueueDaemon()
-
 	api.Init(logger)
 	if err := r.Run(":" + fmt.Sprint(WEB_PORT)); err != nil {
 		return fmt.Errorf("failed to run webserver: %s", err.Error())

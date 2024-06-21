@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"capnproto.org/go/capnp/v3"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/websocket"
 	"github.com/reef-runtime/reef/reef_manager/database"
 
@@ -26,9 +25,16 @@ func FormatBinarySliceAsHex(input []byte) string {
 // Job initialization
 //
 
+// workerIndex         @0 :UInt32;
+// jobId               @1 :Text;
+// programByteCode     @2 :Data;
+// # If the job has just been started these will be 0/empty.
+// progress            @3 :Float32;
+// interpreterState    @4 :Data;
+
 func toNodeJobInitializationMessage(
-	workerIndex uint32, // TODO: uint16 is enough.
-	jobID string,
+	workerIndex uint32,
+	job Job,
 	programByteCode []byte,
 ) ([]byte, error) {
 	msg, seg, err := capnp.NewMessage(capnp.SingleSegment(nil))
@@ -48,20 +54,34 @@ func toNodeJobInitializationMessage(
 		return nil, err
 	}
 
+	//
+	// Worker index.
+	//
 	nestedBody.SetWorkerIndex(workerIndex)
 
-	if err := nestedBody.SetJobId(jobID); err != nil {
+	//
+	// Job ID.
+	//
+	if err := nestedBody.SetJobId(job.Data.ID); err != nil {
 		return nil, err
 	}
 
+	//
+	// Program Byte Code.
+	//
 	if err := nestedBody.SetProgramByteCode(programByteCode); err != nil {
 		return nil, err
 	}
 
-	// TODO: actually load this data
-	nestedBody.SetProgress(0)
+	//
+	// Progress.
+	//
+	nestedBody.SetProgress(job.Progress)
 
-	if err := nestedBody.SetInterpreterState([]byte{}); err != nil {
+	//
+	// Interpreter State.
+	//
+	if err := nestedBody.SetInterpreterState(job.InterpreterState); err != nil {
 		return nil, err
 	}
 
@@ -72,37 +92,25 @@ func toNodeJobInitializationMessage(
 	return msg.Marshal()
 }
 
-type JobState struct {
-	Progress         float32
-	InterpreterState []byte
-}
-
 func (m *JobManagerT) StartJobOnNode(
 	nodeData Node,
-	jobID JobID,
+	job Job,
 	workerIdx uint16,
 	programByteCode []byte,
-	previousState *JobState,
 ) error {
 	msg, err := toNodeJobInitializationMessage(
 		uint32(workerIdx),
-		jobID,
+		job,
 		programByteCode,
 	)
 	if err != nil {
 		return err
 	}
 
-	msg2, _ := capnp.Unmarshal(msg)
-	b, _ := node.ReadRootMessageToNode(msg2)
-	spew.Dump(b.Kind())
-
-	nodeData.Conn.Lock.Lock()
-	err = nodeData.Conn.Conn.WriteMessage(
+	err = nodeData.Conn.WriteMessage(
 		websocket.BinaryMessage,
 		msg,
 	)
-	nodeData.Conn.Lock.Unlock()
 
 	if err != nil {
 		return err
@@ -111,17 +119,23 @@ func (m *JobManagerT) StartJobOnNode(
 	// TODO: what??
 
 	m.Nodes.Lock.Lock()
-	m.Nodes.Map[nodeData.ID].WorkerState[workerIdx] = &jobID
+	m.Nodes.Map[nodeData.ID].WorkerState[workerIdx] = &job.Data.ID
 	m.Nodes.Lock.Unlock()
 
-	log.Debugf("[node] Started job `%s` on node `%s`", jobID, FormatBinarySliceAsHex(nodeData.ID[:]))
+	log.Debugf(
+		"[node] Job `%s` starting on node `%s`",
+		job.Data.ID,
+		IDToString(nodeData.ID),
+	)
 
+	// TODO: wait for job to start
 	// Now we wait until the job responds with `CODE_STARTED_JOB`.
 	// Then, we invoke another function to handle this.
 
 	return nil
 }
 
+// TODO: use this function
 func (m *JobManagerT) jobStartedJobCallbackInternal(nodeID NodeID, message []byte) (jobID JobID, err error) {
 	const leadingBytes = 1 // Due to the leading signal byte.
 	workerIdxByteSize := binary.Size(uint16(0))
@@ -164,6 +178,7 @@ func (m *JobManagerT) jobStartedJobCallbackInternal(nodeID NodeID, message []byt
 	return jobID, nil
 }
 
+// TODO: actually call this function
 func (m *JobManagerT) JobStartedJobCallback(nodeID NodeID, message []byte) error {
 	jobID, err := m.jobStartedJobCallbackInternal(nodeID, message)
 	if err != nil {
@@ -175,7 +190,7 @@ func (m *JobManagerT) JobStartedJobCallback(nodeID NodeID, message []byte) error
 
 	fmt.Printf("=====================> `%s`\n", jobID)
 
-	found, err := database.ModifyJobStatus(jobID, database.StatusRunning)
+	found, err := m.setJobStatus(jobID, database.StatusRunning)
 	if err != nil {
 		return err
 	}
@@ -188,8 +203,8 @@ func (m *JobManagerT) JobStartedJobCallback(nodeID NodeID, message []byte) error
 }
 
 func (m *JobManagerT) findFreeNode() (nodeID NodeID, workerIdx uint16, found bool) {
-	m.Nodes.Lock.Lock()
-	defer m.Nodes.Lock.Unlock()
+	m.Nodes.Lock.RLock()
+	defer m.Nodes.Lock.RUnlock()
 
 	for nodeID, node := range m.Nodes.Map {
 		for workerIdx, jobID := range node.WorkerState {
@@ -202,43 +217,46 @@ func (m *JobManagerT) findFreeNode() (nodeID NodeID, workerIdx uint16, found boo
 	return nodeID, 0, false
 }
 
-func (m *JobManagerT) StartJobOnFreeNode(job QueuedJob, jobState *JobState) (couldStart bool, err error) {
+func (m *JobManagerT) StartJobOnFreeNode(job Job) (couldStart bool, err error) {
+	// Load the WasmCode from storage again.
+	wasmCode, err := m.Compiler.getCached(job.Data.WasmID)
+	if err != nil {
+		log.Errorf("failed to park job `%s`: could not load job's Wasm from cache", err.Error())
+		return false, err
+	}
+
 	nodeID, workerIndex, nodeFound := m.findFreeNode()
 	if !nodeFound {
 		return false, nil
 	}
 
-	m.Nodes.Lock.Lock()
-	node, nodeFound := m.Nodes.Map[nodeID]
-	m.Nodes.Lock.Unlock()
-
+	node, nodeFound := m.Nodes.Get(nodeID)
 	if !nodeFound {
 		return false, nil
 	}
 
 	log.Debugf("[node] Found free worker index %d on node `%s`", workerIndex, IDToString(nodeID))
 
-	if len(job.WasmArtifact) == 0 {
-		panic("is zero")
-	}
-
-	if err := m.StartJobOnNode(node, job.Job.ID, workerIndex, job.WasmArtifact, jobState); err != nil {
+	if err := m.StartJobOnNode(node, job, workerIndex, wasmCode); err != nil {
 		log.Errorf(
 			"[node] Could not start job `%s` on node `%s`: %s",
-			job.Job.ID,
+			job.Data.ID,
 			IDToString(nodeID),
 			err.Error(),
 		)
 		return false, nil
 	}
 
-	found, err := database.ModifyJobStatus(job.Job.ID, database.StatusStarting)
+	found, err := m.setJobStatusLOCK(job.Data.ID, database.StatusStarting, true)
 	if err != nil {
 		return false, err
 	}
 
 	if !found {
-		return false, fmt.Errorf("could not modify job status: job `%s` not found in DB", job.Job.ID)
+		return false, fmt.Errorf(
+			"could not modify job status: job `%s` not found in DB",
+			job.Data.ID,
+		)
 	}
 
 	return true, nil

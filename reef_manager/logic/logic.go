@@ -18,8 +18,8 @@ func Init(logger *logrus.Logger, compilerConfig CompilerConfig, datasetDirPath s
 		return fmt.Errorf("compiler system error: %s", err.Error())
 	}
 
-	JobManager = newJobManager(&compiler)
-	if err := JobManager.init(); err != nil {
+	JobManager = newManager(&compiler)
+	if err := JobManager.Init(); err != nil {
 		return err
 	}
 

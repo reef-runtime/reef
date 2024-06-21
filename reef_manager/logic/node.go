@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
@@ -23,8 +24,72 @@ type NodeInfo struct {
 }
 
 type WSConn struct {
-	Conn *websocket.Conn
-	Lock sync.Mutex
+	conn  *websocket.Conn
+	rLock sync.Mutex
+	wLock sync.Mutex
+}
+
+func NewWSConn(conn *websocket.Conn) *WSConn {
+	c := WSConn{
+		conn:  conn,
+		rLock: sync.Mutex{},
+		wLock: sync.Mutex{},
+	}
+
+	return &c
+}
+
+const WSTimeout = time.Second * 5
+
+func (s *WSConn) Close() error {
+	err := s.conn.Close()
+	return err
+}
+
+func (s *WSConn) RemoteAddr() net.Addr {
+	addr := s.conn.RemoteAddr()
+	return addr
+}
+
+func (s *WSConn) ReadMessage() (int, []byte, error) {
+	now := time.Now()
+	then := now.Add(WSTimeout)
+	return s.ReadMessageWithTimeout(then)
+}
+
+func (s *WSConn) ReadMessageWithTimeout(timeout time.Time) (int, []byte, error) {
+	s.rLock.Lock()
+
+	if err := s.conn.SetReadDeadline(timeout); err != nil {
+		s.rLock.Unlock()
+	}
+
+	kind, content, err := s.conn.ReadMessage()
+	s.rLock.Unlock()
+	return kind, content, err
+}
+
+func (s *WSConn) WriteMessage(messageType int, data []byte) error {
+	s.wLock.Lock()
+	now := time.Now()
+	then := now.Add(WSTimeout)
+
+	if err := s.conn.SetWriteDeadline(then); err != nil {
+		s.rLock.Unlock()
+	}
+
+	err := s.conn.WriteMessage(messageType, data)
+	s.wLock.Unlock()
+	return err
+}
+
+func (s *WSConn) WriteControl(messageType int, data []byte) error {
+	s.wLock.Lock()
+	now := time.Now()
+	then := now.Add(WSTimeout)
+	err := s.conn.WriteControl(messageType, data, then)
+	s.wLock.Unlock()
+	return err
 }
 
 type Node struct {
@@ -36,11 +101,6 @@ type Node struct {
 	// Therefore maps every worker to a possible jobID.
 	// If the mapped jobID is `nil`, the worker is free and can start a job.
 	WorkerState []*JobID
-}
-
-type NodeMap struct {
-	Map  map[NodeID]Node
-	Lock sync.RWMutex
 }
 
 type NodeWeb struct {
@@ -78,15 +138,13 @@ type StateSync struct {
 	InterpreterState []byte
 }
 
-func (m *JobManagerT) StateSync(nodeId NodeID, state StateSync) error {
-	panic("TODO")
-
+func (m *JobManagerT) StateSync(nodeID NodeID, state StateSync) error {
 	m.Nodes.Lock.Lock()
 	defer m.Nodes.Lock.Unlock()
 
-	node, found := m.Nodes.Map[nodeId]
+	node, found := m.Nodes.Map[nodeID]
 	if !found {
-		return fmt.Errorf("state sync: node `%s` was not found", IDToString(nodeId))
+		return fmt.Errorf("state sync: node `%s` was not found", IDToString(nodeID))
 	}
 
 	if state.WorkerIndex >= node.Info.NumWorkers {
@@ -95,35 +153,48 @@ func (m *JobManagerT) StateSync(nodeId NodeID, state StateSync) error {
 
 	jobID := node.WorkerState[state.WorkerIndex]
 	if jobID == nil {
-		return fmt.Errorf("state sync: worker %d on node `%s` is idle", state.WorkerIndex, IDToString(nodeId))
+		return fmt.Errorf("state sync: worker %d on node `%s` is idle", state.WorkerIndex, IDToString(nodeID))
 	}
 
-	// job, found := m.JobQueueDaemon()
+	m.NonFinishedJobs.Lock.Lock()
+	defer m.NonFinishedJobs.Lock.Unlock()
 
+	job, found := m.NonFinishedJobs.Map[*jobID]
+	if !found {
+		log.Debugf(
+			"state sync: job `%s` not found on node `%s` worker %d",
+			*jobID,
+			IDToString(nodeID),
+			state.WorkerIndex,
+		)
+		return nil
+	}
+
+	newJob := job
+	newJob.Logs = append(newJob.Logs, state.Logs...)
+	newJob.Progress = state.Progress
+	newJob.InterpreterState = state.InterpreterState
+
+	m.NonFinishedJobs.Map[*jobID] = newJob
+
+	log.Debugf("State sync job `%s` worker %d, progress %3f%%", *jobID, state.WorkerIndex, state.Progress)
 	return nil
 }
 
 func (m *JobManagerT) GetNode(id NodeID) (node Node, found bool) {
-	m.Nodes.Lock.RLock()
-	defer m.Nodes.Lock.RUnlock()
-
-	nodeRaw, found := m.Nodes.Map[id]
-	return nodeRaw, found
+	node, found = m.Nodes.Get(id)
+	return node, found
 }
 
 func (m *JobManagerT) ConnectNode(node NodeInfo, conn *WSConn) (nodeObj Node) {
 	newID := sha256.Sum256(append([]byte(node.EndpointIP), []byte(node.Name)...))
 	newIDString := hex.EncodeToString(newID[0:])
 
-	m.Nodes.Lock.Lock()
-	defer m.Nodes.Lock.Unlock()
-
-	if _, alreadyExists := m.Nodes.Map[newID]; alreadyExists {
+	if _, alreadyExists := m.Nodes.Get(nodeObj.ID); alreadyExists {
 		panic(fmt.Sprintf("[bug] node with ID %x already exists", newID))
 	}
 
 	now := time.Now()
-
 	nodeObj = Node{
 		Info:        node,
 		LastPing:    &now,
@@ -132,7 +203,7 @@ func (m *JobManagerT) ConnectNode(node NodeInfo, conn *WSConn) (nodeObj Node) {
 		WorkerState: make([]*string, node.NumWorkers),
 	}
 
-	m.Nodes.Map[newID] = nodeObj
+	m.Nodes.Insert(newID, nodeObj)
 
 	log.Infof(
 		"[node] Handshake success: connected to new node `%s` ip=`%s` name=`%s` with %d workers",
@@ -147,9 +218,9 @@ func (m *JobManagerT) ConnectNode(node NodeInfo, conn *WSConn) (nodeObj Node) {
 
 func (m *JobManagerT) DropNode(id NodeID) bool {
 	m.Nodes.Lock.Lock()
-	defer m.Nodes.Lock.Unlock()
-
 	node, exists := m.Nodes.Map[id]
+	m.Nodes.Lock.Unlock()
+
 	if !exists {
 		return false
 	}
@@ -176,7 +247,7 @@ func (m *JobManagerT) DropNode(id NodeID) bool {
 		}
 	}
 
-	delete(m.Nodes.Map, id)
+	m.Nodes.Delete(id)
 
 	log.Debugf("[node] Dropped node with ID `%s`", IDToString(id))
 
@@ -184,30 +255,24 @@ func (m *JobManagerT) DropNode(id NodeID) bool {
 }
 
 func (m *JobManagerT) RegisterPing(id NodeID) bool {
-	m.Nodes.Lock.Lock()
-	defer m.Nodes.Lock.Unlock()
-
-	if _, found := m.Nodes.Map[id]; !found {
+	if _, found := m.Nodes.Get(id); !found {
 		return false
 	}
 
-	now := time.Now().Local()
+	now := time.Now()
+	m.Nodes.Lock.Lock()
 	*m.Nodes.Map[id].LastPing = now
+	m.Nodes.Lock.Unlock()
 
 	log.Debugf("[node] Received ping for node with ID `%s`", IDToString(id))
 
 	return true
 }
 
-//
-// TODO: write code that looks at the queued jobs and dispatches it to a free node.
-//
-
-func newNodeManager() JobManagerT {
+func newManager(compiler *CompilerManager) JobManagerT {
 	return JobManagerT{
-		Nodes: NodeMap{
-			Map:  make(map[NodeID]Node),
-			Lock: sync.RWMutex{},
-		},
+		Compiler:        compiler,
+		Nodes:           newLockedMap[NodeID, Node](),
+		NonFinishedJobs: newLockedMap[JobID, Job](),
 	}
 }

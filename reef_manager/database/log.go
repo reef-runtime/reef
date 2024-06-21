@@ -35,10 +35,15 @@ type JobLog struct {
 }
 
 func AddLog(joblog JobLog) error {
-	_, err := db.builder.Insert(JobTableName).Values(
+	_, err := db.builder.Insert(LogTableName).Columns(
+		"kind",
+		"content",
+		"created",
+		"job_id",
+	).Values(
 		joblog.Kind,
-		joblog.Created,
 		joblog.Content,
+		joblog.Created,
 		joblog.JobID,
 	).Exec()
 

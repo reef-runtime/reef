@@ -1,10 +1,7 @@
 package api
 
 import (
-	"encoding/binary"
-	"encoding/hex"
 	"fmt"
-	"sync"
 	"time"
 
 	"capnproto.org/go/capnp/v3"
@@ -85,24 +82,17 @@ func performHandshake(conn *logic.WSConn) (logic.Node, error) {
 		return logic.Node{}, err
 	}
 
-	conn.Lock.Lock()
-
-	endpointIP := conn.Conn.RemoteAddr()
-	err = conn.Conn.WriteMessage(
+	endpointIP := conn.RemoteAddr()
+	err = conn.WriteMessage(
 		websocket.BinaryMessage,
 		initMsg,
 	)
-
-	conn.Lock.Unlock()
 
 	if err != nil {
 		return logic.Node{}, err
 	}
 
-	conn.Lock.Lock()
-	typ, message, err := conn.Conn.ReadMessage()
-	conn.Lock.Unlock()
-
+	typ, message, err := conn.ReadMessage()
 	if err != nil {
 		return logic.Node{}, err
 	}
@@ -115,8 +105,6 @@ func performHandshake(conn *logic.WSConn) (logic.Node, error) {
 	if err != nil {
 		return logic.Node{}, err
 	}
-
-	// spew.Dump(unmarshaledRaw)
 
 	handshakeResponse, err := node.ReadRootHandshakeRespondMessage(unmarshaledRaw)
 	if err != nil {
@@ -144,9 +132,7 @@ func performHandshake(conn *logic.WSConn) (logic.Node, error) {
 		return logic.Node{}, err
 	}
 
-	conn.Lock.Lock()
-	err = conn.Conn.WriteMessage(websocket.BinaryMessage, assignIDMsg)
-	conn.Lock.Unlock()
+	err = conn.WriteMessage(websocket.BinaryMessage, assignIDMsg)
 
 	if err != nil {
 		log.Warnf(
@@ -169,22 +155,12 @@ func dropNode(conn *logic.WSConn, closeCode int, nodeID logic.NodeID) {
 	nodeIDString := logic.IDToString(nodeID)
 	log.Debugf("[node] Dropping node `%s`...", nodeIDString)
 
-	const closeMessageTimeout = time.Second * 5
 	message := websocket.FormatCloseMessage(closeCode, "")
-
-	conn.Lock.Lock()
-	err := conn.Conn.WriteControl(websocket.CloseMessage, message, time.Now().Add(closeMessageTimeout))
-	conn.Lock.Unlock()
-
-	if err != nil {
+	if err := conn.WriteControl(websocket.CloseMessage, message); err != nil {
 		log.Warnf("[node] did not respond to close message in time")
 	}
 
-	conn.Lock.Lock()
-	err = conn.Conn.Close()
-	conn.Lock.Unlock()
-
-	if err != nil {
+	if err := conn.Close(); err != nil {
 		log.Warnf("[node] could not close TCP connection")
 	}
 
@@ -226,9 +202,7 @@ func nodePingHandler(conn *logic.WSConn, nodeID logic.NodeID) func(string) error
 			return err
 		}
 
-		conn.Lock.Lock()
-		err = conn.Conn.WriteMessage(websocket.BinaryMessage, msg)
-		conn.Lock.Unlock()
+		err = conn.WriteMessage(websocket.BinaryMessage, msg)
 
 		if err != nil {
 			log.Tracef("[node] sending pong failed: %s", err.Error())
@@ -255,10 +229,7 @@ func HandleNodeConnection(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	wsConn := &logic.WSConn{
-		Conn: conn,
-		Lock: sync.Mutex{},
-	}
+	wsConn := logic.NewWSConn(conn)
 
 	node, err := performHandshake(wsConn)
 	if err != nil {
@@ -287,7 +258,8 @@ func HandleNodeConnection(c *gin.Context) {
 
 	// Blocking receive loop.
 	for {
-		msgType, message, err := conn.ReadMessage()
+		// Timeout 0 means wait forever.
+		msgType, message, err := wsConn.ReadMessageWithTimeout(time.Time{})
 		if err != nil {
 			log.Debugf("[node] error while reading message: %s", err.Error())
 			dropNode(wsConn, websocket.CloseAbnormalClosure, node.ID)
@@ -298,7 +270,7 @@ func HandleNodeConnection(c *gin.Context) {
 		case websocket.TextMessage:
 			fmt.Printf("text: %s\n", string(message))
 		case websocket.BinaryMessage:
-			log.Tracef("[node] received binary message: %s", logic.FormatBinarySliceAsHex(message))
+			// log.Tracef("[node] received binary message: %s", logic.FormatBinarySliceAsHex(message))
 
 			if err := handleGenericIncoming(node, message, pingHandler); err != nil {
 				log.Errorf("[node] failed to act upon message: %s", err.Error())
@@ -424,7 +396,6 @@ func parseStateSync(nodeID logic.NodeID, message node.MessageFromNode) (logic.St
 		}
 
 		logKind := database.LogKind(currLog.LogKind())
-		now := time.Now()
 
 		content, err := currLog.Content()
 		if err != nil {
@@ -433,7 +404,7 @@ func parseStateSync(nodeID logic.NodeID, message node.MessageFromNode) (logic.St
 
 		logsOutput[idx] = database.JobLog{
 			Kind:    logKind,
-			Created: now,
+			Created: time.Now(),
 			Content: string(content),
 			JobID:   *jobID,
 		}
@@ -449,23 +420,41 @@ func parseStateSync(nodeID logic.NodeID, message node.MessageFromNode) (logic.St
 }
 
 func processJobResultFromNode(nodeID logic.NodeID, message node.MessageFromNode) error {
+	result, err := parseJobResultFromNode(nodeID, message)
+	if err != nil {
+		return fmt.Errorf("parse job result: %s", err.Error())
+	}
+
+	log.Debug(result.String())
+
+	if err := logic.JobManager.ProcessResult(nodeID, result); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func parseJobResultFromNode(nodeID logic.NodeID, message node.MessageFromNode) (logic.JobResult, error) {
 	if message.Body().Which() != node.MessageFromNode_body_Which_jobResult {
 		panic("assertion failed: expected body type is job result, got something different")
 	}
 
 	result, err := message.Body().JobResult()
 	if err != nil {
-		return fmt.Errorf("could not parse job result: %s", err.Error())
+		return logic.JobResult{}, fmt.Errorf("could not parse job result: %s", err.Error())
 	}
 
 	nodeInfo, found := logic.JobManager.GetNode(nodeID)
 	if !found {
-		return fmt.Errorf("illegal node: node ID `%s` references non-existent node", logic.IDToString(nodeID))
+		return logic.JobResult{}, fmt.Errorf(
+			"illegal node: node ID `%s` references non-existent node",
+			logic.IDToString(nodeID),
+		)
 	}
 
 	workerIndex := result.WorkerIndex()
 	if workerIndex >= nodeInfo.Info.NumWorkers {
-		return fmt.Errorf(
+		return logic.JobResult{}, fmt.Errorf(
 			"illegal worker index: node returned illegal worker index (%d) when num workers is %d",
 			workerIndex,
 			nodeInfo.Info.NumWorkers,
@@ -475,7 +464,7 @@ func processJobResultFromNode(nodeID logic.NodeID, message node.MessageFromNode)
 	jobID := nodeInfo.WorkerState[workerIndex]
 
 	if jobID == nil {
-		return fmt.Errorf(
+		return logic.JobResult{}, fmt.Errorf(
 			"wrong worker index: node returned worker index (%d), this worker is idle",
 			workerIndex,
 		)
@@ -483,48 +472,14 @@ func processJobResultFromNode(nodeID logic.NodeID, message node.MessageFromNode)
 
 	contents, err := result.Contents()
 	if err != nil {
-		return fmt.Errorf("could not decode result content bytes: %s", err.Error())
+		return logic.JobResult{}, fmt.Errorf("could not decode result content bytes: %s", err.Error())
 	}
 
-	switch result.Success() {
-	case true:
-		log.Infof("Job `%s` has finished with SUCCESS", *jobID)
-	case false:
-		log.Infof("Job `%s` has finished with ERROR", *jobID)
-	}
-
-	contentType := result.ContentType()
-
-	switch contentType {
-	case node.ResultContentType_stringJSON, node.ResultContentType_stringPlain:
-		strRes := string(contents)
-		log.Infof("[STRING] Job result: `%s`", strRes)
-	case node.ResultContentType_int64:
-		intRes := int64(binary.LittleEndian.Uint64(contents))
-		log.Infof("[INT64] Job result: `%d`", intRes)
-	case node.ResultContentType_bytes:
-		log.Infof("[INT64] Job result: `%s`", hex.EncodeToString(contents))
-	default:
-		return fmt.Errorf("node returned illegal content type: %d", contentType)
-	}
-
-	return nil
+	return logic.JobResult{
+		JobID:       *jobID,
+		WorkerIndex: workerIndex,
+		Success:     result.Success(),
+		ContentType: result.ContentType(),
+		Contents:    contents,
+	}, nil
 }
-
-// func handleJobLog(body node.MessageFromNode_body) error {
-// 	jobLog, err := node.ReadRootJobLogMessage(body.Message())
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	panic(jobLog)
-// }
-
-// func handleJobProgressReport(body node.MessageFromNode_body) error {
-// 	jobProgress, err := node.ReadRootJobProgressReportMessage(body.Message())
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	panic(jobProgress)
-// }
