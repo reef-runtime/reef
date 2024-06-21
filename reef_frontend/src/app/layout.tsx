@@ -81,6 +81,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useRouter } from 'next/router';
 import { usePathname } from 'next/navigation';
+import { Toaster } from '@/components/ui/toaster';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -223,6 +224,7 @@ export default function RootLayout({
             </div>
           </div>
         </TooltipProvider>
+        <Toaster />
       </body>
     </html>
   );
