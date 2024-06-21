@@ -2,19 +2,19 @@ CLANG:=clang
 CLANG_ARGS:=-Ofast
 TARGET=wasm32
 
-ENTRY_FILE:=lib.c
-
-IN_FILE:=./input.c
+IN_FILES:=$(wildcard *.c)
 OUT_FILE:=./output.wasm
 
 .PHONY: build
 
 build:
+	echo "$(IN_FILES)"
+
 	$(CLANG) -Wl,--no-entry -Wl,--export-all \
 		--target=$(TARGET) \
 		--no-standard-libraries \
 		$(CLANG_ARGS) \
-		-o $(OUT_FILE) \
-		$(ENTRY_FILE)
+		$(IN_FILES) \
+		-o $(OUT_FILE)
 	wasm-opt -o $(OUT_FILE) -O4 --strip-debug $(OUT_FILE)
 

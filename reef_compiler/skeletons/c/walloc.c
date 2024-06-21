@@ -21,7 +21,8 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #pragma clang diagnostic ignored "-Wimplicit-function-declaration"
-#include "lib.h"
+#include "walloc.h"
+#include "attributes.h"
 
 #define NULL ((void *)0)
 
@@ -49,7 +50,6 @@ static inline uintptr_t align(uintptr_t val, uintptr_t alignment) { return (val 
 #define CHUNK_MASK (CHUNK_SIZE - 1)
 STATIC_ASSERT_EQ(CHUNK_SIZE, 1 << CHUNK_SIZE_LOG_2);
 
-#define PAGE_SIZE 65536
 #define PAGE_SIZE_LOG_2 16
 #define PAGE_MASK (PAGE_SIZE - 1)
 STATIC_ASSERT_EQ(PAGE_SIZE, 1 << PAGE_SIZE_LOG_2);

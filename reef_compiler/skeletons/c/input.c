@@ -1,4 +1,4 @@
-#include "lib.h"
+#include "reef.h"
 
 //
 // NOTE: this file is completely overwritten by the reef compiler.
