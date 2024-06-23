@@ -171,7 +171,7 @@ pub(crate) fn spawn_worker_thread(signal: Arc<AtomicU8>, job_id: String, data: W
             Ok(handle) => handle,
             Err(err) => {
                 sender.send(FromWorkerMessage::Done).unwrap();
-                return Err(err.into());
+                return Err(err);
             }
         };
 
@@ -196,7 +196,7 @@ pub(crate) fn spawn_worker_thread(signal: Arc<AtomicU8>, job_id: String, data: W
                     sender.send(FromWorkerMessage::State(serialized_state.clone())).unwrap();
                 }
                 // Kill the worker.
-                WorkerSignal::ABORT => break Err(reef_interpreter::Error::Other("Job aborted".into())),
+                WorkerSignal::ABORT => break Err(reef_interpreter::Error::Other("job was aborted".into())),
                 other => {
                     unreachable!("internal bug: master thread has sent invalid signal: {other}")
                 }

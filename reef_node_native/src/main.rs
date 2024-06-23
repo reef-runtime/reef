@@ -274,6 +274,9 @@ impl NodeState {
                     eprintln!("Failed to start job: {err}");
                 }
             }
+            Action::AbortJob(job_id) => {
+                self.abort_job(&job_id)?;
+            }
             Action::Ping => {
                 println!("received ping, would send pong here...");
             }
@@ -282,6 +285,16 @@ impl NodeState {
             }
             Action::Disconnect => bail!("disconnected: connection lost"),
         }
+
+        Ok(())
+    }
+
+    fn abort_job(&mut self, job_id: &str) -> Result<()> {
+        let Some(job) = self.0.iter().find(|j| j.job_id == job_id) else {
+            bail!("job to be aborted with ID {job_id} not found on this node")
+        };
+
+        job.signal_to_worker.store(WorkerSignal::ABORT, Ordering::Relaxed);
 
         Ok(())
     }
@@ -340,6 +353,7 @@ struct StartJobRequest {
 
 enum Action {
     StartJob(StartJobRequest),
+    AbortJob(String),
     Ping,
     Pong,
     Disconnect,
@@ -374,6 +388,11 @@ fn handle_binary(bin_slice: &[u8]) -> Result<Action> {
                 program_byte_code: body.get_program_byte_code()?.to_vec(),
                 interpreter_state: body.get_interpreter_state()?.to_vec(),
             }))
+        }
+        (MessageToNodeKind::AbortJob, body::Which::AbortJob(body)) => {
+            let body = body?;
+            let job_id = String::from_utf8(body.get_job_id()?.0.to_vec()).with_context(|| "illegal job ID encoding")?;
+            Ok(Action::AbortJob(job_id))
         }
         (MessageToNodeKind::Pong, body::Which::Empty(_)) => Ok(Action::Pong),
         (MessageToNodeKind::Ping, body::Which::Empty(_)) => Ok(Action::Ping),
