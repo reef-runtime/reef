@@ -39,21 +39,44 @@ func (l JobProgrammingLanguage) Validate() error {
 
 type Job struct {
 	Data             database.Job
+	WorkerNodeID     *NodeID
 	Progress         float32
 	Logs             []database.JobLog
 	InterpreterState []byte
 }
 
-func (m *JobManagerT) ListJobs() ([]Job, error) {
+//
+// TODO: move into API
+//
+
+type ApiJob struct {
+	Data     database.Job `json:"data"`
+	Progress float32      `json:"progress"`
+}
+
+func (m *JobManagerT) ListJobs() ([]ApiJob, error) {
 	dbJobs, err := database.ListJobs()
 	if err != nil {
 		return nil, err
 	}
 
-	jobs := make([]Job, len(dbJobs))
+	jobs := make([]ApiJob, len(dbJobs))
 	for idx, data := range dbJobs {
-		jobs[idx] = Job{
-			Data: data,
+		var progress float32 = 1.0
+
+		if data.Status != database.StatusDone {
+			runningJob, found := m.NonFinishedJobs.Get(data.ID)
+
+			// If not found: data race: job finished in between function calls.
+			// If not, use real progress from job.
+			if found {
+				progress = runningJob.Progress
+			}
+		}
+
+		jobs[idx] = ApiJob{
+			Data:     data,
+			Progress: progress,
 		}
 	}
 
@@ -107,8 +130,6 @@ func (m *JobManagerT) SubmitJob(
 		return "", compileErr, nil
 	}
 
-	// fmt.Println(spew.Sdump(artifact.Wasm)[0:1000])
-
 	job := Job{
 		Data: database.Job{
 			ID:        idString,
@@ -120,47 +141,16 @@ func (m *JobManagerT) SubmitJob(
 		Progress:         0,
 		Logs:             make([]database.JobLog, 0),
 		InterpreterState: nil,
+		WorkerNodeID:     nil,
 	}
 
 	if backendErr = database.AddJob(job.Data); backendErr != nil {
 		return "", nil, backendErr
 	}
 
-	// fmt.Println("==================")
 	m.NonFinishedJobs.Insert(idString, job)
-	// fmt.Println("AFTER ==================")
 
 	return idString, nil, nil
-}
-
-// Can only be used while the job is queued.
-func (m *JobManagerT) AbortJob(jobID string) (found bool, err error) {
-	// TODO: also allow cancel
-
-	panic("TODO: CANCEL")
-
-	job, found, err := database.GetJob(jobID)
-	if err != nil || !found {
-		return found, err
-	}
-
-	// Act as there is no queued job with this id.
-	if job.Status != database.StatusQueued {
-		log.Tracef("Found job `%s` but it is not in <queued> state\n", jobID)
-		return false, nil
-	}
-
-	// Remove the job from the queue and database.
-	if _, found := m.NonFinishedJobs.Delete(jobID); !found {
-		log.Errorf("Internal state corruption: job to be aborted was not in job queue, fixing...")
-	}
-
-	found, err = database.DeleteJob(jobID)
-	if err != nil || !found {
-		return found, err
-	}
-
-	return true, nil
 }
 
 // Places a job back into queued.
@@ -186,6 +176,21 @@ func (m *JobManagerT) ParkJob(jobID string) error {
 		return fmt.Errorf("park: job `%s` not found", jobID)
 	}
 
+	// Set worker node ID to `nil`.
+	m.NonFinishedJobs.Lock.Lock()
+	oldJob, found := m.NonFinishedJobs.Map[jobID]
+	if found {
+		newJob := Job{
+			Data:             oldJob.Data,
+			Progress:         oldJob.Progress,
+			Logs:             oldJob.Logs,
+			InterpreterState: oldJob.InterpreterState,
+			WorkerNodeID:     nil,
+		}
+		m.NonFinishedJobs.Map[jobID] = newJob
+	}
+
+	m.NonFinishedJobs.Lock.Unlock()
 	log.Debugf("[job] Parked ID `%s`", jobID)
 
 	return nil
@@ -250,6 +255,7 @@ func (m *JobManagerT) Init() error {
 			Progress:         0,
 			Logs:             make([]database.JobLog, 0),
 			InterpreterState: nil,
+			WorkerNodeID:     nil,
 		}
 
 		m.NonFinishedJobs.Insert(dbJob.ID, job)
@@ -270,71 +276,19 @@ func (m *JobManagerT) Init() error {
 	return nil
 }
 
-//
-// Fetches all queued jobs and tries to start them.
-//
-
-func (m *JobManagerT) QueuedJobs() (j Job, jExists bool) {
-	m.NonFinishedJobs.Lock.RLock()
-
-	var earliest Job
-	hadEarliest := false
-
-	for _, job := range m.NonFinishedJobs.Map {
-		if job.Data.Status != database.StatusQueued {
-			continue
-		}
-
-		if !hadEarliest || job.Data.Submitted.Before(earliest.Data.Submitted) {
-			earliest = job
-			hadEarliest = true
-		}
+func (m *JobManagerT) DeleteJob(jobID string) (found bool, err error) {
+	_, found, err = database.GetJob(jobID)
+	if err != nil || !found {
+		return found, err
 	}
 
-	m.NonFinishedJobs.Lock.RUnlock()
+	// Remove the job from the queue and database.
+	m.NonFinishedJobs.Delete(jobID)
 
-	return earliest, hadEarliest
-}
-
-// Error is a critical error, like a database fault.
-func (m *JobManagerT) TryToStartQueuedJobs() error {
-	for {
-		fmt.Println("find first")
-		first, exists := m.QueuedJobs()
-		fmt.Println("has first")
-
-		if !exists {
-			log.Trace("Job queue is empty")
-			break
-		}
-
-		log.Debugf("Attempting to start job `%s`...", first.Data.ID)
-
-		couldStart, err := m.StartJobOnFreeNode(first)
-		if err != nil {
-			log.Errorf("HARD ERROR: Could not start job `%s`: %s", first.Data.ID, err.Error())
-			return err
-		}
-
-		if !couldStart {
-			log.Debugf("Could not start job `%s`", first.Data.ID)
-			break
-		}
-
-		log.Infof("Job `%s` started", first.Data.ID)
+	found, err = database.DeleteJob(jobID)
+	if err != nil || !found {
+		return found, err
 	}
 
-	return nil
-}
-
-func (m *JobManagerT) JobQueueDaemon() {
-	log.Info("Job queue daemon is running...")
-
-	for {
-		time.Sleep(jobDaemonFreq)
-		log.Info("Trying to start all queued jobs...")
-		if err := m.TryToStartQueuedJobs(); err != nil {
-			panic(err.Error())
-		}
-	}
+	return true, nil
 }

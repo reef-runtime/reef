@@ -37,7 +37,12 @@ func (r JobResult) String() string {
 		content = string(r.Contents)
 	}
 
-	return fmt.Sprintf("[%v] on %s@%d (%s): %s", r.Success, r.JobID, r.WorkerIndex, contentTypeStr, content)
+	outcome := "FAILURE"
+	if r.Success {
+		outcome = "SUCCESS"
+	}
+
+	return fmt.Sprintf("[%s] on %s@%d (%s): %s", outcome, r.JobID, r.WorkerIndex, contentTypeStr, content)
 }
 
 func (m *JobManagerT) ProcessResult(nodeID NodeID, result JobResult) error {

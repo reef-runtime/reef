@@ -90,6 +90,15 @@ func ModifyJobStatus(jobID string, newStatus JobStatus) (found bool, err error) 
 }
 
 func DeleteJob(jobID string) (found bool, err error) {
+	// Delete all logs and a potential result first.
+	if err := DeleteLogs(jobID); err != nil {
+		return false, err
+	}
+
+	if err := deleteResult(jobID); err != nil {
+		return false, err
+	}
+
 	res, err := db.builder.Delete(JobTableName).Where("job.id=?", jobID).Exec()
 	if err != nil {
 		return false, err
@@ -97,10 +106,6 @@ func DeleteJob(jobID string) (found bool, err error) {
 
 	affected, err := res.RowsAffected()
 	if err != nil {
-		return false, err
-	}
-
-	if _, err := DeleteLogs(jobID); err != nil {
 		return false, err
 	}
 
@@ -195,7 +200,7 @@ func GetJob(jobID string) (job Job, found bool, err error) {
 	return job, true, nil
 }
 
-func SaveResult(result Result) (err error) {
+func SaveResult(result Result) error {
 	query := db.builder.Insert(ResultTableName).Values(
 		result.JobID,
 		result.Content,
@@ -212,7 +217,10 @@ func SaveResult(result Result) (err error) {
 }
 
 func GetResult(jobID string) (result Result, found bool, err error) {
-	res := db.builder.Select("*").From(ResultTableName).Where("job_result.job_id=?", jobID).QueryRow()
+	res := db.builder.
+		Select("*").From(ResultTableName).
+		Where("job_result.job_id=?", jobID).
+		QueryRow()
 	err = res.Scan(
 		&result.JobID,
 		&result.Content,
@@ -230,4 +238,17 @@ func GetResult(jobID string) (result Result, found bool, err error) {
 	}
 
 	return result, true, nil
+}
+
+func deleteResult(jobID string) error {
+	_, err := db.builder.
+		Delete(ResultTableName).
+		Where("job_result.job_id=?", jobID).Exec()
+
+	if err != nil {
+		log.Errorf("Could not delete job result from database: executing query failed: %s", err.Error())
+		return err
+	}
+
+	return nil
 }

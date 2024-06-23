@@ -158,7 +158,7 @@ func SubmitJob(ctx *gin.Context) {
 // Job cancellation and abortion.
 //
 
-func AbortJob(ctx *gin.Context) {
+func AbortOrCancelJob(ctx *gin.Context) {
 	var job IDBody
 
 	if err := ctx.ShouldBindJSON(&job); err != nil {
@@ -175,7 +175,7 @@ func AbortJob(ctx *gin.Context) {
 	if !found {
 		respond(
 			ctx,
-			newErrResponse("could not abort job", "job does not exist or is not in <queued> state"),
+			newErrResponse("could not abort/cancel job", "job does not exist or is already in the <done> state"),
 			http.StatusUnprocessableEntity,
 		)
 		return

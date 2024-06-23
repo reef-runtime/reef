@@ -425,7 +425,7 @@ func processJobResultFromNode(nodeID logic.NodeID, message node.MessageFromNode)
 		return fmt.Errorf("parse job result: %s", err.Error())
 	}
 
-	log.Debug(result.String())
+	log.Debugf("Job result: %s", result.String())
 
 	if err := logic.JobManager.ProcessResult(nodeID, result); err != nil {
 		return err

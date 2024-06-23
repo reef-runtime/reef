@@ -55,19 +55,14 @@ func AddLog(joblog JobLog) error {
 	return nil
 }
 
-func DeleteLogs(jobID string) (found bool, err error) {
+func DeleteLogs(jobID string) error {
 	// nolint:goconst
-	res, err := db.builder.Delete(JobTableName).Where("log.job_id=?", jobID).Exec()
+	_, err := db.builder.Delete(JobTableName).Where("log.job_id=?", jobID).Exec()
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return false, err
-	}
-
-	return affected != 0, nil
+	return nil
 }
 
 func GetLastLogs(limit *uint64, jobID string) ([]JobLog, error) {

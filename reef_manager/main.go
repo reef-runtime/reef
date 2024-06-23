@@ -63,7 +63,7 @@ func ship(logger *logrus.Logger) error {
 	r.GET("/api/job/:job_id", api.GetJob)
 	r.GET("/api/result/:job_id", api.GetResult)
 	r.POST("/api/jobs/submit", api.SubmitJob)
-	r.DELETE("/api/jobs/abort", api.AbortJob)
+	r.DELETE("/api/jobs/abort", api.AbortOrCancelJob)
 
 	//
 	// Nodes.

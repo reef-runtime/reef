@@ -26,7 +26,7 @@ struct MessageToNode {
         empty           @1  :Void;
         assignId        @2  :AssignIdMessage;
         startJob        @3  :JobStartMessage;
-        abortJob        @4  :JobKillMessage;
+        abortJob        @4  :JobAbortMessage;
     }
 }
 
@@ -43,7 +43,7 @@ struct JobStartMessage {
     interpreterState    @4 :Data;
 }
 
-struct JobKillMessage {
+struct JobAbortMessage {
     jobId @0 :Text;
 }
 

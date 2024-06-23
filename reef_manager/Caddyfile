@@ -1,0 +1,8 @@
+{
+    admin off
+}
+
+:{$REEF_DEV_PORT} {
+	reverse_proxy /api/* localhost:{$REEF_MANAGER_PORT}
+	reverse_proxy localhost:{$REEF_NEXTJS_PORT}
+}

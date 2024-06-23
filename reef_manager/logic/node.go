@@ -138,6 +138,12 @@ type StateSync struct {
 	InterpreterState []byte
 }
 
+//
+// Processes a job state sync from a node.
+// If this is the first state sync from that job on that node, put the job into the `running state`
+// since it was previously in `starting`.
+//
+
 func (m *JobManagerT) StateSync(nodeID NodeID, state StateSync) error {
 	m.Nodes.Lock.Lock()
 	defer m.Nodes.Lock.Unlock()
@@ -176,6 +182,19 @@ func (m *JobManagerT) StateSync(nodeID NodeID, state StateSync) error {
 	newJob.InterpreterState = state.InterpreterState
 
 	m.NonFinishedJobs.Map[*jobID] = newJob
+
+	// If this is the job is in the `starting` state, put it into `running`.
+	if job.Data.Status == database.StatusStarting {
+		m.NonFinishedJobs.Lock.Unlock()
+		_, err := m.setJobStatus(*jobID, database.StatusRunning)
+		m.NonFinishedJobs.Lock.Lock()
+
+		if err != nil {
+			return err
+		}
+
+		log.Debugf("Set status of job `%s` to `running", *jobID)
+	}
 
 	log.Debugf("State sync job `%s` worker %d, progress %3f%%", *jobID, state.WorkerIndex, state.Progress)
 	return nil

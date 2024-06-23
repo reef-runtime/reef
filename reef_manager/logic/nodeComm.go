@@ -259,6 +259,21 @@ func (m *JobManagerT) StartJobOnFreeNode(job Job) (couldStart bool, err error) {
 		)
 	}
 
+	// Set the worker node of this job.
+	m.NonFinishedJobs.Lock.Lock()
+	old, found := m.NonFinishedJobs.Map[job.Data.ID]
+	if found {
+		newJob := Job{
+			Data:             old.Data,
+			WorkerNodeID:     &node.ID,
+			Progress:         old.Progress,
+			Logs:             old.Logs,
+			InterpreterState: old.InterpreterState,
+		}
+		m.NonFinishedJobs.Map[job.Data.ID] = newJob
+	}
+	m.NonFinishedJobs.Lock.Unlock()
+
 	return true, nil
 }
 
