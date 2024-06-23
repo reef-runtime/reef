@@ -1,8 +1,9 @@
 #!make
 SHELL:=/usr/bin/env bash
 
-include .env
-export $(shell sed 's/=.*//' .env)
+ENV_FILE=../.env
+include $(ENV_FILE)
+export $(shell sed 's/=.*//' $(ENV_FILE))
 
 ################################### VARS / SETUP ####################################
 
@@ -29,6 +30,12 @@ DOCKER_OK_ERR_MSG:=Is your docker setup working?
 
 MIGRATE:=migrate
 MIGRATIONS_DIR:=db/migrations
+
+#
+# Caddy & web
+#
+
+CADDY_BIN=caddy
 
 #
 # Go stuff.
@@ -93,6 +100,7 @@ test: $(GO_SRC)
 	$(GO_TEST_BIN) $(GO_TEST_ARGS)
 
 run: $(GO_SRC)
+	$(CADDY_BIN) run &
 	$(GO_BIN) mod tidy
 	$(GO_BIN) run $(GO_FLAGS) .
 
@@ -105,6 +113,6 @@ clean:
 	rm -rf log
 	rm -f $(DOCKER_OK_FILE)
 
-env: .env
+env: $(ENV_FILE)
 	env | $(GREP) REEF
 	env | $(GREP) POSTGRESQL_URL

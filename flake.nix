@@ -187,6 +187,7 @@
             findutils
             typos
             docker-compose
+            caddy
           ];
 
           shellHook = ''
