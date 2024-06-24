@@ -12,7 +12,7 @@ pub(crate) struct MemoryInstance {
     pub(crate) kind: MemoryType,
     pub(crate) page_count: usize,
     /// ignored during serialization
-    pub(crate) ignored_page_region: (usize, usize),
+    pub(crate) ignored_byte_region: (usize, usize),
     pub(crate) data: Vec<u8>,
 }
 
@@ -24,7 +24,7 @@ impl MemoryInstance {
             kind,
             data: vec![0; PAGE_SIZE * kind.page_count_initial as usize],
             page_count: kind.page_count_initial as usize,
-            ignored_page_region: (0, 0),
+            ignored_byte_region: (0, 0),
         }
     }
 
@@ -178,15 +178,14 @@ impl serde::Serialize for MemoryInstance {
     where
         S: serde::Serializer,
     {
-        use crate::PAGE_SIZE;
         use serde::ser::SerializeStruct;
 
         let mut state = serializer.serialize_struct("MemoryInstance", 4)?;
         state.serialize_field("kind", &self.kind)?;
         state.serialize_field("page_count", &self.page_count)?;
-        state.serialize_field("ignored_page_region", &self.ignored_page_region)?;
-        state.serialize_field("data_before_ignore", &self.data[..self.ignored_page_region.0 * PAGE_SIZE])?;
-        state.serialize_field("data_after_ignore", &self.data[self.ignored_page_region.1 * PAGE_SIZE..])?;
+        state.serialize_field("ignored_byte_region", &self.ignored_byte_region)?;
+        state.serialize_field("data_before_ignore", &self.data[..self.ignored_byte_region.0])?;
+        state.serialize_field("data_after_ignore", &self.data[self.ignored_byte_region.1..])?;
 
         state.end()
     }
@@ -220,7 +219,7 @@ impl<'de> serde::Deserialize<'de> for MemoryInstance {
 
                     fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                         formatter.write_str(
-                            "`kind`, `page_count`, `ignored_page_region`, `data_before_ignore` or `data_after_ignore`",
+                            "`kind`, `page_count`, `ignored_byte_region`, `data_before_ignore` or `data_after_ignore`",
                         )
                     }
 
@@ -231,7 +230,7 @@ impl<'de> serde::Deserialize<'de> for MemoryInstance {
                         match value {
                             "kind" => Ok(Field::Kind),
                             "page_count" => Ok(Field::PageCount),
-                            "ignored_page_region" => Ok(Field::IgnoredPageRegion),
+                            "ignored_byte_region" => Ok(Field::IgnoredPageRegion),
                             "data_before_ignore" => Ok(Field::DataBeforeIgnore),
                             "data_after_ignore" => Ok(Field::DataAfterIgnore),
                             _ => Err(de::Error::unknown_field(value, FIELDS)),
@@ -258,7 +257,7 @@ impl<'de> serde::Deserialize<'de> for MemoryInstance {
             {
                 let kind = seq.next_element()?.ok_or_else(|| de::Error::invalid_length(0, &self))?;
                 let page_count = seq.next_element()?.ok_or_else(|| de::Error::invalid_length(1, &self))?;
-                let ignored_page_region: (usize, usize) =
+                let ignored_byte_region: (usize, usize) =
                     seq.next_element()?.ok_or_else(|| de::Error::invalid_length(2, &self))?;
 
                 // TODO: avoid allocation
@@ -267,11 +266,11 @@ impl<'de> serde::Deserialize<'de> for MemoryInstance {
                 let data_after_ignore: Vec<u8> =
                     seq.next_element()?.ok_or_else(|| de::Error::invalid_length(4, &self))?;
 
-                let mut data = vec![0; page_count * PAGE_SIZE];
-                data[..ignored_page_region.0 * PAGE_SIZE].copy_from_slice(&data_before_ignore);
-                data[ignored_page_region.1 * PAGE_SIZE..].copy_from_slice(&data_after_ignore);
+                let mut data = vec![0; page_count];
+                data[..ignored_byte_region.0].copy_from_slice(&data_before_ignore);
+                data[ignored_byte_region.1..].copy_from_slice(&data_after_ignore);
 
-                Ok(MemoryInstance { kind, page_count, ignored_page_region, data })
+                Ok(MemoryInstance { kind, page_count, ignored_byte_region, data })
             }
 
             fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
@@ -280,7 +279,7 @@ impl<'de> serde::Deserialize<'de> for MemoryInstance {
             {
                 let mut kind = None;
                 let mut page_count = None;
-                let mut ignored_page_region: Option<(usize, usize)> = None;
+                let mut ignored_byte_region: Option<(usize, usize)> = None;
                 let mut data = None;
                 while let Some(key) = map.next_key()? {
                     match key {
@@ -298,45 +297,45 @@ impl<'de> serde::Deserialize<'de> for MemoryInstance {
                             data = Some(vec![0u8; page_count.unwrap() * PAGE_SIZE]);
                         }
                         Field::IgnoredPageRegion => {
-                            if ignored_page_region.is_some() {
-                                return Err(de::Error::duplicate_field("ignored_page_region"));
+                            if ignored_byte_region.is_some() {
+                                return Err(de::Error::duplicate_field("ignored_byte_region"));
                             }
-                            ignored_page_region = Some(map.next_value()?);
+                            ignored_byte_region = Some(map.next_value()?);
                         }
                         Field::DataBeforeIgnore => {
                             let Some(data) = &mut data else {
                                 return Err(de::Error::missing_field("page_count"));
                             };
-                            let Some(ignored_page_region) = ignored_page_region else {
-                                return Err(de::Error::missing_field("ignored_page_region"));
+                            let Some(ignored_byte_region) = ignored_byte_region else {
+                                return Err(de::Error::missing_field("ignored_byte_region"));
                             };
                             // TODO: avoid allocation
-                            data[..ignored_page_region.0 * PAGE_SIZE].copy_from_slice(&map.next_value::<Vec<u8>>()?);
+                            data[..ignored_byte_region.0].copy_from_slice(&map.next_value::<Vec<u8>>()?);
                         }
                         Field::DataAfterIgnore => {
                             let Some(data) = &mut data else {
                                 return Err(de::Error::missing_field("page_count"));
                             };
-                            let Some(ignored_page_region) = ignored_page_region else {
-                                return Err(de::Error::missing_field("ignored_page_region"));
+                            let Some(ignored_byte_region) = ignored_byte_region else {
+                                return Err(de::Error::missing_field("ignored_byte_region"));
                             };
                             // TODO: avoid allocation
-                            data[ignored_page_region.1 * PAGE_SIZE..].copy_from_slice(&map.next_value::<Vec<u8>>()?);
+                            data[ignored_byte_region.1..].copy_from_slice(&map.next_value::<Vec<u8>>()?);
                         }
                     }
                 }
                 let kind = kind.ok_or_else(|| de::Error::missing_field("kind"))?;
                 let page_count = page_count.ok_or_else(|| de::Error::missing_field("page_count"))?;
-                let ignored_page_region: (usize, usize) =
-                    ignored_page_region.ok_or_else(|| de::Error::missing_field("ignored_page_region"))?;
+                let ignored_byte_region: (usize, usize) =
+                    ignored_byte_region.ok_or_else(|| de::Error::missing_field("ignored_byte_region"))?;
                 let data = data.ok_or_else(|| de::Error::missing_field("page_count"))?;
 
-                Ok(MemoryInstance { kind, page_count, ignored_page_region, data })
+                Ok(MemoryInstance { kind, page_count, ignored_byte_region, data })
             }
         }
 
         const FIELDS: &[&str] =
-            &["kind", "page_count", "ignored_page_region", "data_before_ignore", "data_after_ignore"];
+            &["kind", "page_count", "ignored_byte_region", "data_before_ignore", "data_after_ignore"];
         deserializer.deserialize_struct("MemoryInstance", FIELDS, MemoryInstanceVisitor)
     }
 }

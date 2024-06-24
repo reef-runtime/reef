@@ -306,6 +306,8 @@ fn reef_std_lib(
     )?;
 
     // Reef dataset.
+    // Reef std implementations guarantee, that the dataset is at least 8 byte aligned
+    // and then the ignored region len is a multiple of 8
     const TEMP_DATASET_LEN: usize = 100000;
     imports.define(
         REEF_MODULE_NAME,
@@ -318,16 +320,11 @@ fn reef_std_lib(
         REEF_MODULE_NAME,
         REEF_DATASET_WRITE_NAME,
         Extern::typed_func::<_, ReefDatasetWriteReturn>(move |mut ctx, (ptr,): ReefDatasetWriteArgs| {
-            if ptr as usize % PAGE_SIZE != 0 {
-                // TODO: actyually handle properly
-                println!("WARN: wasm wants dataset written to non page aligned ptr {ptr}");
-            }
-
             let mut mem = ctx.exported_memory_mut("memory")?;
+
             mem.fill(ptr as usize, TEMP_DATASET_LEN, 69)?;
-            let page = (ptr as usize) / PAGE_SIZE;
-            let count = TEMP_DATASET_LEN.div_ceil(PAGE_SIZE);
-            mem.set_ignored_page_region(page, count);
+            let len = TEMP_DATASET_LEN.div_ceil(8) * 8;
+            mem.set_ignored_byte_region(ptr as usize, len);
             Ok(())
         }),
     )?;

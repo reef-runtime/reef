@@ -88,14 +88,14 @@ impl MemoryRefMut<'_> {
     }
 
     /// Set pages ignored during serialization
-    pub fn set_ignored_page_region(&mut self, page: usize, count: usize) {
-        self.instance.ignored_page_region = (page, page + count);
+    pub fn set_ignored_byte_region(&mut self, offset: usize, len: usize) {
+        self.instance.ignored_byte_region = (offset, offset + len);
     }
 
     /// Copy data into the region ignored by serialization
-    pub fn copy_into_ignored_page_region(&mut self, data: &[u8]) {
-        let start = self.instance.ignored_page_region.0 * crate::PAGE_SIZE;
-        let end = self.instance.ignored_page_region.1 * crate::PAGE_SIZE;
+    pub fn copy_into_ignored_byte_region(&mut self, data: &[u8]) {
+        let start = self.instance.ignored_byte_region.0;
+        let end = self.instance.ignored_byte_region.1;
         self.instance.data[start..end].copy_from_slice(data);
     }
 }

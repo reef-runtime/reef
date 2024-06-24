@@ -36,6 +36,7 @@ pub mod reef {
     #[doc(hidden)]
     pub unsafe fn _get_dataset() -> &'static [u8] {
         let len = unsafe { dataset_len() };
+        // Note: the alignment to entire pages is not required, but nice
         let pages = len.div_ceil(PAGE_SIZE);
 
         let layout = std::alloc::Layout::from_size_align(pages * PAGE_SIZE, PAGE_SIZE).unwrap();
