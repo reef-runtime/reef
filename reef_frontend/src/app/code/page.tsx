@@ -50,7 +50,7 @@ import { Editor } from './editor';
 const schema = z.object({
   name: z.string().min(2).max(50),
   language: z.enum(['c', 'rust']),
-  sourceCode: z.string().min(2).max(50),
+  sourceCode: z.string(),
 });
 
 export default function Page() {
@@ -61,6 +61,7 @@ export default function Page() {
     resolver: zodResolver(schema),
     defaultValues: {
       name: 'test-job-name',
+      language: 'c',
       sourceCode: '',
     },
   });
@@ -94,20 +95,25 @@ export default function Page() {
           <Card className="grid w-full gap-2 col-span-3 ">
             <CardHeader>
               <CardTitle>Code Editor</CardTitle>
-              TODO: use bundeled default files + a selector (like for sprache.hpi.church)
+              {/* TODO: use bundeled default files + a selector (like for sprache.hpi.church) */}
             </CardHeader>
 
-
-            <CardContent style={{height: "30rem"}}>
+            <CardContent style={{ height: '85vh' }}>
               <FormField
                 control={form.control}
-                name="name"
+                name="sourceCode"
                 render={({ field }) => (
-                    <Editor
-                        code={"int main() {}"}
+                  <FormItem style={{ height: '100%' }}>
+                    <FormControl>
+                      <Editor
+                        code={
+                          '#include "reef.h"\n\nvoid run(uint8_t *dataset, size_t len) {}'
+                        }
                         className="editor"
-                        onChange={field.onChange}
-                    ></Editor>
+                        onSourceChange={field.onChange}
+                      ></Editor>
+                    </FormControl>
+                  </FormItem>
                 )}
               />
             </CardContent>
@@ -140,10 +146,7 @@ export default function Page() {
                   <FormItem>
                     <FormLabel>Language</FormLabel>
                     <FormControl>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
+                      <Select onValueChange={field.onChange} defaultValue={'c'}>
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder="Select a language" />
                         </SelectTrigger>
@@ -169,7 +172,7 @@ export default function Page() {
                 <CardTitle>Response</CardTitle>
               </CardHeader>
               <CardContent>
-                <Textarea value={response} />
+                <Textarea value={response} className="h-[500px]" />
               </CardContent>
             </Card>
           )}

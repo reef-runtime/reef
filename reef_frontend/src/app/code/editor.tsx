@@ -6,31 +6,40 @@ import CodeMirror from '@uiw/react-codemirror';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 import { VariantProps } from 'class-variance-authority';
 
-const extensions=[rust()]
+const extensions = [rust()];
 
-export interface EditorProps extends React.HTMLAttributes<HTMLDivElement> {
-    code: string,
-    className: string,
-    onChange: () => null,
+export interface EditorProps extends React.HTMLAttributes<HTMLInputElement> {
+  code: string;
+  className: string;
+  onSourceChange: (sourceCode: string) => void;
 }
 
-export default function Editor({className, code, onChange}: EditorProps) {
-  const onChangeInternal = React.useCallback((value: any, _viewUpdate: any) => {
-    onChange()
-  }, []);
+export default function Editor({
+  className,
+  code,
+  onSourceChange,
+}: EditorProps) {
+  const onChangeInternal = React.useCallback(
+    (sourceCode: any, _viewUpdate: any) => {
+      onSourceChange(sourceCode);
+    },
+    []
+  );
+
+  onSourceChange(code);
 
   return (
     <CodeMirror
-        style={{height: "100%"}}
-        className={className}
-        value={code}
-        lang='c'
-        height="100%"
-        theme={vscodeDark}
-        extensions={extensions}
-        onChange={onChangeInternal}
+      style={{ height: '100%' }}
+      className={className}
+      value={code}
+      lang="c"
+      height="100%"
+      theme={vscodeDark}
+      extensions={extensions}
+      onChange={onChangeInternal}
     />
   );
 }
 
-export { Editor }
+export { Editor };
