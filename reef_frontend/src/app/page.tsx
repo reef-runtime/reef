@@ -87,7 +87,7 @@ export default function Home() {
           </Card>
         ))}
       </div>
-      <Card className="w-[200]">
+      <Card className="w-[200] h-full">
         <CardHeader>
           <CardTitle>Completed Jobs</CardTitle>
         </CardHeader>

@@ -45,6 +45,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { ToastAction } from '@/components/ui/toast';
 import { useToast } from '@/components/ui/use-toast';
+import { Editor } from './editor';
 
 const schema = z.object({
   name: z.string().min(2).max(50),
@@ -93,28 +94,26 @@ export default function Page() {
           <Card className="grid w-full gap-2 col-span-3 ">
             <CardHeader>
               <CardTitle>Code Editor</CardTitle>
+              TODO: use bundeled default files + a selector (like for sprache.hpi.church)
             </CardHeader>
-            <CardContent>
+
+
+            <CardContent style={{height: "30rem"}}>
               <FormField
                 control={form.control}
-                name="sourceCode"
+                name="name"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Code</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        className="h-[300px]"
-                        placeholder="beantrage Drucke von Drucker"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+                    <Editor
+                        code={"int main() {}"}
+                        className="editor"
+                        onChange={field.onChange}
+                    ></Editor>
                 )}
               />
             </CardContent>
           </Card>
         </div>
+
         <div className="w-[300px] flex flex-col space-y-4">
           <Card className="w-[300px] flex flex-col">
             <CardHeader>
@@ -128,7 +127,7 @@ export default function Page() {
                   <FormItem>
                     <FormLabel>Job Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="shadcn" {...field} />
+                      <Input placeholder="Job Name" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
