@@ -38,9 +38,10 @@ struct JobStartMessage {
     workerIndex         @0 :UInt32;
     jobId               @1 :Text;
     programByteCode     @2 :Data;
+    datasetId           @3 :Text;
     # If the job has just been started these will be 0/empty.
-    progress            @3 :Float32;
-    interpreterState    @4 :Data;
+    progress            @4 :Float32;
+    interpreterState    @5 :Data;
 }
 
 struct JobAbortMessage {

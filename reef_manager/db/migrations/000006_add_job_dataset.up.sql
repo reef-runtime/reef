@@ -1,0 +1,2 @@
+ALTER TABLE job
+ADD COLUMN dataset_id VARCHAR(64) DEFAULT 'invalid' NOT NULL;

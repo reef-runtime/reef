@@ -73,14 +73,15 @@ func toNodeJobInitializationMessage(
 		return nil, err
 	}
 
-	//
+	// Dataset ID
+	if err := nestedBody.SetDatasetId(job.Data.DatasetId); err != nil {
+		return nil, err
+	}
+
 	// Progress.
-	//
 	nestedBody.SetProgress(job.Progress)
 
-	//
 	// Interpreter State.
-	//
 	if err := nestedBody.SetInterpreterState(job.InterpreterState); err != nil {
 		return nil, err
 	}
