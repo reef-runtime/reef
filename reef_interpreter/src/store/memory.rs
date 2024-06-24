@@ -266,7 +266,7 @@ impl<'de> serde::Deserialize<'de> for MemoryInstance {
                 let data_after_ignore: Vec<u8> =
                     seq.next_element()?.ok_or_else(|| de::Error::invalid_length(4, &self))?;
 
-                let mut data = vec![0; page_count];
+                let mut data = vec![0; page_count * PAGE_SIZE];
                 data[..ignored_byte_region.0].copy_from_slice(&data_before_ignore);
                 data[ignored_byte_region.1..].copy_from_slice(&data_after_ignore);
 
