@@ -20,8 +20,8 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
         onClick={handleClick}
       >
         <li className="text-sm text-muted-foreground font-bold flex items-center space-x-1">
-          <span>{job.name}</span>
           <JobStatusIcon job={job} />
+          <span>{job.name}</span>
         </li>
         <li className="text-xs font-medium leading-none overflow-hidden">
           <span className="text-nowrap">{job.id}</span>

@@ -23,12 +23,8 @@ const GROUPS = [
     filter: (job: IJob) => job.status === IJobStatus.StatusQueued,
   },
   {
-    title: 'Starting',
-    filter: (job: IJob) => job.status === IJobStatus.StatusStarting,
-  },
-  {
-    title: 'Running',
-    filter: (job: IJob) => job.status === IJobStatus.StatusRunning,
+    title: 'Starting / Running',
+    filter: (job: IJob) => job.status === IJobStatus.StatusStarting || job.status === IJobStatus.StatusRunning,
   },
   {
     title: 'Done',
