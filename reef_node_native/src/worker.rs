@@ -77,6 +77,7 @@ pub(crate) struct ReefLog {
 #[derive(Debug)]
 pub(crate) struct Job {
     pub(crate) last_sync: Instant,
+    pub(crate) sync_running: bool,
 
     pub(crate) worker_index: usize,
     pub(crate) job_id: String,
@@ -124,8 +125,6 @@ impl Job {
         capnp::serialize::write_message(&mut buffer, &message).with_context(|| "could not encode message")?;
 
         socket.write(Message::Binary(buffer)).with_context(|| "could not send state sync")?;
-
-        self.last_sync = Instant::now();
 
         Ok(())
     }

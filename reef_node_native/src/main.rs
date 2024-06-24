@@ -166,6 +166,8 @@ fn main() -> anyhow::Result<()> {
                     }
                     Ok(FromWorkerMessage::State(interpreter_state)) => {
                         job.flush_state(&interpreter_state, &mut socket)?;
+                        job.last_sync = Instant::now();
+                        job.sync_running = false;
                     }
                     Ok(FromWorkerMessage::Done) => {
                         finished_worker_indices.push(job.worker_index);
@@ -177,7 +179,8 @@ fn main() -> anyhow::Result<()> {
 
             // Send a sync request if enough time has passed.
             let since_last_sync = Instant::now().duration_since(job.last_sync);
-            if since_last_sync >= sync_wait_duration {
+            if since_last_sync >= sync_wait_duration && !job.sync_running {
+                job.sync_running = true;
                 job.signal_to_worker.store(WorkerSignal::SAVE_STATE, Ordering::Relaxed);
                 worked = true;
             }
@@ -326,14 +329,19 @@ impl NodeState {
         );
 
         let job = Job {
+            last_sync: Instant::now(),
+            sync_running: false,
+
             worker_index: request.worker_index,
             job_id: request.job_id,
+
             signal_to_worker: signal.clone(),
             channel_from_worker: from_worker_receiver,
+
             handle,
+
             logs_to_be_flushed: Vec::new(),
             progress: request.progress,
-            last_sync: Instant::now(),
         };
 
         self.0.push(job);
