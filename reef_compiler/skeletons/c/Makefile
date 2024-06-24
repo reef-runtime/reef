@@ -3,7 +3,7 @@ CLANG_ARGS:=-Ofast
 TARGET=wasm32
 
 IN_FILES:=$(wildcard *.c)
-IN_FILES := $(filter-out input.c, $(IN_FILES))
+# IN_FILES := $(filter-out input.c, $(IN_FILES))
 OUT_FILE:=./output.wasm
 
 .PHONY: build

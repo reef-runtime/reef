@@ -3,7 +3,7 @@
 // Internal imports
 #include "imports.h"
 
-#include "input.c"
+// #include "input.c"
 
 //
 // Wasm entry point
