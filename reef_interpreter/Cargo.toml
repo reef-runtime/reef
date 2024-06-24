@@ -15,4 +15,5 @@ wasmparser = { version = "0.208", default-features = false, features = [
 ] }
 
 bincode.workspace = true
+flate2.workspace = true
 serde.workspace = true

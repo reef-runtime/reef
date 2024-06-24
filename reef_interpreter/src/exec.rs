@@ -54,7 +54,8 @@ impl ExecHandle {
         let globals = self.func_handle.instance.globals.iter().map(|g| g.value).collect();
         let data = SerializationState { stack: &self.stack, memory, globals };
 
-        bincode::serialize_into(writer, &data)?;
+        let encoder = flate2::write::ZlibEncoder::new(writer, flate2::Compression::best());
+        bincode::serialize_into(encoder, &data)?;
 
         Ok(())
     }
