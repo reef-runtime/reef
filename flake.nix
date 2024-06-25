@@ -8,7 +8,6 @@
       url = "github:oxalica/rust-overlay";
       inputs = {
         nixpkgs.follows = "nixpkgs";
-        flake-utils.follows = "flake-utils";
       };
     };
     crane = {
@@ -74,7 +73,7 @@
 
         rustToolchain = (pkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml).override {
           extensions = ["rust-src" "rust-std" "rust-analyzer"];
-          targets = ["wasm32-unknown-unknown"];
+          targets = ["wasm32-unknown-unknown" "x86_64-unknown-linux-musl"];
         };
         # Configure crane
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
@@ -86,7 +85,6 @@
 
         # Build tools
         nativeBuildInputs = with pkgs; [
-          pkg-config
           git
 
           rustToolchain
@@ -95,15 +93,14 @@
           capnproto-rust
           capnproto-go
         ];
-        # buildInputs = with pkgs; [openssl sqlite];
-        buildInputs = [];
+        buildInputs = with pkgs; [];
         commonArgs = {
           inherit src buildInputs nativeBuildInputs;
 
           strictDeps = true;
 
-          # Additional environment variables can be set directly
-          # MY_CUSTOM_VAR = "some value";
+          CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
+          CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
         };
         cargoArtifacts = craneLib.buildDepsOnly (commonArgs // {pname = "reef_dependencies";});
         # cargoArtifacts = craneLib.buildDepsOnly commonArgs;
@@ -147,6 +144,19 @@
             cargoExtraArgs = "-p reef_compiler";
             src = fileSetForCrate [./reef_compiler ./reef_protocol];
           });
+
+        # ================
+        # Conatiner images
+        # ================
+
+        reef_node_native_image = pkgs.dockerTools.buildImage {
+          name = "reef_node_native";
+          tag = "latest";
+          copyToRoot = [reef_node_native];
+          config = {
+            Cmd = ["bin/reef_node_native"];
+          };
+        };
       in {
         devShells.default = pkgs.mkShell {
           name = "Reef Dev";
@@ -178,6 +188,10 @@
             capnproto-rust
             capnproto-go
 
+            # Containers
+            docker-compose
+            dive
+
             # Misc
             ripgrep
             openssl
@@ -186,7 +200,6 @@
             perl
             findutils
             typos
-            docker-compose
             caddy
           ];
 
@@ -208,7 +221,11 @@
         formatter = nixpkgs.legacyPackages.${system}.alejandra;
 
         packages = {
+          # Raw binary outputs
           inherit reef_node_native reef_compiler;
+
+          # Conatiner images
+          inherit reef_node_native_image;
         };
 
         apps = {
