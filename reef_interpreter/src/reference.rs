@@ -87,7 +87,12 @@ impl MemoryRefMut<'_> {
         self.instance.store(offset, len, data)
     }
 
-    /// Set pages ignored during serialization
+    /// Get byte region ignored during serialization
+    pub fn get_ignored_byte_region(&self) -> (usize, usize) {
+        (self.instance.ignored_byte_region.0, self.instance.ignored_byte_region.1 - self.instance.ignored_byte_region.0)
+    }
+
+    /// Set bytes ignored during serialization
     pub fn set_ignored_byte_region(&mut self, offset: usize, len: usize) {
         self.instance.ignored_byte_region = (offset, offset + len);
     }

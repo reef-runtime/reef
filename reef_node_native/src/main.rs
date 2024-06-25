@@ -114,7 +114,7 @@ fn main() -> anyhow::Result<()> {
     let node_info =
         handshake::perform(&node_name, num_workers as u16, &mut socket).with_context(|| "handshake failed")?;
 
-    println!("==> Handshake successful: node {} is connected.", hex::encode(node_info.node_id));
+    println!("==> Handshake successful: node '{}' is connected.", hex::encode(node_info.node_id));
 
     // switch to non blocking after handshake
     match socket.get_mut() {
@@ -135,7 +135,9 @@ fn main() -> anyhow::Result<()> {
         // Websocket communications.
         match socket.read() {
             Ok(msg) => {
-                state.handle_websocket(msg).with_context(|| "evaluating incoming message")?;
+                state
+                    .handle_websocket(msg, args.manager_url.as_str())
+                    .with_context(|| "evaluating incoming message")?;
                 worked = true;
             }
             Err(tungstenite::Error::Io(ref err)) if err.kind() == std::io::ErrorKind::WouldBlock => {}
@@ -255,7 +257,7 @@ impl NodeState {
         self.0.iter().any(|w| w.worker_index == worker_index)
     }
 
-    fn handle_websocket(&mut self, msg: tungstenite::Message) -> Result<()> {
+    fn handle_websocket(&mut self, msg: tungstenite::Message, manager_url: &str) -> Result<()> {
         let action = match msg {
             Message::Text(_) => bail!("received a text message, this should never happen"),
             Message::Binary(bin) => handle_binary(&bin)?,
@@ -272,7 +274,7 @@ impl NodeState {
 
         match action {
             Action::StartJob(request) => {
-                if let Err(err) = self.start_job(request) {
+                if let Err(err) = self.start_job(request, manager_url) {
                     // TODO: replace with `real` logger.
                     eprintln!("Failed to start job: {err}");
                 }
@@ -302,14 +304,14 @@ impl NodeState {
         Ok(())
     }
 
-    fn start_job(&mut self, request: StartJobRequest) -> Result<()> {
-        // 1. Check if the worker is free and available.
+    fn start_job(&mut self, request: StartJobRequest, manager_url: &str) -> Result<()> {
+        // 1. Check if the worker exists and is available.
         if self.worker_exists(request.worker_index) {
             bail!("requested illegal worker index");
         }
 
         println!(
-            "==> Starting job with id {:?} on worker {} with program: [{}]{:?}...",
+            "==> Starting job with id '{:?}' on worker {} with program: [{}]{:?}...",
             request.job_id,
             request.worker_index,
             request.program_byte_code.len(),
@@ -322,10 +324,20 @@ impl NodeState {
 
         let state = if request.interpreter_state.is_empty() { None } else { Some(request.interpreter_state) };
 
+        println!("Fetching dataset '{}'...", request.dataset_id.as_deref().unwrap_or("<none>"));
+        let dataset = match request.dataset_id {
+            Some(dataset_id) => {
+                let url = format!("{manager_url}api/dataset/{dataset_id}");
+                let resp = reqwest::blocking::get(url)?;
+                resp.bytes()?.to_vec()
+            }
+            None => Vec::new(),
+        };
+
         let handle = spawn_worker_thread(
             signal.clone(),
             request.job_id.clone(),
-            WorkerData { sender: to_master_sender, program: request.program_byte_code, state },
+            WorkerData { sender: to_master_sender, program: request.program_byte_code, state, dataset },
         );
 
         let job = Job {
@@ -353,6 +365,7 @@ impl NodeState {
 struct StartJobRequest {
     worker_index: usize,
     job_id: String,
+    dataset_id: Option<String>,
     progress: f32,
 
     program_byte_code: Vec<u8>,
@@ -387,10 +400,14 @@ fn handle_binary(bin_slice: &[u8]) -> Result<Action> {
         (MessageToNodeKind::StartJob, body::Which::StartJob(body)) => {
             let body = body?;
             let job_id = String::from_utf8(body.get_job_id()?.0.to_vec()).with_context(|| "illegal job ID encoding")?;
+            let dataset_id =
+                String::from_utf8(body.get_dataset_id()?.0.to_vec()).with_context(|| "illegal dataset ID encoding")?;
+            let dataset_id = if dataset_id.is_empty() { None } else { Some(dataset_id) };
 
             Ok(Action::StartJob(StartJobRequest {
                 worker_index: body.get_worker_index() as usize,
                 job_id,
+                dataset_id,
                 progress: body.get_progress(),
 
                 program_byte_code: body.get_program_byte_code()?.to_vec(),

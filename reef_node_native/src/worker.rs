@@ -144,6 +144,7 @@ pub(crate) struct WorkerData {
     pub(crate) sender: WorkerSender,
     pub(crate) program: Vec<u8>,
     pub(crate) state: Option<Vec<u8>>,
+    pub(crate) dataset: Vec<u8>,
 }
 
 type ReefJobOutput = (ResultContentType, Vec<u8>);
@@ -177,7 +178,7 @@ pub(crate) fn spawn_worker_thread(signal: Arc<AtomicU8>, job_id: String, data: W
         // This is not being re-allocated inside the hotloop for performance gains.
         let mut serialized_state = Vec::with_capacity(PAGE_SIZE * 2);
 
-        println!("Executing {}...", job_id);
+        println!("Executing '{job_id}'...");
 
         let res = loop {
             // Check for signal from manager thread.
@@ -232,13 +233,19 @@ fn setup_interpreter(
     sleep_until: Rc<Cell<Instant>>,
     job_output: Rc<RefCell<(ResultContentType, Vec<u8>)>>,
 ) -> Result<ReefMainHandle, reef_interpreter::Error> {
-    let module = parse_bytes(&data.program)?;
-    let imports = reef_std_lib(data.sender, sleep_until, job_output)?;
+    let dataset = Rc::new(data.dataset);
 
-    let (instance, stack) = Instance::instantiate(module, imports, data.state.as_deref())?;
+    let module = parse_bytes(&data.program)?;
+    let imports = reef_imports(data.sender, sleep_until, job_output, dataset.clone())?;
+
+    let (mut instance, stack) = Instance::instantiate(module, imports, data.state.as_deref())?;
     if stack.is_some() {
-        // TODO: reload dataset
-        // instance.exported_memory_mut("memory")?.copy_into_ignored_page_region(...);
+        // reload dataset
+        let mut mem = instance.exported_memory_mut("memory")?;
+
+        if mem.get_ignored_byte_region().1 == dataset.len() {
+            mem.copy_into_ignored_byte_region(&dataset);
+        }
     }
 
     let entry_fn_handle = instance.exported_func::<ReefMainArgs, ReefMainReturn>(REEF_MAIN_NAME)?;
@@ -247,10 +254,11 @@ fn setup_interpreter(
     Ok(exec_handle)
 }
 
-fn reef_std_lib(
+fn reef_imports(
     sender: WorkerSender,
     sleep_until: Rc<Cell<Instant>>,
     job_output: Rc<RefCell<(ResultContentType, Vec<u8>)>>,
+    dataset: Rc<Vec<u8>>,
 ) -> Result<Imports, reef_interpreter::Error> {
     let mut imports = Imports::new();
 
@@ -305,15 +313,12 @@ fn reef_std_lib(
     )?;
 
     // Reef dataset.
-    // Reef std implementations guarantee, that the dataset is at least 8 byte aligned
-    // and then the ignored region len is a multiple of 8
-    const TEMP_DATASET_LEN: usize = 100000;
+    // Reef std implementations guarantee, that the dataset is at least 8 byte aligned.
+    let dataset_len = dataset.len();
     imports.define(
         REEF_MODULE_NAME,
         REEF_DATASET_LEN_NAME,
-        Extern::typed_func::<_, ReefDatasetLenReturn>(move |_ctx, _args: ReefDatasetLenArgs| {
-            Ok((TEMP_DATASET_LEN as i32,))
-        }),
+        Extern::typed_func::<_, ReefDatasetLenReturn>(move |_ctx, _args: ReefDatasetLenArgs| Ok((dataset_len as i32,))),
     )?;
     imports.define(
         REEF_MODULE_NAME,
@@ -321,14 +326,14 @@ fn reef_std_lib(
         Extern::typed_func::<_, ReefDatasetWriteReturn>(move |mut ctx, (ptr,): ReefDatasetWriteArgs| {
             let mut mem = ctx.exported_memory_mut("memory")?;
 
-            mem.fill(ptr as usize, TEMP_DATASET_LEN, 69)?;
-            let len = TEMP_DATASET_LEN.div_ceil(8) * 8;
-            mem.set_ignored_byte_region(ptr as usize, len);
+            mem.set_ignored_byte_region(ptr as usize, dataset_len);
+            mem.copy_into_ignored_byte_region(&dataset);
+
             Ok(())
         }),
     )?;
 
-    // Reef result
+    // Reef result.
     imports.define(
         REEF_MODULE_NAME,
         REEF_RESULT_NAME,
