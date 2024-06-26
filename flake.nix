@@ -40,7 +40,7 @@
         # Go toolchain and packages
         # =========================
 
-        # Custom packaging of teh Capnproto compiler for Go
+        # Custom packaging of the Capnproto compiler for Go
         capnproto-go = pkgs.buildGoModule {
           # https://github.com/capnproto/go-capnp
           pname = "capnpc-go";
@@ -64,6 +64,28 @@
             description = "Cap'n Proto library and code generator for Go";
             homepage = "https://github.com/capnproto/go-capnp";
             license = pkgs.lib.licenses.mit;
+          };
+        };
+
+        reef_manager = pkgs.buildGoModule {
+          pname = "reef_manager";
+          version = "v0.0.1";
+
+          src = lib.fileset.toSource {
+            root = ./.;
+            fileset = lib.fileset.unions [
+              ./reef_manager
+              ./reef_protocol
+            ];
+          };
+          modRoot = "./reef_manager";
+          doCheck = false;
+
+          vendorHash = "sha256-nBL00njherjwkakvgqPR4kLSZnUseMVMP0lqjaXPB2g=";
+
+          meta = {
+            description = "Central management server for Reef distributed compute system";
+            homepage = "https://github.com/reef-runtime/reef";
           };
         };
 
@@ -103,7 +125,6 @@
           CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
         };
         cargoArtifacts = craneLib.buildDepsOnly (commonArgs // {pname = "reef_dependencies";});
-        # cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
         individualCrateArgs =
           commonArgs
@@ -131,12 +152,6 @@
           };
 
         # Build the top-level crates of the workspace as individual derivations.
-        reef_node_native = craneLib.buildPackage (individualCrateArgs
-          // {
-            pname = "reef_node_native";
-            cargoExtraArgs = "-p reef_node_native";
-            src = fileSetForCrate [./reef_node_native ./reef_interpreter ./reef_protocol];
-          });
         reef_compiler = craneLib.buildPackage (individualCrateArgs
           // {
             # TODO: this is missing all the compiler tools
@@ -144,10 +159,25 @@
             cargoExtraArgs = "-p reef_compiler";
             src = fileSetForCrate [./reef_compiler ./reef_protocol];
           });
+        reef_node_native = craneLib.buildPackage (individualCrateArgs
+          // {
+            pname = "reef_node_native";
+            cargoExtraArgs = "-p reef_node_native";
+            src = fileSetForCrate [./reef_node_native ./reef_interpreter ./reef_protocol];
+          });
 
         # ================
         # Conatiner images
         # ================
+
+        reef_manager_image = pkgs.dockerTools.buildImage {
+          name = "reef_manager";
+          tag = "latest";
+          copyToRoot = [reef_manager];
+          config = {
+            Cmd = ["bin/reef_manager"];
+          };
+        };
 
         reef_node_native_image = pkgs.dockerTools.buildImage {
           name = "reef_node_native";
@@ -222,18 +252,21 @@
 
         packages = {
           # Raw binary outputs
-          inherit reef_node_native reef_compiler;
+          inherit reef_manager reef_compiler reef_node_native;
 
           # Conatiner images
-          inherit reef_node_native_image;
+          inherit reef_manager_image reef_node_native_image;
         };
 
         apps = {
-          reef-node-native = flake-utils.lib.mkApp {
-            drv = reef_node_native;
+          reef-manager = flake-utils.lib.mkApp {
+            drv = reef_manager;
           };
           reef-compiler = flake-utils.lib.mkApp {
             drv = reef_compiler;
+          };
+          reef-node-native = flake-utils.lib.mkApp {
+            drv = reef_node_native;
           };
         };
       }
