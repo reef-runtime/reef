@@ -156,7 +156,7 @@
           // {
             pname = "reef_compiler";
             cargoExtraArgs = "-p reef_compiler";
-            src = fileSetForCrate [(lib.fileset.difference ./reef_compiler ./reef_compiler/lang_templates) ./reef_protocol];
+            src = fileSetForCrate [./reef_compiler/src ./reef_protocol];
           });
         reef_node_native = craneLib.buildPackage (individualCrateArgs
           // {
@@ -206,7 +206,7 @@
           name = "reef_compiler";
           tag = "latest";
 
-          copyToRoot = [reef_compiler];
+          copyToRoot = [reef_compiler ./reef_compiler/container_tmp];
           config = {
             Cmd = ["bin/reef_compiler"];
           };
