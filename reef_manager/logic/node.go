@@ -17,7 +17,7 @@ type NodeID = [32]byte
 
 type NodeInfo struct {
 	EndpointIP string `json:"endpointIP"`
-	Name       string `json:"string"`
+	Name       string `json:"name"`
 	// TODO: maybe worker descriptions
 	// TODO: maybe the current state of the node?
 	NumWorkers uint16 `json:"numWorkers"`

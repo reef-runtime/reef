@@ -156,6 +156,8 @@ func (m *UISubscriptionsManager) InitConn(ctx *gin.Context) {
 }
 
 func (m *UISubscriptionsManager) connMainLoop(conn *UIConn[ToUIUpdateMsg]) {
+	log.Debugf("[UI] Client `%s` is connecting...", conn.WS.RemoteAddr())
+
 	m.addConn(conn)
 
 	// Spawn concurrent sender goroutine.
@@ -172,6 +174,11 @@ func (m *UISubscriptionsManager) connMainLoop(conn *UIConn[ToUIUpdateMsg]) {
 			}
 		}
 	}()
+
+	if err := conn.WS.WriteMessage(websocket.PingMessage, []byte("ready")); err != nil {
+		log.Errorf("[UI] could not send ACK: %s", err.Error())
+		return
+	}
 
 	// Listen to incoming messages.
 	for {
@@ -198,6 +205,8 @@ func (m *UISubscriptionsManager) connMainLoop(conn *UIConn[ToUIUpdateMsg]) {
 					break
 				}
 			}
+
+			log.Debugf("[UI] Client subscribed to `%v`", subscribeMessage.Topics)
 
 			// Subscribe to all topics.
 			// Send initial data (cached from previous update)
@@ -253,27 +262,24 @@ func (m *UISubscriptionsManager) sendUIUpdate(update ToUIUpdateMsg) {
 	m.Connections.Lock.RLock()
 	for addr, conn := range m.Connections.Map {
 		// Skip this client if it is not subscribed on this topic.
-		_, subscribedToTopic := conn.TopicsWithLastUpdate.Get(update.Topic)
+		lastSent, subscribedToTopic := conn.TopicsWithLastUpdate.Get(update.Topic)
 		if !subscribedToTopic {
+			log.Tracef("[UI] Skipping client: not subscribed to topic `%s`", update.Topic.Kind)
 			continue
 		}
 
-		// Skip this send event if no enough time passed since the last one.
-		// if time.Since(lastTimeSent) < minUIUpdateDelay {
-		// 	continue
-		// }
-
-		// Enough time since last send & no change since last update, do not notify.
+		// No change since last time sending and not too much time has passed:
 		last, found := m.UpdateCache.Get(update.Topic)
-		if found && slices.Equal(last.Data, update.Data) {
-			return
+		if found && time.Since(lastSent) < minUIUpdateDelay && slices.Equal(last.Data, update.Data) {
+			log.Tracef("[UI] Skipping client: no change since last time sending")
+			continue
 		}
 
 		conn.Chan <- update
 
 		conn.TopicsWithLastUpdate.Insert(update.Topic, time.Now())
 
-		log.Tracef("Notified client `%s` of event", addr)
+		log.Tracef("[UI] Notified client `%s` of event", addr)
 	}
 	m.Connections.Lock.RUnlock()
 }
