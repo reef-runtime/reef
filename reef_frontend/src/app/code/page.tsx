@@ -164,7 +164,9 @@ export default function Page() {
               />
             </CardContent>
             <div className="grow" />
-            <Button type="submit">Submit Job</Button>
+            <Button type="submit" className="rounded-t-none">
+              Submit Job
+            </Button>
           </Card>
           {response && response != '' && (
             <Card className="grid w-full gap-2 col-span-3 ">
