@@ -1,10 +1,8 @@
 package logic
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/gob"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -152,18 +150,10 @@ func (c *CompilerManager) writeCached(hash string, artifact []byte) error {
 }
 
 func (c CompilerManager) hashInput(code string, language compiler.Language) string {
-	var buffer bytes.Buffer
-	if err := gob.NewEncoder(&buffer).Encode(struct {
-		Code     string
-		Language compiler.Language
-	}{
-		Code:     code,
-		Language: language,
-	}); err != nil {
-		panic(fmt.Sprintf("unreachable error happened: %s", err.Error()))
-	}
+	buf := []byte(code)
+	buf = append(buf, []byte(language.String())...)
 
-	idBinary := sha256.Sum256(buffer.Bytes())
+	idBinary := sha256.Sum256(buf)
 	return hex.EncodeToString(idBinary[0:])
 }
 

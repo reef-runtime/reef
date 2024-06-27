@@ -1,18 +1,15 @@
-use anyhow::{Context, Result};
-use futures::AsyncReadExt;
 use std::fmt::Display;
-use std::hash::{DefaultHasher, Hash, Hasher};
-use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::process::Command;
 use std::str::FromStr;
 use std::{fs, io};
 
+use anyhow::Result;
 use capnp::capability::Promise;
-use capnp_rpc::{pry, rpc_twoparty_capnp, twoparty, RpcSystem};
+use capnp_rpc::pry;
+use sha2::{Digest, Sha256};
 
-use reef_protocol_compiler::compiler_capnp::compiler;
-use reef_protocol_compiler::compiler_capnp::{self};
+use reef_protocol_compiler::compiler_capnp::{self, compiler};
 
 const OUTPUT_FILE: &str = "output.wasm";
 
@@ -25,18 +22,17 @@ enum Language {
 impl From<&Language> for PathBuf {
     fn from(value: &Language) -> Self {
         match value {
-            Language::C => PathBuf::from_str("c"),
-            Language::Rust => PathBuf::from_str("rust"),
+            Language::C => PathBuf::from_str("c").unwrap(),
+            Language::Rust => PathBuf::from_str("rust").unwrap(),
         }
-        .expect("always valid, this is static")
     }
 }
 
 impl Display for Language {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Language::C => write!(f, "C"),
-            Language::Rust => write!(f, "Rust"),
+            Language::C => write!(f, "c"),
+            Language::Rust => write!(f, "rust"),
         }
     }
 }
@@ -63,59 +59,54 @@ impl From<io::Error> for Error {
     }
 }
 
-//
-// Skeleton directory -> Build directory / <hash of the file>
-//
-
 impl Compiler {
     fn compile_inner(&self, file_buf: &str, language: Language) -> Result<Vec<u8>, Error> {
-        let mut hasher = DefaultHasher::new();
-        file_buf.hash(&mut hasher);
-        language.hash(&mut hasher);
+        // Ensure template exists
+        let mut template_path = self.lang_templates.clone();
+        template_path.push(PathBuf::from(&language));
 
-        let hash = format!("{:x}", hasher.finish());
+        dbg!(&template_path);
 
-        println!("creating build directory...");
-
-        let root_build_path = self.build_path.clone();
-
-        fs::create_dir_all(&root_build_path)?;
-
-        let mut skeleton_source_path = self.skeleton_path.clone();
-        skeleton_source_path.push(PathBuf::from(&language));
-
-        if !skeleton_source_path.exists() {
-            return Err(Error::Other(format!("skeleton source path for language {language} does not exist")));
+        if !template_path.exists() {
+            return Err(Error::Other(format!("Template source path for language '{language}' does not exist")));
         }
 
-        let mut current_compilation_context = root_build_path.clone();
-        current_compilation_context.push(&hash);
+        // Calculate Hash
+        let mut hasher = Sha256::new();
+        hasher.update(file_buf.as_bytes());
+        hasher.update(&language.to_string());
+        let hash = hex::encode(hasher.finalize());
 
-        if fs::remove_dir_all(&current_compilation_context).is_ok() {
-            println!("cleaned up compilation context at {:?}", &current_compilation_context);
+        println!("New build dir '{}/{hash}' for Job with Lang '{language}'", self.build_path.display());
+
+        // Create dirs
+        fs::create_dir_all(&self.build_path)?;
+
+        let mut job_path = self.build_path.clone();
+        job_path.push(&hash);
+
+        if fs::remove_dir_all(&job_path).is_ok() {
+            println!("Cleaned up compilation context at {:?}", &job_path);
         }
 
-        println!("copying {skeleton_source_path:?} to {current_compilation_context:?}...");
+        println!("Copying '{}' to '{}'...", template_path.display(), job_path.display());
+        copy_dir::copy_dir(&template_path, &job_path)?;
 
-        if !current_compilation_context.exists() {
-            copy_dir::copy_dir(&skeleton_source_path, &current_compilation_context)?;
-        }
+        let mut input_file_path = job_path.clone();
+        input_file_path.push(format!("input.{}", language.file_ending()));
 
-        let mut source_file = current_compilation_context.clone();
-        source_file.push(format!("input.{file_ending}", file_ending = language.file_ending()));
-
-        println!("writing source file...");
-        fs::write(source_file, file_buf)?;
+        println!("Writing source file...");
+        fs::write(input_file_path, file_buf)?;
 
         let mut cmd = Command::new("make");
         let cmd_args = cmd
             .arg(format!("HASH={hash}"))
             .arg(format!("OUT_FILE={OUTPUT_FILE}"))
             .arg("-C")
-            .arg(&current_compilation_context)
+            .arg(&job_path)
             .arg("build");
 
-        println!("running command {cmd_args:?}...");
+        println!("Running command {cmd_args:?}...");
 
         let output = cmd_args.output()?;
 
@@ -125,29 +116,28 @@ impl Compiler {
             return Err(Error::CompilerError(output.into_owned()));
         }
 
-        let mut output_path = current_compilation_context.clone();
+        let mut output_path = job_path.clone();
         output_path.push(OUTPUT_FILE);
 
-        println!("reading output file from {output_path:?}...");
+        println!("Reading output file from '{}'...", output_path.display());
 
-        let data = fs::read(output_path)?;
+        let artifact = fs::read(output_path)?;
 
-        // Skip cleanup if required.
+        // Only cleanup if required.
         if self.no_cleanup {
             println!("[warning] not performing cleanup...");
-            return Ok(data);
+        } else {
+            fs::remove_dir_all(&job_path)?;
         }
 
-        fs::remove_dir_all(&current_compilation_context)?;
-
-        Ok(data)
+        Ok(artifact)
     }
 }
 
 #[derive(Debug, Clone, Hash)]
 pub(crate) struct Compiler {
     pub(crate) build_path: PathBuf,
-    pub(crate) skeleton_path: PathBuf,
+    pub(crate) lang_templates: PathBuf,
     pub(crate) no_cleanup: bool,
 }
 
@@ -177,25 +167,4 @@ impl compiler::Server for Compiler {
 
         Promise::ok(())
     }
-}
-
-pub async fn run_server_main(socket: SocketAddr, compiler: Compiler) -> Result<()> {
-    tokio::task::LocalSet::new()
-        .run_until(async move {
-            let listener = tokio::net::TcpListener::bind(&socket).await.with_context(|| "failed to bind to socket")?;
-
-            let compiler: compiler::Client = capnp_rpc::new_client(compiler);
-
-            loop {
-                let (stream, _) = listener.accept().await.with_context(|| "failed to listen")?;
-                stream.set_nodelay(true)?;
-                let (reader, writer) = tokio_util::compat::TokioAsyncReadCompatExt::compat(stream).split();
-                let network =
-                    twoparty::VatNetwork::new(reader, writer, rpc_twoparty_capnp::Side::Server, Default::default());
-
-                let rpc_system = RpcSystem::new(Box::new(network), Some(compiler.clone().client));
-                tokio::task::spawn_local(rpc_system);
-            }
-        })
-        .await
 }
