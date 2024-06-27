@@ -12,11 +12,12 @@ func TestJobResults(t *testing.T) {
 
 	const jobID = "testid"
 
-	job := Job{
+	job := JobTableData{
 		ID:        jobID,
 		Name:      "",
 		Submitted: now,
-		Status:    StatusDone,
+		WasmID:    "",
+		DatasetID: "",
 	}
 
 	err := AddJob(job)

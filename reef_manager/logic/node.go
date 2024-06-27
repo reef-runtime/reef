@@ -62,6 +62,7 @@ func (s *WSConn) ReadMessageWithTimeout(timeout time.Time) (int, []byte, error) 
 
 	if err := s.conn.SetReadDeadline(timeout); err != nil {
 		s.rLock.Unlock()
+		return 0, nil, err
 	}
 
 	kind, content, err := s.conn.ReadMessage()
@@ -76,6 +77,7 @@ func (s *WSConn) WriteMessage(messageType int, data []byte) error {
 
 	if err := s.conn.SetWriteDeadline(then); err != nil {
 		s.rLock.Unlock()
+		return err
 	}
 
 	err := s.conn.WriteMessage(messageType, data)
@@ -118,13 +120,17 @@ func (m *JobManagerT) ListNodes() []NodeWeb {
 
 	cnt := 0
 	for nodeID, node := range m.Nodes.Map {
+		node.Lock.RLock()
+
 		nodes[cnt] = NodeWeb{
-			Info:        node.Info,
-			LastPing:    node.LastPing,
+			Info:        node.Data.Info,
+			LastPing:    node.Data.LastPing,
 			ID:          IDToString(nodeID),
-			WorkerState: node.WorkerState,
+			WorkerState: node.Data.WorkerState,
 		}
 		cnt++
+
+		node.Lock.RUnlock()
 	}
 
 	return nodes
@@ -145,21 +151,35 @@ type StateSync struct {
 //
 
 func (m *JobManagerT) StateSync(nodeID NodeID, state StateSync) error {
-	m.Nodes.Lock.Lock()
-	defer m.Nodes.Lock.Unlock()
+	jobID, err := m.StateSyncWithLockingOps(nodeID, state)
+	if err != nil {
+		return err
+	}
 
-	node, found := m.Nodes.Map[nodeID]
+	m.updateSingleJobState(jobID)
+
+	return nil
+}
+
+func (m *JobManagerT) StateSyncWithLockingOps(nodeID NodeID, state StateSync) (JobID, error) {
+	node, found := m.Nodes.Get(nodeID)
 	if !found {
-		return fmt.Errorf("state sync: node `%s` was not found", IDToString(nodeID))
+		return "", fmt.Errorf("state sync: node `%s` was not found", IDToString(nodeID))
 	}
 
-	if state.WorkerIndex >= node.Info.NumWorkers {
-		return fmt.Errorf("state sync: worker %d is illegal", state.WorkerIndex)
+	node.Lock.RLock()
+	numWorkers := node.Data.Info.NumWorkers
+	node.Lock.RUnlock()
+
+	if state.WorkerIndex >= numWorkers {
+		return "", fmt.Errorf("state sync: worker %d is illegal", state.WorkerIndex)
 	}
 
-	jobID := node.WorkerState[state.WorkerIndex]
+	node.Lock.RLock()
+	jobID := node.Data.WorkerState[state.WorkerIndex]
+	node.Lock.RUnlock()
 	if jobID == nil {
-		return fmt.Errorf("state sync: worker %d on node `%s` is idle", state.WorkerIndex, IDToString(nodeID))
+		return "", fmt.Errorf("state sync: worker %d on node `%s` is idle", state.WorkerIndex, IDToString(nodeID))
 	}
 
 	m.NonFinishedJobs.Lock.Lock()
@@ -168,41 +188,51 @@ func (m *JobManagerT) StateSync(nodeID NodeID, state StateSync) error {
 	job, found := m.NonFinishedJobs.Map[*jobID]
 	if !found {
 		log.Debugf(
-			"state sync: job `%s` not found on node `%s` worker %d",
+			"State sync: job `%s` not found on node `%s` worker %d",
 			*jobID,
 			IDToString(nodeID),
 			state.WorkerIndex,
 		)
-		return nil
+		return "", nil
 	}
 
-	newJob := job
-	newJob.Logs = append(newJob.Logs, state.Logs...)
-	newJob.Progress = state.Progress
-	newJob.InterpreterState = state.InterpreterState
+	//
+	// Lock job.
+	//
+	job.Lock.Lock()
 
-	m.NonFinishedJobs.Map[*jobID] = newJob
+	job.Data.Logs = append(job.Data.Logs, state.Logs...)
+	job.Data.Progress = state.Progress
+
+	// TODO: is reusing the buffer the best choice here?
+
+	newStateLen := len(state.InterpreterState)
+
+	copied := copy(job.Data.InterpreterState, state.InterpreterState)
+
+	// New state was larger than old state.
+	if newStateLen > copied {
+		// TODO: off-by one?
+		job.Data.InterpreterState = append(job.Data.InterpreterState, state.InterpreterState[:copied]...)
+		log.Tracef("State sync: buffer size was grown by %d bytes, new size is %d bytes", newStateLen-copied, len(job.Data.InterpreterState))
+	}
+
+	jobStatus := job.Data.Status
 
 	// If this is the job is in the `starting` state, put it into `running`.
-	if job.Data.Status == database.StatusStarting {
-		m.NonFinishedJobs.Lock.Unlock()
-		_, err := m.setJobStatus(*jobID, database.StatusRunning)
-		m.NonFinishedJobs.Lock.Lock()
-
-		if err != nil {
-			return err
-		}
-
+	if jobStatus == StatusStarting {
+		job.Data.Status = StatusRunning
 		log.Debugf("Set status of job `%s` to `running", *jobID)
 	}
 
-	log.Debugf("State sync job `%s` worker %d, progress %3f%%", *jobID, state.WorkerIndex, state.Progress)
-	return nil
-}
+	//
+	// Unlock job.
+	//
+	job.Lock.Unlock()
 
-func (m *JobManagerT) GetNode(id NodeID) (node Node, found bool) {
-	node, found = m.Nodes.Get(id)
-	return node, found
+	log.Debugf("State sync job `%s` worker %d, progress %3f%%", *jobID, state.WorkerIndex, state.Progress)
+
+	return *jobID, nil
 }
 
 func (m *JobManagerT) ConnectNode(node NodeInfo, conn *WSConn) (nodeObj Node) {
@@ -222,7 +252,7 @@ func (m *JobManagerT) ConnectNode(node NodeInfo, conn *WSConn) (nodeObj Node) {
 		WorkerState: make([]*string, node.NumWorkers),
 	}
 
-	m.Nodes.Insert(newID, nodeObj)
+	m.Nodes.Insert(newID, NewLockedValue(nodeObj))
 
 	log.Infof(
 		"[node] Handshake success: connected to new node `%s` ip=`%s` name=`%s` with %d workers",
@@ -232,23 +262,27 @@ func (m *JobManagerT) ConnectNode(node NodeInfo, conn *WSConn) (nodeObj Node) {
 		node.NumWorkers,
 	)
 
+	m.updateNodeState()
+
 	return nodeObj
 }
 
 func (m *JobManagerT) DropNode(id NodeID) bool {
-	m.Nodes.Lock.Lock()
-	node, exists := m.Nodes.Map[id]
-	m.Nodes.Lock.Unlock()
-
+	node, exists := m.Nodes.Get(id)
 	if !exists {
 		return false
 	}
 
+	node.Lock.RLock()
+	nodeID := node.Data.ID
+	node.Lock.RUnlock()
+
 	//
-	// Put every job which was running on the node back into <queued>
+	// Put every job which was running on the node back into <queued>.
 	//
 
-	for _, potentialJob := range node.WorkerState {
+	node.Lock.RLock()
+	for _, potentialJob := range node.Data.WorkerState {
 		if potentialJob == nil {
 			continue
 		}
@@ -258,40 +292,114 @@ func (m *JobManagerT) DropNode(id NodeID) bool {
 		log.Infof(
 			"[node] Job `%s` has lost its node (%s)",
 			jobID,
-			IDToString(node.ID),
+			IDToString(nodeID),
 		)
 
 		if err := JobManager.ParkJob(jobID); err != nil {
 			log.Errorf("Could not park job: %s", err.Error())
 		}
 	}
+	node.Lock.RUnlock()
 
 	m.Nodes.Delete(id)
 
 	log.Debugf("[node] Dropped node with ID `%s`", IDToString(id))
 
+	m.updateNodeState()
+
 	return true
 }
 
 func (m *JobManagerT) RegisterPing(id NodeID) bool {
-	if _, found := m.Nodes.Get(id); !found {
+	node, found := m.Nodes.Get(id)
+	if !found {
 		return false
 	}
 
 	now := time.Now()
-	m.Nodes.Lock.Lock()
-	*m.Nodes.Map[id].LastPing = now
-	m.Nodes.Lock.Unlock()
+	node.Lock.Lock()
+	*node.Data.LastPing = now
+	node.Lock.Unlock()
 
 	log.Debugf("[node] Received ping for node with ID `%s`", IDToString(id))
+
+	m.updateNodeState()
 
 	return true
 }
 
-func newManager(compiler *CompilerManager) JobManagerT {
+func newJobManager(
+	compiler *CompilerManager,
+	triggerUIUpdates chan DataCollectionMsg,
+	refreshData chan WebSocketTopic,
+) JobManagerT {
 	return JobManagerT{
-		Compiler:        compiler,
-		Nodes:           newLockedMap[NodeID, Node](),
-		NonFinishedJobs: newLockedMap[JobID, Job](),
+		Compiler:             compiler,
+		Nodes:                newLockedMap[NodeID, LockedValue[Node]](),
+		NonFinishedJobs:      newLockedMap[JobID, LockedValue[Job]](),
+		SendUIUpdatesTo:      triggerUIUpdates,
+		RequestToRefreshData: refreshData,
 	}
+}
+
+//
+// UI state updates.
+//
+
+func (m *JobManagerT) updateNodeState() {
+	fmt.Println("UPDATING NODE STATE")
+	nodes := m.ListNodes()
+	m.SendUIUpdatesTo <- DataCollectionMsg{
+		Topic: WebSocketTopic{
+			Kind:       WSTopicNodes,
+			Additional: nil,
+		},
+		Data: nodes,
+	}
+	fmt.Println("UPDATED NODE STATE")
+}
+
+func (m *JobManagerT) updateAllJobStates() {
+	fmt.Println("UPDATING JOB STATES")
+
+	jobs, err := m.ListJobs()
+
+	if err != nil {
+		log.Errorf("Could not notify UI about job state change: %s", err.Error())
+		return
+	}
+
+	m.SendUIUpdatesTo <- DataCollectionMsg{
+		Topic: WebSocketTopic{
+			Kind:       WSTopicAllJobs,
+			Additional: nil,
+		},
+		Data: jobs,
+	}
+
+	fmt.Println("UPDATED JOB STATES")
+}
+
+func (m *JobManagerT) updateSingleJobState(jobID string) {
+	job, found, err := m.GetJob(jobID, true)
+
+	if err != nil {
+		log.Errorf("Could not notify UI about single job state change: job `%s` caused error: %s", jobID, err.Error())
+		return
+	}
+
+	if !found {
+		log.Errorf("Could not notify UI about single job state change: job `%s` not found", jobID)
+		return
+	}
+
+	m.SendUIUpdatesTo <- DataCollectionMsg{
+		Topic: WebSocketTopic{
+			Kind:       WSTopicSingleJob,
+			Additional: &jobID,
+		},
+		Data: job,
+	}
+
+	m.updateAllJobStates()
 }

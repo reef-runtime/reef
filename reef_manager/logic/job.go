@@ -12,11 +12,16 @@ import (
 )
 
 const jobDaemonFreq = time.Second * 2
+const minUIUpdateDelay = time.Second
 
 type JobManagerT struct {
 	Compiler        *CompilerManager
-	Nodes           LockedMap[NodeID, Node]
-	NonFinishedJobs LockedMap[JobID, Job]
+	Nodes           LockedMap[NodeID, LockedValue[Node]]
+	NonFinishedJobs LockedMap[JobID, LockedValue[Job]]
+	// Job manager will send data to this channel once something changed.
+	SendUIUpdatesTo chan DataCollectionMsg
+	// UI manager will send data into this channel once it receives some updates.
+	RequestToRefreshData chan WebSocketTopic
 }
 
 var JobManager JobManagerT
@@ -37,56 +42,34 @@ func (l JobProgrammingLanguage) Validate() error {
 	}
 }
 
+type JobStatus uint16
+
+const (
+	// Job not started yet, waiting for worker to pick this job.
+	StatusQueued JobStatus = iota
+	// Worker was selected, worker is initializing (e.g dataset transfer).
+	StatusStarting
+	// Node has sent that the job is running, waiting for completion.
+	StatusRunning
+	// Job has exited either successfully or failed with an error.
+	// Actual error information is contained in the job result.
+	StatusDone
+)
+
 type Job struct {
-	Data             database.Job
+	Data             database.JobTableData
 	WorkerNodeID     *NodeID
 	Progress         float32
+	Status           JobStatus `json:"status"`
 	Logs             []database.JobLog
 	InterpreterState []byte
-}
-
-//
-// TODO: move into API
-//
-
-type ApiJob struct {
-	Data     database.Job `json:"data"`
-	Progress float32      `json:"progress"`
-}
-
-func (m *JobManagerT) ListJobs() ([]ApiJob, error) {
-	dbJobs, err := database.ListJobs()
-	if err != nil {
-		return nil, err
-	}
-
-	jobs := make([]ApiJob, len(dbJobs))
-	for idx, data := range dbJobs {
-		var progress float32 = 1.0
-
-		if data.Status != database.StatusDone {
-			runningJob, found := m.NonFinishedJobs.Get(data.ID)
-
-			// If not found: data race: job finished in between function calls.
-			// If not, use real progress from job.
-			if found {
-				progress = runningJob.Progress
-			}
-		}
-
-		jobs[idx] = ApiJob{
-			Data:     data,
-			Progress: progress,
-		}
-	}
-
-	return jobs, nil
 }
 
 func (m *JobManagerT) SubmitJob(
 	language JobProgrammingLanguage,
 	sourceCode string,
 	name string,
+	datasetID string,
 ) (idString string, compilerErr *string, backendErr error) {
 	now := time.Now()
 
@@ -130,25 +113,31 @@ func (m *JobManagerT) SubmitJob(
 		return "", compileErr, nil
 	}
 
+	jobTableData := database.JobTableData{
+		ID:        idString,
+		Name:      name,
+		Submitted: now,
+		WasmID:    artifact.Hash,
+		DatasetID: datasetID,
+	}
+
+	if backendErr = database.AddJob(jobTableData); backendErr != nil {
+		return "", nil, backendErr
+	}
+
 	job := Job{
-		Data: database.Job{
-			ID:        idString,
-			Name:      name,
-			Submitted: now,
-			Status:    database.StatusQueued,
-			WasmID:    artifact.Hash,
-		},
+		Data:             jobTableData,
 		Progress:         0,
+		Status:           StatusQueued,
 		Logs:             make([]database.JobLog, 0),
 		InterpreterState: nil,
 		WorkerNodeID:     nil,
 	}
 
-	if backendErr = database.AddJob(job.Data); backendErr != nil {
-		return "", nil, backendErr
-	}
+	m.NonFinishedJobs.Insert(idString, NewLockedValue(job))
 
-	m.NonFinishedJobs.Insert(idString, job)
+	// Notify UI about state change.
+	m.updateAllJobStates()
 
 	return idString, nil, nil
 }
@@ -161,134 +150,100 @@ func (m *JobManagerT) ParkJob(jobID string) error {
 		return fmt.Errorf("could not park job `%s`: job not found", jobID)
 	}
 
-	if job.Data.Status == database.StatusQueued {
+	job.Lock.RLock()
+	jobStatus := job.Data.Status
+	job.Lock.RUnlock()
+
+	if jobStatus == StatusQueued {
 		log.Tracef("Park: found job `%s` but it is already in <queued> status", jobID)
 		return nil
 	}
 
 	// Put the job back into the queued status.
-	found, err := m.setJobStatus(jobID, database.StatusQueued)
-	if err != nil {
-		return err
-	}
+	m.setJobStatus(job, StatusQueued)
 
 	if !found {
 		return fmt.Errorf("park: job `%s` not found", jobID)
 	}
 
 	// Set worker node ID to `nil`.
-	m.NonFinishedJobs.Lock.Lock()
-	oldJob, found := m.NonFinishedJobs.Map[jobID]
-	if found {
-		newJob := Job{
-			Data:             oldJob.Data,
-			Progress:         oldJob.Progress,
-			Logs:             oldJob.Logs,
-			InterpreterState: oldJob.InterpreterState,
-			WorkerNodeID:     nil,
-		}
-		m.NonFinishedJobs.Map[jobID] = newJob
-	}
 
-	m.NonFinishedJobs.Lock.Unlock()
+	job.Lock.Lock()
+	job.Data.WorkerNodeID = nil
+	job.Lock.Unlock()
+
 	log.Debugf("[job] Parked ID `%s`", jobID)
+
+	// Notify UI about state change.
+	m.updateSingleJobState(jobID)
 
 	return nil
 }
 
-func (m *JobManagerT) setJobStatus(jobID string, state database.JobStatus) (bool, error) {
-	return m.setJobStatusLOCK(jobID, state, true)
+func (m *JobManagerT) setJobStatus(job LockedValue[Job], status JobStatus) {
+	job.Lock.Lock()
+	job.Data.Status = status
+	job.Lock.Unlock()
 }
 
-func (m *JobManagerT) setJobStatusLOCK(jobID string, state database.JobStatus, lock bool) (bool, error) {
-	found, err := database.ModifyJobStatus(jobID, state)
-	if err != nil {
-		return false, err
+// This waits for refresh requests and provides the UI manager with new data if it needs it.
+func (m *JobManagerT) ListenToRefreshRequests() {
+	for msg := range m.RequestToRefreshData {
+		switch msg.Kind {
+		case WSTopicAllJobs:
+			m.updateAllJobStates()
+		case WSTopicSingleJob:
+			m.updateSingleJobState(*msg.Additional)
+		case WSTopicNodes:
+			m.updateNodeState()
+		default:
+			panic("A new topic kind was introduced without updating this code")
+		}
 	}
-
-	if !found {
-		return false, fmt.Errorf("modify job '%s' status: job is not found", jobID)
-	}
-
-	if lock {
-		m.NonFinishedJobs.Lock.Lock()
-	}
-
-	oldJob, found := m.NonFinishedJobs.Map[jobID]
-
-	if lock {
-		m.NonFinishedJobs.Lock.Unlock()
-	}
-
-	if !found {
-		return false, nil
-	}
-	oldJob.Data.Status = state
-	m.NonFinishedJobs.Map[jobID] = oldJob
-
-	return true, nil
 }
 
 func (m *JobManagerT) Init() error {
-	// Initialize 'priority queue'.
-	queuedJobs, err := database.ListJobsFiltered([]database.JobStatus{
-		database.StatusQueued,
-		database.StatusRunning,
-		database.StatusStarting,
-	})
+	// Initialize 'priority queue', include all jobs at first, also the ones that have already finished.
+	// TODO: maybe optimize this so that finished jobs are not included.
+	queuedJobs, err := database.ListJobs(nil)
 	if err != nil {
 		return err
 	}
 
 	for _, dbJob := range queuedJobs {
-		log.Tracef("Loaded saved job from DB as queued: `%s`", dbJob.ID)
+		// Job is already finished, do not run it again.
+		if dbJob.Result != nil {
+			continue
+		}
+
+		log.Tracef("Loaded saved job from DB as queued: `%s`", dbJob.Job.ID)
 
 		// Put job back in queued state.
 		job := Job{
-			Data: database.Job{
-				ID:        dbJob.ID,
-				Name:      dbJob.Name,
-				WasmID:    dbJob.WasmID,
-				Submitted: dbJob.Submitted,
-				Status:    database.StatusQueued,
+			Data: database.JobTableData{
+				ID:        dbJob.Job.ID,
+				Name:      dbJob.Job.Name,
+				WasmID:    dbJob.Job.WasmID,
+				DatasetID: dbJob.Job.DatasetID,
+				Submitted: dbJob.Job.Submitted,
 			},
+
+			// Set job to queued.
 			Progress:         0,
+			Status:           StatusQueued,
 			Logs:             make([]database.JobLog, 0),
 			InterpreterState: nil,
 			WorkerNodeID:     nil,
 		}
 
-		m.NonFinishedJobs.Insert(dbJob.ID, job)
-
-		found, err := database.ModifyJobStatus(dbJob.ID, database.StatusQueued)
-		if err != nil {
-			return fmt.Errorf("change job state in restore: %s", err.Error())
-		}
-
-		if !found {
-			panic("Impossible: job cannot disappear at this point")
-		}
+		m.NonFinishedJobs.Insert(dbJob.Job.ID, NewLockedValue(job))
 	}
 
-	// Launch daemon.
+	// Launch job queue daemon.
 	go m.JobQueueDaemon()
 
+	// Launch goroutine to listen to data refresh requests.
+	go m.ListenToRefreshRequests()
+
 	return nil
-}
-
-func (m *JobManagerT) DeleteJob(jobID string) (found bool, err error) {
-	_, found, err = database.GetJob(jobID)
-	if err != nil || !found {
-		return found, err
-	}
-
-	// Remove the job from the queue and database.
-	m.NonFinishedJobs.Delete(jobID)
-
-	found, err = database.DeleteJob(jobID)
-	if err != nil || !found {
-		return found, err
-	}
-
-	return true, nil
 }

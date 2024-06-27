@@ -2,59 +2,73 @@ package logic
 
 import (
 	"time"
-
-	"github.com/reef-runtime/reef/reef_manager/database"
 )
 
 //
 // Fetches all queued jobs and tries to start them.
 //
 
-func (m *JobManagerT) QueuedJobs() (j Job, jExists bool) {
+func (m *JobManagerT) QueuedJobs() (first LockedValue[Job], irstExists bool) {
 	m.NonFinishedJobs.Lock.RLock()
 
-	var earliest Job
-	hadEarliest := false
+	var earliest LockedValue[Job]
 
 	for _, job := range m.NonFinishedJobs.Map {
-		if job.Data.Status != database.StatusQueued {
+		job.Lock.RLock()
+		status := job.Data.Status
+		submitted := job.Data.Data.Submitted
+		job.Lock.RUnlock()
+
+		if status != StatusQueued {
 			continue
 		}
 
-		if !hadEarliest || job.Data.Submitted.Before(earliest.Data.Submitted) {
+		if earliest.Data == nil {
 			earliest = job
-			hadEarliest = true
+			continue
+		}
+
+		earliest.Lock.RLock()
+		earliestSubmitted := earliest.Data.Data.Submitted
+		earliest.Lock.RUnlock()
+
+		if submitted.Before(earliestSubmitted) {
+			earliest = job
 		}
 	}
 
 	m.NonFinishedJobs.Lock.RUnlock()
 
-	return earliest, hadEarliest
+	return earliest, earliest.Data != nil
 }
 
 // Error is a critical error, like a database fault.
 func (m *JobManagerT) TryToStartQueuedJobs() error {
 	for {
-		first, exists := m.QueuedJobs()
-		if !exists {
+		first, firstExists := m.QueuedJobs()
+		if !firstExists {
 			log.Trace("Job queue is empty")
 			break
 		}
 
-		log.Debugf("Attempting to start job `%s`...", first.Data.ID)
+		first.Lock.RLock()
+		id := first.Data.Data.ID
+		first.Lock.RUnlock()
+
+		log.Debugf("Attempting to start job `%s`...", id)
 
 		couldStart, err := m.StartJobOnFreeNode(first)
 		if err != nil {
-			log.Errorf("HARD ERROR: Could not start job `%s`: %s", first.Data.ID, err.Error())
+			log.Errorf("HARD ERROR: Could not start job `%s`: %s", id, err.Error())
 			return err
 		}
 
 		if !couldStart {
-			log.Debugf("Could not start job `%s`", first.Data.ID)
+			log.Debugf("Could not start job `%s`", id)
 			break
 		}
 
-		log.Infof("Job `%s` started", first.Data.ID)
+		log.Infof("Job `%s` started", id)
 	}
 
 	return nil

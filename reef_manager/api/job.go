@@ -14,17 +14,14 @@ const jobIDUrlParam = "job_id"
 type JobSubmission struct {
 	Name string `json:"name"`
 	// Attaching a dataset to a job submission is optimal.
-	DatasetID  *string                      `json:"datasetId"`
+	DatasetID  string                       `json:"datasetId"`
 	SourceCode string                       `json:"sourceCode"`
 	Language   logic.JobProgrammingLanguage `json:"language"`
 }
 
-type JobResponse struct {
-	Name     string            `json:"name"`
-	Logs     []database.JobLog `json:"logs"`
-	State    []byte            `json:"state"`
-	Progress float32           `json:"progress"`
-	Result   *database.Result  `json:"result"`
+type SingleJobResponse struct {
+	Job  logic.APIJob
+	Logs []database.JobLog
 }
 
 func GetJobs(ctx *gin.Context) {
@@ -37,10 +34,11 @@ func GetJobs(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, jobs)
 }
 
+// Returns a job, including logs.
 func GetJob(ctx *gin.Context) {
 	jobID := ctx.Param(jobIDUrlParam)
 
-	job, found, err := database.GetJob(jobID)
+	job, found, err := logic.JobManager.GetJob(jobID, true)
 	if err != nil {
 		serverErr(ctx, err.Error())
 		return
@@ -56,45 +54,7 @@ func GetJob(ctx *gin.Context) {
 		return
 	}
 
-	jobNonFinished, found := logic.JobManager.NonFinishedJobs.Get(jobID)
-	if found {
-		jobResponse := JobResponse{
-			Name:     job.Name,
-			Logs:     jobNonFinished.Logs,
-			State:    jobNonFinished.InterpreterState,
-			Progress: jobNonFinished.Progress,
-			Result:   nil,
-		}
-
-		ctx.JSON(http.StatusOK, jobResponse)
-	}
-
-	logs, err := database.GetLastLogs(nil, jobID)
-	if err != nil {
-		serverErr(ctx, err.Error())
-		return
-	}
-
-	result, resultFound, err := database.GetResult(jobID)
-	if err != nil {
-		serverErr(ctx, err.Error())
-		return
-	}
-
-	if !resultFound {
-		panic("Job is finished but result is not in database")
-	}
-
-	const oneHundred = 100
-	jobResponse := JobResponse{
-		Name:     job.Name,
-		Logs:     logs,
-		State:    nil,
-		Progress: oneHundred,
-		Result:   &result,
-	}
-
-	ctx.JSON(http.StatusOK, jobResponse)
+	ctx.JSON(http.StatusOK, job)
 }
 
 //
@@ -110,17 +70,15 @@ func SubmitJob(ctx *gin.Context) {
 	}
 
 	// Validate additional constraints, like validity of the dataset and language.
-	if submission.DatasetID != nil {
-		found, err := logic.DatasetManager.DoesDatasetExist(*submission.DatasetID)
-		if err != nil {
-			serverErr(ctx, err.Error())
-			return
-		}
+	found, err := logic.DatasetManager.DoesDatasetExist(submission.DatasetID)
+	if err != nil {
+		serverErr(ctx, err.Error())
+		return
+	}
 
-		if !found {
-			badRequest(ctx, fmt.Sprintf("dataset with id `%s` not found", *submission.DatasetID))
-			return
-		}
+	if !found {
+		badRequest(ctx, fmt.Sprintf("dataset with id `%s` not found", submission.DatasetID))
+		return
 	}
 
 	if err := submission.Language.Validate(); err != nil {
@@ -133,6 +91,7 @@ func SubmitJob(ctx *gin.Context) {
 		submission.Language,
 		submission.SourceCode,
 		submission.Name,
+		submission.DatasetID,
 	)
 
 	if systemErr != nil {

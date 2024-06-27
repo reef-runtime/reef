@@ -46,25 +46,39 @@ func (r JobResult) String() string {
 }
 
 func (m *JobManagerT) ProcessResult(nodeID NodeID, result JobResult) error {
-	m.Nodes.Lock.Lock()
-	defer m.Nodes.Lock.Unlock()
-
-	oldNode, found := m.Nodes.Map[nodeID]
-	if !found {
-		return fmt.Errorf("process result: node ID is illegal: `%s`", IDToString(nodeID))
-	}
-
-	if result.WorkerIndex >= oldNode.Info.NumWorkers {
-		return fmt.Errorf("process result: worker index is illegal: %d", result.WorkerIndex)
-	}
-
-	_, exists, err := database.GetResult(result.JobID)
+	jobID, err := m.processResultWithLockingOps(nodeID, result)
 	if err != nil {
 		return err
 	}
 
+	m.updateSingleJobState(jobID)
+	m.updateNodeState()
+
+	return nil
+}
+
+func (m *JobManagerT) processResultWithLockingOps(nodeID NodeID, result JobResult) (jobID JobID, err error) {
+	node, found := m.Nodes.Get(nodeID)
+
+	if !found {
+		return "", fmt.Errorf("process result: node ID is illegal: `%s`", IDToString(nodeID))
+	}
+
+	node.Lock.RLock()
+	numWorkers := node.Data.Info.NumWorkers
+	node.Lock.RUnlock()
+
+	if result.WorkerIndex >= numWorkers {
+		return "", fmt.Errorf("process result: worker index is illegal: %d", result.WorkerIndex)
+	}
+
+	_, exists, err := database.GetResult(result.JobID)
+	if err != nil {
+		return "", err
+	}
+
 	if exists {
-		return fmt.Errorf("result for job `%s` already exists in database", result.JobID)
+		return "", fmt.Errorf("result for job `%s` already exists in database", result.JobID)
 	}
 
 	if err := database.SaveResult(database.Result{
@@ -74,28 +88,33 @@ func (m *JobManagerT) ProcessResult(nodeID NodeID, result JobResult) error {
 		ContentType: database.ContentType(result.ContentType),
 		Created:     time.Now(),
 	}); err != nil {
-		return fmt.Errorf("process result: DB: %s", err.Error())
+		return "", fmt.Errorf("process result: DB: %s", err.Error())
 	}
 
-	jobID := *oldNode.WorkerState[result.WorkerIndex]
+	node.Lock.Lock()
+	jobID = *node.Data.WorkerState[result.WorkerIndex]
+	// Finally, delete the job from the worker.
+	node.Data.WorkerState[result.WorkerIndex] = nil
+	node.Lock.Unlock()
 
 	job, found := m.NonFinishedJobs.Delete(jobID)
 	if !found {
-		return fmt.Errorf("illegal job id in result: `%s`", jobID)
+		return "", fmt.Errorf("illegal job id in result: `%s`", jobID)
 	}
 
-	for _, log := range job.Logs {
+	job.Lock.Lock()
+	for _, log := range job.Data.Logs {
 		if err := database.AddLog(log); err != nil {
-			return fmt.Errorf("save log: %s", err.Error())
+			job.Lock.Unlock()
+			return "", fmt.Errorf("save log: %s", err.Error())
 		}
 	}
 
-	// Finally, delete the job from the worker.
-	oldNode.WorkerState[result.WorkerIndex] = nil
+	// Change progress and status on job.
+	// Just in case anyone still borrows the job.
+	job.Data.Status = StatusDone
+	job.Data.Progress = 1.0
+	job.Lock.Unlock()
 
-	if _, err := database.ModifyJobStatus(jobID, database.StatusDone); err != nil {
-		return fmt.Errorf("set status to done: %s", err.Error())
-	}
-
-	return nil
+	return jobID, nil
 }

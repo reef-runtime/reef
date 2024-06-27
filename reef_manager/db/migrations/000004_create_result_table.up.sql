@@ -3,6 +3,8 @@ IF NOT EXISTS
 job_result(
     -- Foreign key: job ID.
     job_id          VARCHAR(64) NOT NULL REFERENCES job(id),
+    -- Whether the job completed sucessfully or failed.
+    success          BOOLEAN NOT NULL,
     -- Untyped byte slice in the database, can mean different things.
     content         BYTEA NOT NULL,
     -- How the frontend should interpret the content (display as string or hex for instance).

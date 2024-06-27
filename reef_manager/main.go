@@ -14,8 +14,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const WEB_PORT = 3000
-const DATASET_PATH = "./datasets/"
+// TODO: read these from env.
+const webPort = 3000
+const datasetPath = "./datasets/"
 
 type Config struct {
 	Database       database.DatabaseConfig
@@ -42,10 +43,12 @@ func ship(logger *logrus.Logger) error {
 		return errors.New("database error")
 	}
 
-	if err := logic.Init(logger, config.CompilerConfig, DATASET_PATH); err != nil {
+	if err := logic.Init(logger, config.CompilerConfig, datasetPath); err != nil {
 		logger.Fatalf("Initializing logic package failed: %s", err.Error())
 		return errors.New("system error")
 	}
+
+	// TODO: put HTTP stuff into separate file.
 
 	//
 	// HTTP server.
@@ -84,10 +87,15 @@ func ship(logger *logrus.Logger) error {
 	//
 	r.GET("/api/logs", api.GetLogs)
 
-	logger.Debugf("Starting web server on port %d...", WEB_PORT)
+	//
+	// UI websocket with notifications.
+	//
+	r.GET("/api/updates", logic.UIManager.InitConn)
+
+	logger.Debugf("Starting web server on port %d...", webPort)
 
 	api.Init(logger)
-	if err := r.Run(":" + fmt.Sprint(WEB_PORT)); err != nil {
+	if err := r.Run(":" + fmt.Sprint(webPort)); err != nil {
 		return fmt.Errorf("failed to run webserver: %s", err.Error())
 	}
 

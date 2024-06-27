@@ -62,16 +62,26 @@ func (m *JobManagerT) AbortJob(jobID string) (found bool, err error) {
 		return false, nil
 	}
 
-	switch job.Data.Status {
-	case database.StatusQueued:
-		return m.abortQueuedJob(jobID)
-	case database.StatusStarting, database.StatusRunning:
+	job.Lock.RLock()
+	status := job.Data.Status
+	job.Lock.RUnlock()
+
+	switch status {
+	case StatusQueued:
+		if found, err := m.abortQueuedJob(jobID); !found || err != nil {
+			return found, err
+		}
+	case StatusStarting, StatusRunning:
 		// If there is no executing node, something bad happened.
-		if job.WorkerNodeID == nil {
+		job.Lock.RLock()
+		workerNodeID := job.Data.WorkerNodeID
+		job.Lock.RUnlock()
+
+		if workerNodeID == nil {
 			log.Errorf("Possible internal state corruption: non-queued job `%s` has no worker node", jobID)
 			return false, nil
 		}
-		nodeID := *job.WorkerNodeID
+		nodeID := *workerNodeID
 
 		// Inform the node that the job is to be killed.
 		// Do not actually delete the job but retain the output.
@@ -90,7 +100,12 @@ func (m *JobManagerT) AbortJob(jobID string) (found bool, err error) {
 
 		// If this fails, the connection to the node dropped during the kill request.
 		// In this case, drop the node and execute same behavior as if the job was queued .
-		if err := node.Conn.WriteMessage(websocket.BinaryMessage, abortMsg); err != nil {
+
+		node.Lock.Lock()
+		err = node.Data.Conn.WriteMessage(websocket.BinaryMessage, abortMsg)
+		node.Lock.Unlock()
+
+		if err != nil {
 			errMsg := fmt.Sprintf(
 				"node `%s` dropped connection whilst job should be killed and could not be dropped",
 				IDToString(nodeID),
@@ -107,9 +122,12 @@ func (m *JobManagerT) AbortJob(jobID string) (found bool, err error) {
 			// If the node could be dropped successfully, consider this a successful abortion.
 			return true, nil
 		}
-	case database.StatusDone:
+	case StatusDone:
 		panic("unreachable: a `done` job is never in the list of not-done jobs")
 	}
+
+	// Notify UI about change.
+	m.updateSingleJobState(jobID)
 
 	return true, nil
 }

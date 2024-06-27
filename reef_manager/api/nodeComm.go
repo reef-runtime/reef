@@ -12,11 +12,6 @@ import (
 	node "github.com/reef-runtime/reef/reef_protocol_node"
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-}
-
 func MessageToNodeEmptyMessage(kind node.MessageToNodeKind) ([]byte, error) {
 	// msg, err := logic.MessageToNode()
 	// if err != nil {
@@ -223,7 +218,7 @@ func nodePingHandler(conn *logic.WSConn, nodeID logic.NodeID) func(string) error
 func HandleNodeConnection(c *gin.Context) {
 	// TODO: add timeouts
 
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	conn, err := logic.Upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		return
 	}
@@ -343,7 +338,7 @@ func parseStateSync(nodeID logic.NodeID, message node.MessageFromNode) (logic.St
 		return logic.StateSync{}, fmt.Errorf("could not parse job state sync: %s", err.Error())
 	}
 
-	nodeInfo, found := logic.JobManager.GetNode(nodeID)
+	nodeInfo, found := logic.JobManager.Nodes.Get(nodeID)
 	if !found {
 		// nolint:goconst
 		return logic.StateSync{}, fmt.Errorf(
@@ -353,16 +348,23 @@ func parseStateSync(nodeID logic.NodeID, message node.MessageFromNode) (logic.St
 	}
 
 	workerIndex := result.WorkerIndex()
-	if workerIndex >= nodeInfo.Info.NumWorkers {
+
+	nodeInfo.Lock.RLock()
+	numWorkers := nodeInfo.Data.Info.NumWorkers
+	nodeInfo.Lock.RUnlock()
+
+	if workerIndex >= numWorkers {
 		// nolint:goconst
 		return logic.StateSync{}, fmt.Errorf(
 			"illegal worker index: node returned illegal worker index (%d) when num workers is %d",
 			workerIndex,
-			nodeInfo.Info.NumWorkers,
+			numWorkers,
 		)
 	}
 
-	jobID := nodeInfo.WorkerState[workerIndex]
+	nodeInfo.Lock.RLock()
+	jobID := nodeInfo.Data.WorkerState[workerIndex]
+	nodeInfo.Lock.RUnlock()
 
 	if jobID == nil {
 		// nolint:goconst
@@ -444,7 +446,7 @@ func parseJobResultFromNode(nodeID logic.NodeID, message node.MessageFromNode) (
 		return logic.JobResult{}, fmt.Errorf("could not parse job result: %s", err.Error())
 	}
 
-	nodeInfo, found := logic.JobManager.GetNode(nodeID)
+	nodeInfo, found := logic.JobManager.Nodes.Get(nodeID)
 	if !found {
 		return logic.JobResult{}, fmt.Errorf(
 			"illegal node: node ID `%s` references non-existent node",
@@ -453,15 +455,22 @@ func parseJobResultFromNode(nodeID logic.NodeID, message node.MessageFromNode) (
 	}
 
 	workerIndex := result.WorkerIndex()
-	if workerIndex >= nodeInfo.Info.NumWorkers {
+
+	nodeInfo.Lock.RLock()
+	nodeNumWorkers := nodeInfo.Data.Info.NumWorkers
+	nodeInfo.Lock.RUnlock()
+
+	if workerIndex >= nodeNumWorkers {
 		return logic.JobResult{}, fmt.Errorf(
 			"illegal worker index: node returned illegal worker index (%d) when num workers is %d",
 			workerIndex,
-			nodeInfo.Info.NumWorkers,
+			nodeNumWorkers,
 		)
 	}
 
-	jobID := nodeInfo.WorkerState[workerIndex]
+	nodeInfo.Lock.RLock()
+	jobID := nodeInfo.Data.WorkerState[workerIndex]
+	nodeInfo.Lock.RUnlock()
 
 	if jobID == nil {
 		return logic.JobResult{}, fmt.Errorf(

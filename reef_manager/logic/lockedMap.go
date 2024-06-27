@@ -2,6 +2,18 @@ package logic
 
 import "sync"
 
+type LockedValue[T any] struct {
+	Lock *sync.RWMutex
+	Data *T
+}
+
+func NewLockedValue[T any](v T) LockedValue[T] {
+	return LockedValue[T]{
+		Lock: &sync.RWMutex{},
+		Data: &v,
+	}
+}
+
 type LockedMap[K comparable, V any] struct {
 	Map  map[K]V
 	Lock sync.RWMutex
@@ -12,6 +24,12 @@ func newLockedMap[K comparable, V any]() LockedMap[K, V] {
 		Map:  make(map[K]V),
 		Lock: sync.RWMutex{},
 	}
+}
+
+func (m *LockedMap[K, V]) Clear() {
+	m.Lock.Lock()
+	clear(m.Map)
+	m.Lock.Unlock()
 }
 
 func (m *LockedMap[K, V]) Insert(k K, v V) {

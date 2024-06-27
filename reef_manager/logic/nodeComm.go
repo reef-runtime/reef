@@ -1,7 +1,6 @@
 package logic
 
 import (
-	"encoding/binary"
 	"fmt"
 	"strings"
 
@@ -34,7 +33,10 @@ func FormatBinarySliceAsHex(input []byte) string {
 
 func toNodeJobInitializationMessage(
 	workerIndex uint32,
-	job Job,
+	jobID string,
+	datasetID string,
+	progress float32,
+	interpreterState []byte,
 	programByteCode []byte,
 ) ([]byte, error) {
 	msg, seg, err := capnp.NewMessage(capnp.SingleSegment(nil))
@@ -62,7 +64,7 @@ func toNodeJobInitializationMessage(
 	//
 	// Job ID.
 	//
-	if err := nestedBody.SetJobId(job.Data.ID); err != nil {
+	if err := nestedBody.SetJobId(jobID); err != nil {
 		return nil, err
 	}
 
@@ -74,15 +76,15 @@ func toNodeJobInitializationMessage(
 	}
 
 	// Dataset ID
-	if err := nestedBody.SetDatasetId(job.Data.DatasetId); err != nil {
+	if err := nestedBody.SetDatasetId(datasetID); err != nil {
 		return nil, err
 	}
 
 	// Progress.
-	nestedBody.SetProgress(job.Progress)
+	nestedBody.SetProgress(progress)
 
 	// Interpreter State.
-	if err := nestedBody.SetInterpreterState(job.InterpreterState); err != nil {
+	if err := nestedBody.SetInterpreterState(interpreterState); err != nil {
 		return nil, err
 	}
 
@@ -94,24 +96,29 @@ func toNodeJobInitializationMessage(
 }
 
 func (m *JobManagerT) StartJobOnNode(
-	nodeData Node,
-	job Job,
+	node LockedValue[Node],
+	job LockedValue[Job],
 	workerIdx uint16,
 	programByteCode []byte,
 ) error {
 	msg, err := toNodeJobInitializationMessage(
 		uint32(workerIdx),
-		job,
+		job.Data.Data.ID,
+		job.Data.Data.DatasetID,
+		job.Data.Progress,
+		job.Data.InterpreterState,
 		programByteCode,
 	)
 	if err != nil {
 		return err
 	}
 
-	err = nodeData.Conn.WriteMessage(
+	node.Lock.Lock()
+	err = node.Data.Conn.WriteMessage(
 		websocket.BinaryMessage,
 		msg,
 	)
+	node.Lock.Unlock()
 
 	if err != nil {
 		return err
@@ -119,15 +126,17 @@ func (m *JobManagerT) StartJobOnNode(
 
 	// TODO: what??
 
-	m.Nodes.Lock.Lock()
-	m.Nodes.Map[nodeData.ID].WorkerState[workerIdx] = &job.Data.ID
-	m.Nodes.Lock.Unlock()
+	node.Lock.Lock()
+	node.Data.WorkerState[workerIdx] = &job.Data.Data.ID
 
+	job.Lock.RLock()
 	log.Debugf(
 		"[node] Job `%s` starting on node `%s`",
-		job.Data.ID,
-		IDToString(nodeData.ID),
+		job.Data.Data.ID,
+		IDToString(node.Data.ID),
 	)
+	job.Lock.RUnlock()
+	node.Lock.Unlock()
 
 	// TODO: wait for job to start
 	// Now we wait until the job responds with `CODE_STARTED_JOB`.
@@ -137,90 +146,100 @@ func (m *JobManagerT) StartJobOnNode(
 }
 
 // TODO: use this function
-func (m *JobManagerT) jobStartedJobCallbackInternal(nodeID NodeID, message []byte) (jobID JobID, err error) {
-	const leadingBytes = 1 // Due to the leading signal byte.
-	workerIdxByteSize := binary.Size(uint16(0))
-	jobIDBytes := 64
-
-	expectedLen := leadingBytes + workerIdxByteSize + jobIDBytes
-	msgLen := len(message)
-
-	if msgLen != expectedLen {
-		return "", fmt.Errorf("expected message length %d, got %d", expectedLen, msgLen)
-	}
-
-	workerIndex := binary.BigEndian.Uint16(message[leadingBytes : leadingBytes+workerIdxByteSize])
-	jobID = string(message[leadingBytes+workerIdxByteSize:])
-
-	m.Nodes.Lock.RLock()
-	numWorkersForThisNode := m.Nodes.Map[nodeID].Info.NumWorkers
-	m.Nodes.Lock.RUnlock()
-
-	if workerIndex >= numWorkersForThisNode {
-		return "", fmt.Errorf("worker index returned from node is %d (>= %d)", workerIndex, numWorkersForThisNode)
-	}
-
-	m.Nodes.Lock.RLock()
-	currWorkerJobId := m.Nodes.Map[nodeID].WorkerState[workerIndex]
-	m.Nodes.Lock.RUnlock()
-
-	if currWorkerJobId == nil {
-		return "", fmt.Errorf("worker index returned from node (%d) is not busy with job ID `nil` -> node sent bogus value", workerIndex)
-	}
-
-	// TODO: sanity check between received and real job ID
-
-	if *currWorkerJobId != jobID {
-		return "", fmt.Errorf("job ID returned from node (%s) != expected `%s` -> node sent bogus value", jobID, *currWorkerJobId)
-	}
-
-	log.Debugf("[node] Received callback from node, started job `%s` on node `%s`", jobID, FormatBinarySliceAsHex(nodeID[:]))
-
-	return jobID, nil
-}
+// func (m *JobManagerT) jobStartedJobCallbackInternal(nodeID NodeID, message []byte) (jobID JobID, err error) {
+// 	const leadingBytes = 1 // Due to the leading signal byte.
+// 	workerIdxByteSize := binary.Size(uint16(0))
+// 	jobIDBytes := 64
+//
+// 	expectedLen := leadingBytes + workerIdxByteSize + jobIDBytes
+// 	msgLen := len(message)
+//
+// 	if msgLen != expectedLen {
+// 		return "", fmt.Errorf("expected message length %d, got %d", expectedLen, msgLen)
+// 	}
+//
+// 	workerIndex := binary.BigEndian.Uint16(message[leadingBytes : leadingBytes+workerIdxByteSize])
+// 	jobID = string(message[leadingBytes+workerIdxByteSize:])
+//
+// 	node, _ := m.Nodes.Get(nodeID)
+//
+// 	node.Lock.RLock()
+// 	numWorkersForThisNode := node.Data.Info.NumWorkers
+// 	node.Lock.RUnlock()
+//
+// 	if workerIndex >= numWorkersForThisNode {
+// 		return "", fmt.Errorf("worker index returned from node is %d (>= %d)", workerIndex, numWorkersForThisNode)
+// 	}
+//
+// 	node.Lock.RLock()
+// 	currWorkerJobId := node.Data.WorkerState[workerIndex]
+// 	node.Lock.RLock()
+//
+// 	if currWorkerJobId == nil {
+// 		return "", fmt.Errorf("worker index returned from node (%d) is not busy with job ID `nil` -> node sent bogus value", workerIndex)
+// 	}
+//
+// 	// TODO: sanity check between received and real job ID
+//
+// 	if *currWorkerJobId != jobID {
+// 		return "", fmt.Errorf("job ID returned from node (%s) != expected `%s` -> node sent bogus value", jobID, *currWorkerJobId)
+// 	}
+//
+// 	log.Debugf("[node] Received callback from node, started job `%s` on node `%s`", jobID, FormatBinarySliceAsHex(nodeID[:]))
+//
+// 	return jobID, nil
+// }
 
 // TODO: actually call this function
-func (m *JobManagerT) JobStartedJobCallback(nodeID NodeID, message []byte) error {
-	jobID, err := m.jobStartedJobCallbackInternal(nodeID, message)
-	if err != nil {
-		if !m.DropNode(nodeID) {
-			panic("Impossible: node which should be dropped does not exist")
-		}
-		return err
-	}
-
-	fmt.Printf("=====================> `%s`\n", jobID)
-
-	found, err := m.setJobStatus(jobID, database.StatusRunning)
-	if err != nil {
-		return err
-	}
-
-	if !found {
-		return fmt.Errorf("failed to set job to running: job `%s` not found in database", jobID)
-	}
-
-	return nil
-}
+// func (m *JobManagerT) JobStartedJobCallback(nodeID NodeID, message []byte) error {
+// 	jobID, err := m.jobStartedJobCallbackInternal(nodeID, message)
+// 	if err != nil {
+// 		if !m.DropNode(nodeID) {
+// 			panic("Impossible: node which should be dropped does not exist")
+// 		}
+// 		return err
+// 	}
+//
+// 	fmt.Printf("=====================> `%s`\n", jobID)
+//
+// 	job, found := m.NonFinishedJobs.Get(jobID)
+// 	if !found {
+// 		return fmt.Errorf("failed to set job to running: job `%s` not found in database", jobID)
+// 	}
+//
+// 	// Set job to running.
+// 	m.setJobStatus(job, database.StatusRunning)
+//
+// 	return nil
+// }
 
 func (m *JobManagerT) findFreeNode() (nodeID NodeID, workerIdx uint16, found bool) {
 	m.Nodes.Lock.RLock()
 	defer m.Nodes.Lock.RUnlock()
 
 	for nodeID, node := range m.Nodes.Map {
-		for workerIdx, jobID := range node.WorkerState {
+		node.Lock.RLock()
+
+		for workerIdx, jobID := range node.Data.WorkerState {
 			if jobID == nil {
+				node.Lock.RUnlock()
 				return nodeID, uint16(workerIdx), true
 			}
 		}
+
+		node.Lock.RUnlock()
 	}
 
 	return nodeID, 0, false
 }
 
-func (m *JobManagerT) StartJobOnFreeNode(job Job) (couldStart bool, err error) {
+func (m *JobManagerT) StartJobOnFreeNode(job LockedValue[Job]) (couldStart bool, err error) {
 	// Load the WasmCode from storage again.
-	wasmCode, err := m.Compiler.getCached(job.Data.WasmID)
+	job.Lock.RLock()
+	wasmID := job.Data.Data.WasmID
+	job.Lock.RUnlock()
+
+	wasmCode, err := m.Compiler.getCached(wasmID)
 	if err != nil {
 		log.Errorf("failed to park job `%s`: could not load job's Wasm from cache", err.Error())
 		return false, err
@@ -236,44 +255,30 @@ func (m *JobManagerT) StartJobOnFreeNode(job Job) (couldStart bool, err error) {
 		return false, nil
 	}
 
+	job.Lock.RLock()
+	jobID := job.Data.Data.ID
+	job.Lock.RUnlock()
+
 	log.Debugf("[node] Found free worker index %d on node `%s`", workerIndex, IDToString(nodeID))
 
 	if err := m.StartJobOnNode(node, job, workerIndex, wasmCode); err != nil {
 		log.Errorf(
 			"[node] Could not start job `%s` on node `%s`: %s",
-			job.Data.ID,
+			jobID,
 			IDToString(nodeID),
 			err.Error(),
 		)
 		return false, nil
 	}
 
-	found, err := m.setJobStatusLOCK(job.Data.ID, database.StatusStarting, true)
-	if err != nil {
-		return false, err
-	}
+	// Set the new status and worker node of this job.
+	job.Lock.Lock()
+	job.Data.Status = StatusStarting
+	job.Data.WorkerNodeID = &nodeID
+	job.Lock.Unlock()
 
-	if !found {
-		return false, fmt.Errorf(
-			"could not modify job status: job `%s` not found in DB",
-			job.Data.ID,
-		)
-	}
-
-	// Set the worker node of this job.
-	m.NonFinishedJobs.Lock.Lock()
-	old, found := m.NonFinishedJobs.Map[job.Data.ID]
-	if found {
-		newJob := Job{
-			Data:             old.Data,
-			WorkerNodeID:     &node.ID,
-			Progress:         old.Progress,
-			Logs:             old.Logs,
-			InterpreterState: old.InterpreterState,
-		}
-		m.NonFinishedJobs.Map[job.Data.ID] = newJob
-	}
-	m.NonFinishedJobs.Lock.Unlock()
+	m.updateSingleJobState(jobID)
+	m.updateNodeState()
 
 	return true, nil
 }
@@ -287,58 +292,4 @@ type NodeLogMessage struct {
 	WorkerIndex   uint16
 	ContentLength uint16
 	LogContents   []byte
-}
-
-func (m *JobManagerT) NodeLogCallBack(nodeID NodeID, message []byte) (err error) {
-	parsed, err := JobManager.nodeLogCallBackInternal(nodeID, message)
-	if err != nil {
-		if !m.DropNode(nodeID) {
-			panic("Impossible: node which should be dropped does not exist")
-		}
-		return err
-	}
-
-	// TODO: what to do here?
-	fmt.Printf("parsed kind from log: %d\n", parsed.LogKind)
-
-	return nil
-}
-
-func (m *JobManagerT) nodeLogCallBackInternal(nodeID NodeID, message []byte) (parsed NodeLogMessage, err error) {
-	// TODO: implement this!
-	panic("TODO")
-
-	// if !database.IsValidLogKind(logKind) {
-	// 	return parsed, fmt.Errorf("node `%s` sent invalid log kind `%d`", IDToString(nodeID), logKind)
-	// }
-	//
-	// m.Nodes.Lock.RLock()
-	// numWorkersForThisNode := m.Nodes.Map[nodeID].Info.NumWorkers
-	// m.Nodes.Lock.RUnlock()
-	//
-	// if workerIndex >= numWorkersForThisNode {
-	// 	return parsed, fmt.Errorf("worker index returned from node is %d (>= %d)", workerIndex, numWorkersForThisNode)
-	// }
-	//
-	// m.Nodes.Lock.RLock()
-	// // spew.Dump(m.Nodes.Map[nodeID])
-	// currWorkerJobId := m.Nodes.Map[nodeID].WorkerState[workerIndex]
-	// m.Nodes.Lock.RUnlock()
-	//
-	// if currWorkerJobId == nil {
-	// 	return parsed, fmt.Errorf("worker index (%d) returned from node (%s) is free", workerIndex, IDToString(nodeID))
-	// }
-	//
-	// // m.Nodes.Lock.Lock()
-	// // jobId := m.Nodes.Map[nodeID].WorkerState[workerIndex]
-	// // m.Nodes.Lock.Unlock()
-	//
-	// log.Debugf("[node] Received log from node `%s` for job `%s` on worker IDX %d", IDToString(nodeID), *currWorkerJobId, workerIndex)
-	//
-	// return NodeLogMessage{
-	// 	LogKind:       database.LogKind(logKind),
-	// 	WorkerIndex:   workerIndex,
-	// 	ContentLength: contentLength,
-	// 	LogContents:   []byte{},
-	// }, nil
 }

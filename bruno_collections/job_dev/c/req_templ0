@@ -13,5 +13,5 @@ post {
 body:json {
   {
     "name": "Bruno test job",
-    "datasetId": null,
+    "datasetId": "DATASET_ID_PLACEHOLDER",
     "sourceCode": 
