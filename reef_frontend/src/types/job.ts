@@ -2,6 +2,8 @@
 // Reef data / schema definition file for jobs.
 //
 
+import { ILogEntry } from "./log";
+
 export enum IJobStatus {
   // Job has not yet started, waiting for free worker.
   // A job will be set back into this state if the executing worker
@@ -60,4 +62,9 @@ export interface IJob {
   // The ID of the attached dataset, always 64 characters long.
   // The backend guarantees that this is always valid.
   datasetId?: string;
+
+  // TODO: comment on these (nuz).
+  logs: ILogEntry[];
+  progress: number;
+  wasmId: string;
 }

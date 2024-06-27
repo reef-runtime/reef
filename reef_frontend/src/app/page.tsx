@@ -29,7 +29,7 @@ export default function Home() {
             <CardHeader key={node.id}>
               <CardTitle>{node.info.name}</CardTitle>
               <CardDescription className="flex flex-col text-muted-foreground">
-                <span>{`${node.info.endPointIP}`}</span>
+                <span>{`${node.info.endpointIP}`}</span>
                 <span>
                   {(function () {
                     let unit = 'min';

@@ -7,7 +7,7 @@ export type IJobID = string | null;
 
 export interface INodeInfo {
     // IP address of the node.
-    endPointIP: string,
+    endpointIP: string,
     // Name or hostname of the node.
     name: string,
     // The amount of workers for a node.
