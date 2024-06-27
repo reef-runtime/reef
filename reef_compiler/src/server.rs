@@ -98,23 +98,37 @@ impl Compiler {
         template_path: &Path,
         job_path: &Path,
     ) -> Result<Vec<u8>, Error> {
-        println!("New build dir '{}/{hash}' for Job with Lang '{language}'", self.build_path.display());
+        println!("==> New build '{}/{hash}' for Job with Lang '{language}'", self.build_path.display());
 
         // Create dirs
-        fs::create_dir_all(&self.build_path)?;
+        fs::create_dir_all(job_path)?;
 
         if fs::remove_dir_all(&job_path).is_ok() {
             println!("Cleaned up compilation context at '{}'", job_path.display());
         }
 
+        // Own copy implementation because we need to fix write perms while copying
         println!("Copying '{}' to '{}'...", template_path.display(), job_path.display());
-        copy_dir::copy_dir(&template_path, &job_path)?;
+        for entry in walkdir::WalkDir::new(&template_path).into_iter().filter_map(|e| e.ok()) {
+            let relative_path = match entry.path().strip_prefix(&template_path) {
+                Ok(rp) => rp,
+                Err(_) => panic!("strip_prefix failed. this is a probably a bug."),
+            };
 
-        for entry in walkdir::WalkDir::new(job_path) {
-            let entry = entry.map_err(io::Error::other)?;
-            let mut perms = fs::metadata(entry.path())?.permissions();
+            let mut target_path = job_path.to_owned();
+            target_path.push(relative_path);
+
+            let entry_metadata = entry.metadata().map_err(io::Error::other)?;
+
+            if entry_metadata.is_dir() {
+                fs::create_dir(&target_path)?;
+            } else {
+                fs::copy(entry.path(), &target_path)?;
+            }
+
+            let mut perms = fs::metadata(&target_path)?.permissions();
             perms.set_readonly(false);
-            fs::set_permissions(entry.path(), perms)?;
+            fs::set_permissions(&target_path, perms)?;
         }
 
         let mut input_file_path = job_path.to_owned();
@@ -144,7 +158,7 @@ impl Compiler {
         let mut output_path = job_path.to_owned();
         output_path.push(OUTPUT_FILE);
 
-        println!("Reading output file from '{}'...", output_path.display());
+        println!("==> Reading output file from '{}'...", output_path.display());
 
         Ok(fs::read(output_path)?)
     }

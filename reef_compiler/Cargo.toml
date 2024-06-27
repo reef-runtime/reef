@@ -18,7 +18,6 @@ capnp-rpc.workspace = true
 
 anyhow.workspace = true
 clap.workspace = true
-copy_dir.workspace = true
 futures.workspace = true
 hex.workspace = true
 sha2.workspace = true
