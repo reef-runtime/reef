@@ -14,7 +14,7 @@ const ScrollArea = React.forwardRef<
     className={cn('relative overflow-auto h-full', className)}
     {...props}
   >
-    <div className="flex flex-col absolute inset-0">{children}</div>
+    <div className="flex flex-col">{children}</div>
     <ScrollBar />
     <ScrollAreaPrimitive.Corner />
   </ScrollAreaPrimitive.Root>

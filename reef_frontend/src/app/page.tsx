@@ -28,7 +28,7 @@ export default function Home() {
           <Card key={node.id} className="flex flex-col">
             <CardHeader key={node.id}>
               <CardTitle>{node.info.name}</CardTitle>
-              <CardDescription className="flex flex-col">
+              <CardDescription className="flex flex-col text-muted-foreground">
                 <span>{`${node.info.endPointIP}`}</span>
                 <span>
                   {(function () {
@@ -53,32 +53,15 @@ export default function Home() {
                 {node.workerState.map((workerState, i) => {
                   const job = jobs.find((job) => job.id === workerState);
 
-                  return (
-                    <>
-                      <div
-                        key={`${i}`}
-                        className="text-sm flex items-center space-x-1"
-                      >
-                        <span className="text-sm text-muted-foreground">
-                          {i}
-                        </span>
-
-                        <JobStatusIcon job={job} />
-                        <span
-                          className={classNames(
-                            'text-sm font-medium leading-none',
-                            {
-                              'text-sm text-muted-foreground':
-                                job === undefined,
-                            }
-                          )}
-                        >
-                          {job?.name ?? 'Worker Idle'}
-                        </span>
-                      </div>
-                      <Separator className="my-2" />
-                    </>
-                  );
+                  return job ? (
+                    <div
+                      key={`${i}`}
+                      className="text-sm flex items-center space-x-1 w-full"
+                    >
+                      <span className="text-sm text-muted-foreground">{i}</span>
+                      <JobListItem key={job.id} job={job} />
+                    </div>
+                  ) : null;
                 })}
               </ScrollArea>
             </CardContent>

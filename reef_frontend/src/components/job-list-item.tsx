@@ -12,7 +12,7 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
   }
 
   return (
-    <div>
+    <div className="w-full overflow-hidden">
       <Separator className="" />
       <ul
         key={job.id}
@@ -21,10 +21,10 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
       >
         <li className="text-sm text-muted-foreground font-bold flex items-center space-x-1">
           <JobStatusIcon job={job} />
-          <span>{job.name}</span>
+          <span className="text-primary">{job.name}</span>
         </li>
         <li className="text-xs font-medium leading-none overflow-hidden">
-          <span className="text-nowrap">{job.id}</span>
+          <span className="text-nowrap text-muted-foreground">{job.id}</span>
         </li>
       </ul>
       <Separator className="" />
