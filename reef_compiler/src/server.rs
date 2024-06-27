@@ -11,7 +11,7 @@ use sha2::{Digest, Sha256};
 
 use reef_protocol_compiler::compiler_capnp::{self, compiler};
 
-const OUTPUT_FILE: &str = "output.wasm";
+const OUTPUT_FILE: &str = "./output.wasm";
 
 #[derive(Debug, Clone, Copy, Hash)]
 enum Language {

@@ -156,7 +156,7 @@
           // {
             pname = "reef_compiler";
             cargoExtraArgs = "-p reef_compiler";
-            src = fileSetForCrate [./reef_compiler ./reef_protocol];
+            src = fileSetForCrate [(lib.fileset.difference ./reef_compiler ./reef_compiler/lang_templates) ./reef_protocol];
           });
         reef_node_native = craneLib.buildPackage (individualCrateArgs
           // {
@@ -187,7 +187,7 @@
             bashInteractive
 
             gnumake
-            llvmPackages_18.clangNoLibc
+            llvmPackages_18.clang-unwrapped
             llvmPackages_18.bintools-unwrapped
             (pkgs.pkgsBuildHost.rust-bin.stable.latest.minimal.override
               {
@@ -229,6 +229,11 @@
           name = "Reef Dev";
 
           buildInputs = with pkgs; [
+            # Build tools
+            llvmPackages_18.clang-unwrapped
+            llvmPackages_18.bintools-unwrapped
+            gnumake
+
             # Rust toolchain
             rustToolchain
 
@@ -247,8 +252,6 @@
             wasmtime
             wabt
             binaryen
-            llvmPackages_17.clang-unwrapped
-            llvmPackages_17.bintools-unwrapped
 
             # Communications / Capnproto
             capnproto
