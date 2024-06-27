@@ -152,9 +152,8 @@
           };
 
         # Build the top-level crates of the workspace as individual derivations.
-        reef_compiler = craneLib.buildPackage (individualCrateArgs
+        reef_compiler_bin = craneLib.buildPackage (individualCrateArgs
           // {
-            # TODO: this is missing all the compiler tools
             pname = "reef_compiler";
             cargoExtraArgs = "-p reef_compiler";
             src = fileSetForCrate [./reef_compiler ./reef_protocol];
@@ -179,6 +178,40 @@
           };
         };
 
+        # Wrap reef_compiler_bin in shell script to correctly include lang templates
+        # and runtime compiler tools that are required.
+        reef_compiler = pkgs.writeShellApplication {
+          name = "reef_compiler";
+
+          runtimeInputs = with pkgs; [
+            bashInteractive
+
+            gnumake
+            llvmPackages_18.clangNoLibc
+            llvmPackages_18.bintools-unwrapped
+            (pkgs.pkgsBuildHost.rust-bin.stable.latest.minimal.override
+              {
+                targets = ["wasm32-unknown-unknown"];
+              })
+            binaryen
+
+            reef_compiler_bin
+          ];
+
+          text = ''
+            ${reef_compiler_bin}/bin/reef_compiler --lang-templates ${./reef_compiler/lang_templates} "$@"
+          '';
+        };
+        reef_compiler_image = pkgs.dockerTools.buildImage {
+          name = "reef_compiler";
+          tag = "latest";
+
+          copyToRoot = [reef_compiler];
+          config = {
+            Cmd = ["bin/reef_compiler"];
+          };
+        };
+
         reef_node_native_image = pkgs.dockerTools.buildImage {
           name = "reef_node_native";
           tag = "latest";
@@ -188,6 +221,10 @@
           };
         };
       in {
+        # =========
+        # Dev Shell
+        # =========
+
         devShells.default = pkgs.mkShell {
           name = "Reef Dev";
 
@@ -236,8 +273,6 @@
           shellHook = ''
             export OPENSSL_DIR="${pkgs.openssl.dev}"
             export OPENSSL_LIB_DIR="${pkgs.openssl.out}/lib"
-            # export GOPATH=$(readlink -f ./go)
-            # export PATH=$PATH:$GOPATH/bin
 
             # if running from zsh, reenter zsh
             if [[ $(ps -e | grep $PPID) == *"zsh" ]]; then
@@ -255,7 +290,7 @@
           inherit reef_manager reef_compiler reef_node_native;
 
           # Conatiner images
-          inherit reef_manager_image reef_node_native_image;
+          inherit reef_manager_image reef_compiler_image reef_node_native_image;
         };
 
         apps = {
