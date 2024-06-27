@@ -1,5 +1,5 @@
 use std::fmt::Display;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
 use std::{fs, io};
@@ -65,8 +65,6 @@ impl Compiler {
         let mut template_path = self.lang_templates.clone();
         template_path.push(PathBuf::from(&language));
 
-        dbg!(&template_path);
-
         if !template_path.exists() {
             return Err(Error::Other(format!("Template source path for language '{language}' does not exist")));
         }
@@ -77,13 +75,33 @@ impl Compiler {
         hasher.update(&language.to_string());
         let hash = hex::encode(hasher.finalize());
 
+        let mut job_path = self.build_path.clone();
+        job_path.push(&hash);
+
+        let res = self.compile_fallibe(file_buf, language, &hash, &template_path, &job_path);
+
+        // Only cleanup if required.
+        if self.no_cleanup {
+            println!("[warning] not performing cleanup...");
+        } else {
+            fs::remove_dir_all(&job_path)?;
+        }
+
+        res
+    }
+
+    fn compile_fallibe(
+        &self,
+        file_buf: &str,
+        language: Language,
+        hash: &str,
+        template_path: &Path,
+        job_path: &Path,
+    ) -> Result<Vec<u8>, Error> {
         println!("New build dir '{}/{hash}' for Job with Lang '{language}'", self.build_path.display());
 
         // Create dirs
         fs::create_dir_all(&self.build_path)?;
-
-        let mut job_path = self.build_path.clone();
-        job_path.push(&hash);
 
         if fs::remove_dir_all(&job_path).is_ok() {
             println!("Cleaned up compilation context at '{}'", job_path.display());
@@ -92,10 +110,17 @@ impl Compiler {
         println!("Copying '{}' to '{}'...", template_path.display(), job_path.display());
         copy_dir::copy_dir(&template_path, &job_path)?;
 
-        let mut input_file_path = job_path.clone();
+        for entry in walkdir::WalkDir::new(job_path) {
+            let entry = entry.map_err(io::Error::other)?;
+            let mut perms = fs::metadata(entry.path())?.permissions();
+            perms.set_readonly(false);
+            fs::set_permissions(entry.path(), perms)?;
+        }
+
+        let mut input_file_path = job_path.to_owned();
         input_file_path.push(format!("input.{}", language.file_ending()));
 
-        println!("Writing source file...");
+        println!("Writing source file '{}'", input_file_path.display());
         fs::write(input_file_path, file_buf)?;
 
         let mut cmd = Command::new("make");
@@ -116,21 +141,12 @@ impl Compiler {
             return Err(Error::Compiler(output.into_owned()));
         }
 
-        let mut output_path = job_path.clone();
+        let mut output_path = job_path.to_owned();
         output_path.push(OUTPUT_FILE);
 
         println!("Reading output file from '{}'...", output_path.display());
 
-        let artifact = fs::read(output_path)?;
-
-        // Only cleanup if required.
-        if self.no_cleanup {
-            println!("[warning] not performing cleanup...");
-        } else {
-            fs::remove_dir_all(&job_path)?;
-        }
-
-        Ok(artifact)
+        Ok(fs::read(output_path)?)
     }
 }
 
@@ -158,11 +174,14 @@ impl compiler::Server for Compiler {
         match compiler_res {
             Ok(buf) => results.get().init_response().set_file_content(buf.as_slice()),
 
-            Err(e) => match e {
-                Error::Compiler(err) => results.get().init_response().set_compiler_error(err),
-                Error::Io(err) => results.get().init_response().set_system_error(err.to_string()),
-                Error::Other(err) => results.get().init_response().set_system_error(err),
-            },
+            Err(e) => {
+                println!("Error: {e:?}");
+                match e {
+                    Error::Compiler(err) => results.get().init_response().set_compiler_error(err),
+                    Error::Io(err) => results.get().init_response().set_system_error(err.to_string()),
+                    Error::Other(err) => results.get().init_response().set_system_error(err),
+                }
+            }
         }
 
         Promise::ok(())

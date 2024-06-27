@@ -970,6 +970,7 @@ dependencies = [
  "sha2",
  "tokio",
  "tokio-util",
+ "walkdir",
 ]
 
 [[package]]
