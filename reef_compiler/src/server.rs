@@ -48,7 +48,7 @@ impl Language {
 
 #[derive(Debug)]
 pub enum Error {
-    CompilerError(String),
+    Compiler(String),
     Other(String),
     Io(io::Error),
 }
@@ -86,7 +86,7 @@ impl Compiler {
         job_path.push(&hash);
 
         if fs::remove_dir_all(&job_path).is_ok() {
-            println!("Cleaned up compilation context at {:?}", &job_path);
+            println!("Cleaned up compilation context at '{}'", job_path.display());
         }
 
         println!("Copying '{}' to '{}'...", template_path.display(), job_path.display());
@@ -113,7 +113,7 @@ impl Compiler {
         if !output.status.success() {
             let output = String::from_utf8_lossy(&output.stderr);
             println!("failed to invoke compiler: {output}");
-            return Err(Error::CompilerError(output.into_owned()));
+            return Err(Error::Compiler(output.into_owned()));
         }
 
         let mut output_path = job_path.clone();
@@ -159,7 +159,7 @@ impl compiler::Server for Compiler {
             Ok(buf) => results.get().init_response().set_file_content(buf.as_slice()),
 
             Err(e) => match e {
-                Error::CompilerError(err) => results.get().init_response().set_compiler_error(err),
+                Error::Compiler(err) => results.get().init_response().set_compiler_error(err),
                 Error::Io(err) => results.get().init_response().set_system_error(err.to_string()),
                 Error::Other(err) => results.get().init_response().set_system_error(err),
             },
