@@ -52,8 +52,39 @@ export default function Page() {
   }
 
   return (
-    <main className="flex flex-col p-4 md:space-x-4">
-      <div className="space-y-4">
+    <main className="flex xl:flex-row p-4 xl:space-x-4 grow">
+      <div className="space-y-4 grow flex flex-col">
+        <Card className="grow flex flex-col">
+          <CardHeader>
+            <CardTitle className="flex space-x-1 items-center">
+              <span>Logs</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grow p-2 flex flex-col">
+            <div className="bg-black p-2 rounded-sm grow">
+              {jobLogs
+                ?.sort(
+                  (a, b) =>
+                    new Date(a.created).getTime() -
+                    new Date(b.created).getTime()
+                )
+                .map((log, index) => (
+                  <div key={index} className="font-mono text-xs text-white">
+                    <span className="text-green-500">
+                      {new Date(log.created).toLocaleString()}
+                    </span>
+                    <span className="text-blue-500">
+                      {' '}
+                      [{ILogKind[log.kind]}]
+                    </span>
+                    <span> {log.content}</span>
+                  </div>
+                ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      <div className="flex flex-col xl:grid gap-4 w-[400px]">
         <Card>
           <CardHeader>
             <CardTitle className="flex space-x-2 items-center">
@@ -94,37 +125,7 @@ export default function Page() {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex space-x-1 items-center">
-              <span>Logs</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grow p-2">
-            <div className="bg-black p-2 rounded-sm h-[40vh]">
-              {jobLogs
-                ?.sort(
-                  (a, b) =>
-                    new Date(a.created).getTime() -
-                    new Date(b.created).getTime()
-                )
-                .map((log, index) => (
-                  <div key={index} className="font-mono text-xs text-white">
-                    <span className="text-green-500">
-                      {new Date(log.created).toLocaleString()}
-                    </span>
-                    <span className="text-blue-500">
-                      {' '}
-                      [{ILogKind[log.kind]}]
-                    </span>
-                    <span> {log.content}</span>
-                  </div>
-                ))}
-            </div>
-          </CardContent>
-        </Card>
       </div>
-      <div className="flex flex-col xl:grid gap-4 grow w-full"></div>
     </main>
   );
 }

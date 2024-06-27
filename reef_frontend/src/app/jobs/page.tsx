@@ -24,7 +24,9 @@ const GROUPS = [
   },
   {
     title: 'Starting / Running',
-    filter: (job: IJob) => job.status === IJobStatus.StatusStarting || job.status === IJobStatus.StatusRunning,
+    filter: (job: IJob) =>
+      job.status === IJobStatus.StatusStarting ||
+      job.status === IJobStatus.StatusRunning,
   },
   {
     title: 'Done',
@@ -37,7 +39,7 @@ export default function Page() {
   const { jobs } = useJobs();
 
   return (
-    <main className="flex flex-col md:flex-row p-4 md:space-x-4">
+    <main className="flex flex-col md:flex-row p-4 md:space-x-4 grow">
       <div
         className="flex flex-col xl:grid gap-4 grow w-full"
         style={{
@@ -53,12 +55,10 @@ export default function Page() {
               <CardTitle>{group.title}</CardTitle>
             </CardHeader>
             <CardContent className="grow">
-              <ScrollArea className="rounded-md border grow h-full">
-                <div className="p-4">
-                  {jobs.filter(group.filter).map((job) => (
-                    <JobListItem key={job.id} job={job} />
-                  ))}
-                </div>
+              <ScrollArea className="rounded-md grow h-full">
+                {jobs.filter(group.filter).map((job) => (
+                  <JobListItem key={job.id} job={job} />
+                ))}
               </ScrollArea>
             </CardContent>
           </Card>
