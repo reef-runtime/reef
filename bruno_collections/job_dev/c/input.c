@@ -13,7 +13,7 @@ int fib(int n) {
 void run(uint8_t *dataset, size_t ds_len) {
   reef_puts("Calculating Fibonacci Sequence");
 
-  int I = 2;
+  int I = 20;
   for (int x = 0; x < I; x++) {
 
     int its = 29;
@@ -27,6 +27,7 @@ void run(uint8_t *dataset, size_t ds_len) {
 
       reef_puts(result);
     }
+
     reef_progress((float)x / (float)I);
   }
 }

@@ -13,8 +13,8 @@ post {
 body:json {
   {
     "name": "Bruno test job",
-    "datasetId": null,
-    "sourceCode": "pub fn run(dataset: &[u8]) -> impl Into<ReefResult> { let msg = \"Hello World!\"; reef::reef_log(msg); reef::reef_log(&format!(\"dataset[43]: {:?}\", dataset[43])); println!(\"Println log.\"); if dataset[0] == 13 { panic!(\"Bad dataset!\"); } let mut sum = std::num::Wrapping(0); for val in dataset { sum += val; } println!(\"sum: {sum}\"); \"Test Result\".to_string() }",
+    "datasetId": "f014eb5cbf8e95de854056b2f6a3e98320a66851a4d1d0f0d20fe3e982345ff3",
+    "sourceCode": "pub fn run(dataset: &[u8]) -> impl Into<ReefResult> { let msg = \"Hello World!\"; reef::reef_log(msg); reef::reef_log(&format!(\"dataset[43]: {:?}\", dataset[43])); println!(\"Println log 1.\"); if dataset[0] == 13 { panic!(\"Bad dataset!\"); } let mut sum = std::num::Wrapping(0); for val in dataset { sum += val; } println!(\"sum: {sum}\"); \"Test Result\".to_string() }",
     "language": "rust"
   }
 }
