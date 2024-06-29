@@ -33,6 +33,7 @@
         overlays = [(import rust-overlay)];
         pkgs = import nixpkgs {
           inherit system overlays;
+          # config.allowUnfree = true;
         };
         inherit (pkgs) lib;
 
@@ -169,10 +170,10 @@
         # Conatiner images
         # ================
 
-        reef_manager_image = pkgs.dockerTools.buildImage {
+        reef_manager_image = pkgs.dockerTools.streamLayeredImage {
           name = "reef_manager";
           tag = "latest";
-          copyToRoot = [reef_manager];
+          contents = [reef_manager];
           config = {
             Cmd = ["bin/reef_manager"];
           };
@@ -187,6 +188,8 @@
             bashInteractive
 
             gnumake
+            coreutils
+            gnused
             llvmPackages_18.clang-unwrapped
             llvmPackages_18.bintools-unwrapped
             (pkgs.pkgsBuildHost.rust-bin.stable.latest.minimal.override
@@ -202,20 +205,20 @@
             ${reef_compiler_bin}/bin/reef_compiler --lang-templates ${./reef_compiler/lang_templates} "$@"
           '';
         };
-        reef_compiler_image = pkgs.dockerTools.buildImage {
+        reef_compiler_image = pkgs.dockerTools.streamLayeredImage {
           name = "reef_compiler";
           tag = "latest";
 
-          copyToRoot = [reef_compiler ./reef_compiler/container_tmp];
+          contents = [reef_compiler ./reef_compiler/container_tmp];
           config = {
             Cmd = ["bin/reef_compiler"];
           };
         };
 
-        reef_node_native_image = pkgs.dockerTools.buildImage {
+        reef_node_native_image = pkgs.dockerTools.streamLayeredImage {
           name = "reef_node_native";
           tag = "latest";
-          copyToRoot = [reef_node_native];
+          contents = [reef_node_native];
           config = {
             Cmd = ["bin/reef_node_native"];
           };
