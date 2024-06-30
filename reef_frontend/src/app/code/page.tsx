@@ -16,7 +16,8 @@ import { IJob, IJobResultContentType, IJobStatus } from '@/types/job';
 import { BanIcon, CogIcon } from 'lucide-react';
 import JobStatusIcon from '@/components/job-status';
 import JobListItem from '@/components/job-list-item';
-import { useEffect, useState } from 'react';
+// import { useLogs } from '@/stores/log.store';
+import React, { useEffect, useState } from 'react';
 // import { useLogs } from '@/stores/log.store';
 import { ILogEntry, ILogKind } from '@/types/log';
 import { Button } from '@/components/ui/button';
@@ -45,7 +46,27 @@ import {
 import { Input } from '@/components/ui/input';
 import { ToastAction } from '@/components/ui/toast';
 import { useToast } from '@/components/ui/use-toast';
-import { Editor } from './editor';
+// import { Editor } from './editor';
+import { FormEvent } from 'react';
+import { rust } from '@codemirror/lang-rust';
+// import { cpp } from '@codemirror/lang-cpp';
+import { useMemo, useRef } from 'react';
+import CodeMirror from '@uiw/react-codemirror';
+import { vscodeDark } from '@uiw/codemirror-theme-vscode';
+import { VariantProps } from 'class-variance-authority';
+import { register } from 'module';
+
+
+//
+//
+//
+
+
+const extensions = [rust()];
+
+//
+//
+//
 
 const schema = z.object({
   name: z.string().min(2).max(50),
@@ -104,14 +125,23 @@ export default function Page() {
                 name="sourceCode"
                 render={({ field }) => (
                   <FormItem style={{ height: '100%' }}>
-                    <FormControl>
-                      <Editor
-                        code={
-                          '#include "reef.h"\n\nvoid run(uint8_t *dataset, size_t len) {}'
-                        }
-                        className="editor"
-                        onSourceChange={field.onChange}
-                      ></Editor>
+                    <FormControl
+                    >
+
+                    <CodeMirror
+                        {...field}
+                        style={{ height: '100%' }}
+                        className={"codeEditor"}
+                        value={"TEST"}
+                        lang="c"
+                        height="100%"
+                        theme={vscodeDark}
+                        extensions={extensions}
+                        onChange={(value, _) => {
+                            field.onChange(value)
+                        }}
+                    />
+
                     </FormControl>
                   </FormItem>
                 )}
@@ -146,7 +176,10 @@ export default function Page() {
                   <FormItem>
                     <FormLabel>Language</FormLabel>
                     <FormControl>
-                      <Select onValueChange={field.onChange} defaultValue={'c'}>
+                      <Select onValueChange={(c) => {
+                        console.dir(c)
+                        field.onChange(c)
+                      }} defaultValue={'c'}>
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder="Select a language" />
                         </SelectTrigger>
