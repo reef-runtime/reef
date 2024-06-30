@@ -1,7 +1,5 @@
 import { Separator } from '@/components/ui/separator';
 import JobStatusIcon from '@/components/job-status';
-import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
-import 'react-circular-progressbar/dist/styles.css';
 import { IJob } from '@/types/job';
 import classNames from 'classnames';
 import { Progress } from "@/components/ui/progress"

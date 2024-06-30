@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useNodes } from '@/stores/nodes.store';
+// import { useReefStore } from '@/stores/app.store';
 // import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useJobs } from '@/stores/job.store';
@@ -19,10 +20,26 @@ import JobListItem from '@/components/job-list-item';
 import WorkerListItem from '@/components/worker-list-item';
 import { BanIcon } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { useEffect } from 'react';
+import { GetSocket, topicNodes, topicAllJobs } from '@/lib/websocket';
 
 export default function Home() {
-  const { nodes } = useNodes();
-  const { jobs } = useJobs();
+  const { nodes, setNodes } = useNodes();
+  const { jobs, setJobs } = useJobs();
+
+  useEffect(() => {
+    const sock = GetSocket()
+    sock.unsubscribeAll()
+
+    sock.subscribe(topicNodes(), (res) => {
+        setNodes(res.data)
+    })
+
+    sock.subscribe(topicAllJobs(), (res) => {
+        setJobs(res.data)
+    })
+  }, [])
+
 
   return (
     <main className="flex flex-col xl:flex-row p-4 space-y-4 xl:space-y-0 xl:space-x-4 grow h-full">

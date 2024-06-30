@@ -16,6 +16,8 @@ import { IJob, IJobStatus } from '@/types/job';
 import { BanIcon, CogIcon } from 'lucide-react';
 import JobStatusIcon from '@/components/job-status';
 import JobListItem from '@/components/job-list-item';
+import { useEffect } from 'react';
+import { GetSocket, topicAllJobs } from '@/lib/websocket';
 
 const GROUPS = [
   {
@@ -35,8 +37,16 @@ const GROUPS = [
 ];
 
 export default function Page() {
-  const { nodes } = useNodes();
-  const { jobs } = useJobs();
+  const { jobs, setJobs } = useJobs();
+
+  useEffect(() => {
+    const sock = GetSocket()
+    sock.unsubscribeAll()
+
+    sock.subscribe(topicAllJobs(), (res) => {
+        setJobs(res.data)
+    })
+  }, [])
 
   return (
     <main className="flex flex-col md:flex-row p-4 md:space-x-4 grow">

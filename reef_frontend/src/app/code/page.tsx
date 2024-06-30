@@ -17,7 +17,7 @@ import { BanIcon, CogIcon } from 'lucide-react';
 import JobStatusIcon from '@/components/job-status';
 import JobListItem from '@/components/job-list-item';
 import { useEffect, useState } from 'react';
-import { useLogs } from '@/stores/log.store';
+// import { useLogs } from '@/stores/log.store';
 import { ILogEntry, ILogKind } from '@/types/log';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';

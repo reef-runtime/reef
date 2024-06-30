@@ -1,11 +1,5 @@
-// import { Job } from "./wsData"
-
 import { IJob } from "@/types/job"
 import { INode } from "@/types/node"
-
-
-// TODO: what is this?
-// import { Pyramid } from "lucide-react"
 
 //
 // Topics.
@@ -17,20 +11,20 @@ export enum TopicKind {
     AllJobs = 'all_jobs'
 }
 
-interface Topic<T extends TopicKind = TopicKind> {
+export interface Topic<T extends TopicKind = TopicKind> {
     kind: T,
     additional?: string
 }
 
-export function allJobs(): Topic<TopicKind.AllJobs> {
+export function topicAllJobs(): Topic<TopicKind.AllJobs> {
     return { kind: TopicKind.AllJobs }
 }
 
-export function singleJob(id: string): Topic<TopicKind.SingleJob> {
+export function topicSingleJob(id: string): Topic<TopicKind.SingleJob> {
     return { kind: TopicKind.SingleJob, additional: id }
 }
 
-export function nodes(): Topic<TopicKind.Nodes> {
+export function topicNodes(): Topic<TopicKind.Nodes> {
     return { kind: TopicKind.Nodes }
 }
 
@@ -47,6 +41,10 @@ type OnMessageCallBack<T extends TopicKind> = (data: UpdateMessage<T>) => void
 // Websocket.
 //
 
+export type SocketCallback = () => void;
+
+export const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms))
+
 export class ReefWebsocket {
     socket: WebSocket;
     callbacks: Map<string, any>;
@@ -56,6 +54,8 @@ export class ReefWebsocket {
         this.callbacks = new Map();
 
         let protocol = undefined
+        const host = document.location.host
+
         switch (document.location.protocol) {
             case 'http:':
                 protocol = 'ws:'
@@ -68,7 +68,7 @@ export class ReefWebsocket {
                         only http and https are supported`
         }
 
-        let url = `${protocol}//${location.host}/api/updates`
+        let url = `${protocol}//${host}/api/updates`
 
         this.socket = new WebSocket(url)
 
@@ -123,20 +123,21 @@ export class ReefWebsocket {
         this.sync()
     }
 
-    // unsubscribeMultiple(topics: Topic[]) {
-    //
-    //     for (let t of topics)
-    //         this.callbacks.delete(t)
-    //     this.sync()
-    // }
-    //
-    // unsubscribe(t: Topic) {
-    //     this.callbacks.delete(t)
-    //     this.sync()
-    // }
-    //
-    // unsubscribeAll() {
-    //     this.callbacks.clear()
-    //     this.sync()
-    // }
+    unsubscribeAll() {
+        this.callbacks.clear()
+        this.sync()
+    }
+}
+
+//
+// Websocket singleton.
+//
+
+let sock: ReefWebsocket | undefined = undefined
+
+export function GetSocket() {
+    if (!sock) {
+        sock = new ReefWebsocket()
+    }
+    return sock
 }

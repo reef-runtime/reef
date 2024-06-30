@@ -6,3 +6,10 @@
 	reverse_proxy /api/* localhost:{$REEF_MANAGER_PORT}
 	reverse_proxy localhost:{$REEF_NEXTJS_PORT}
 }
+
+:10000 {
+  encode zstd gzip
+	reverse_proxy /api/* localhost:{$REEF_MANAGER_PORT}
+    root * ../reef_frontend/out/
+    file_server browse
+}

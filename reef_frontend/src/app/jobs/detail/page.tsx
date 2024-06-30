@@ -17,16 +17,17 @@ import { BanIcon, CogIcon } from 'lucide-react';
 import JobStatusIcon from '@/components/job-status';
 import JobListItem from '@/components/job-list-item';
 import { useEffect, useState } from 'react';
-import { useLogs } from '@/stores/log.store';
+// import { useLogs } from '@/stores/log.store';
 import { ILogEntry, ILogKind } from '@/types/log';
+import { GetSocket, topicSingleJob } from '@/lib/websocket';
 
 export default function Page() {
-  const { nodes } = useNodes();
-  const { jobs } = useJobs();
-  const { logs } = useLogs();
+  const { nodes, setNodes } = useNodes();
+  const { jobs, setJobs } = useJobs();
+  // const { logs } = useLogs();
 
   const [job, setJob] = useState<IJob | null>(null);
-  const [jobLogs, setJobLogs] = useState<ILogEntry[] | null>(null);
+  // const [jobLogs, setJobLogs] = useState<ILogEntry[] | null>(null);
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
@@ -37,9 +38,20 @@ export default function Page() {
     const queryParams = new URLSearchParams(window.location.search);
     const jobId = queryParams.get('id');
 
+    if (!jobId) {
+        // TODO: redirect to 404 page
+        return
+    }
+
     setJob(jobs.find((job) => job.id === jobId) ?? null);
-    setJobLogs(logs.filter((log) => log.jobId === jobId));
     setInitialized(true);
+
+    const sock = GetSocket()
+    sock.unsubscribeAll()
+
+    sock.subscribe(topicSingleJob(jobId), (res) => {
+        setJobs([res.data])
+    })
   }, []);
 
   if (!initialized) {
@@ -62,8 +74,7 @@ export default function Page() {
           </CardHeader>
           <CardContent className="grow p-2 flex flex-col">
             <div className="bg-black p-2 rounded-sm grow">
-              {jobLogs
-                ?.sort(
+              {job.logs?.sort(
                   (a, b) =>
                     new Date(a.created).getTime() -
                     new Date(b.created).getTime()
