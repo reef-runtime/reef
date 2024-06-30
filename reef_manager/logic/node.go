@@ -96,7 +96,7 @@ func (s *WSConn) WriteControl(messageType int, data []byte) error {
 
 type Node struct {
 	Info     NodeInfo
-	LastPing *time.Time
+	LastPing time.Time
 	Conn     *WSConn
 	ID       NodeID
 	// Length of the slice is the number of workers of that node.
@@ -106,10 +106,10 @@ type Node struct {
 }
 
 type NodeWeb struct {
-	Info        NodeInfo   `json:"info"`
-	LastPing    *time.Time `json:"lastPing"`
-	ID          string     `json:"id"`
-	WorkerState []*JobID   `json:"workerState"`
+	Info        NodeInfo  `json:"info"`
+	LastPing    time.Time `json:"lastPing"`
+	ID          string    `json:"id"`
+	WorkerState []*JobID  `json:"workerState"`
 }
 
 func (m *JobManagerT) ListNodes() []NodeWeb {
@@ -246,7 +246,7 @@ func (m *JobManagerT) ConnectNode(node NodeInfo, conn *WSConn) (nodeObj Node) {
 	now := time.Now()
 	nodeObj = Node{
 		Info:        node,
-		LastPing:    &now,
+		LastPing:    now,
 		Conn:        conn,
 		ID:          newID,
 		WorkerState: make([]*string, node.NumWorkers),
@@ -316,9 +316,8 @@ func (m *JobManagerT) RegisterPing(id NodeID) bool {
 		return false
 	}
 
-	now := time.Now()
 	node.Lock.Lock()
-	*node.Data.LastPing = now
+	node.Data.LastPing = time.Now()
 	node.Lock.Unlock()
 
 	log.Debugf("[node] Received ping for node with ID `%s`", IDToString(id))
