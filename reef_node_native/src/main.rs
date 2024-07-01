@@ -19,7 +19,6 @@ use reef_protocol_node::message_capnp::{
     MessageToNodeKind,
 };
 
-mod comms;
 mod handshake;
 mod worker;
 use worker::{FromWorkerMessage, Job, WorkerData};
