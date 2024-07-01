@@ -342,7 +342,7 @@ fn reef_imports(
             let data = mem.load_vec(ptr as usize, len as usize)?;
 
             let content_type = match result_type {
-                0 => ResultContentType::Int64,
+                0 => ResultContentType::I32,
                 1 => ResultContentType::Bytes,
                 2 => ResultContentType::StringPlain,
                 3 => ResultContentType::StringJSON,

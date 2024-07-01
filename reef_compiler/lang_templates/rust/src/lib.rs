@@ -71,12 +71,11 @@ pub mod reef {
             }
         };
     }
+    // all of these are expected to be 32 bits in size on Wasm
     impl_result_from_int!(isize);
     impl_result_from_int!(usize);
     impl_result_from_int!(i32);
     impl_result_from_int!(u32);
-    impl_result_from_int!(i64);
-    impl_result_from_int!(u64);
 
     impl From<Vec<u8>> for ReefResult {
         fn from(value: Vec<u8>) -> Self {

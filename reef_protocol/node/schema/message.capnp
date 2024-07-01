@@ -95,7 +95,7 @@ struct JobStateSync {
 }
 
 enum ResultContentType {
-	int64               @0;
+	i32                 @0;
 	bytes               @1;
 	stringPlain         @2;
 	stringJSON          @3;

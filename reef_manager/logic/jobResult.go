@@ -23,9 +23,9 @@ func (r JobResult) String() string {
 	var content string
 
 	switch r.ContentType {
-	case node.ResultContentType_int64:
-		contentTypeStr = "int64"
-		content = fmt.Sprint(int64(binary.LittleEndian.Uint64(r.Contents)))
+	case node.ResultContentType_i32:
+		contentTypeStr = "i32"
+		content = fmt.Sprint(int(binary.LittleEndian.Uint32(r.Contents)))
 	case node.ResultContentType_bytes:
 		contentTypeStr = "bytes"
 		content = hex.EncodeToString(r.Contents)

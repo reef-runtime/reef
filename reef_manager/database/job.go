@@ -15,7 +15,7 @@ type ContentType uint16
 const (
 	StringJSON ContentType = iota
 	StringPlain
-	Int64
+	I32
 	Bytes
 )
 
