@@ -32,15 +32,6 @@ services:
             - "POSTGRES_USER=${REEF_DB_USERNAME}"
             - "POSTGRES_PASSWORD=${REEF_DB_PASSWORD}"
             - "POSTGRES_DB=${REEF_DB_NAME}"
-        # healthcheck:
-        #     test:
-        #         [
-        #             "CMD-SHELL",
-        #             "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'",
-        #         ]
-        #     interval: 10s
-        #     timeout: 3s
-        #     retries: 3
 
     manager:
         container_name: reef-manager

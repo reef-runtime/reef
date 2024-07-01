@@ -3,7 +3,7 @@
 }
 
 :{$REEF_PORT} {
-	reverse_proxy /api/* ${REEF_MANAGER_HOST}:{$REEF_MANAGER_PORT}
+	reverse_proxy /api/* {$REEF_MANAGER_HOST}:{$REEF_MANAGER_PORT}
     root * /static
 	file_server
 }

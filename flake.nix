@@ -189,18 +189,9 @@
         # Conatiner images
         # ================
 
-        # 2.8.4-alpine
         reef_caddy_image = pkgs.dockerTools.streamLayeredImage {
           name = "reef_caddy";
           tag = "latest";
-
-          # fromImage = pkgs.dockerTools.pullImage {
-          #   imageName = "caddy";
-          #   imageDigest = "sha256:896c6fb9e3eae11890f53dc528b8a9be1b4d058f6b7603024feb084fc203c0b4";
-          #   sha256 = "0zkskr01nwvhb2ipq85yzbc910jb2kiwzvcfvpzb5bvza3gh8q1q";
-          #   finalImageName = "caddy";
-          #   finalImageTag = "2.8.4-alpine";
-          # };
 
           contents = [
             (pkgs.stdenv.mkDerivation
@@ -220,8 +211,7 @@
             pkgs.caddy
           ];
           config = {
-            Cmd = ["/bin/caddy" "run"];
-            # Cmd = ["cat" ".Caddyfile"];
+            Cmd = ["/bin/caddy" "run" "--config" "/Caddyfile"];
           };
         };
 

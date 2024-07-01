@@ -9,7 +9,7 @@ build_containers:
 	nix build .#reef_manager_image && ./result | docker load
 	nix build .#reef_compiler_image && ./result | docker load
 
-PORT="3000"
+PORT=3000
 
 .PHONY: up down
 up:
