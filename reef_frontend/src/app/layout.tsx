@@ -1,7 +1,7 @@
 'use client';
 
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import localFont from 'next/font/local';
 import './globals.css';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -85,7 +85,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/components/ui/theme-provider';
 import { ModeToggle } from '@/components/ui/mode-toggle';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = localFont({ src: './../fonts/Inter-VariableFont_slnt,wght.ttf' });
 
 const NAV_ITEMS = [
   {

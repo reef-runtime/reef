@@ -166,6 +166,24 @@
             src = fileSetForCrate [./reef_node_native ./reef_interpreter ./reef_protocol];
           });
 
+        # ===============
+        # JS/Npm Packages
+        # ===============
+
+        reef_frontend = pkgs.buildNpmPackage {
+          pname = "reef_frontend";
+          version = "0.1.0";
+
+          src = ./reef_frontend;
+
+          npmDepsHash = "sha256-U6m2WoH2SPZ9cFqa4ibjLdN8IsIUZtZhNH23SEZlaLQ=";
+          npmPackFlags = ["--ignore-scripts"];
+
+          installPhase = ''
+            cp -r out $out
+          '';
+        };
+
         # ================
         # Conatiner images
         # ================
@@ -293,7 +311,7 @@
 
         packages = {
           # Raw binary outputs
-          inherit reef_manager reef_compiler reef_node_native;
+          inherit reef_manager reef_compiler reef_node_native reef_frontend;
 
           # Conatiner images
           inherit reef_manager_image reef_compiler_image reef_node_native_image;
