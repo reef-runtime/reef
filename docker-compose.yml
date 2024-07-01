@@ -1,0 +1,67 @@
+services:
+    caddy:
+        container_name: reef-caddy
+        image: reef_caddy:latest
+        restart: unless-stopped
+        # cap_add:
+        #     - NET_ADMIN
+        environment:
+            - "REEF_PORT=${REEF_PORT}"
+            - "REEF_MANAGER_HOST=reef-manager"
+            - "REEF_MANAGER_PORT=${REEF_MANAGER_PORT}"
+        ports:
+            - "${PORT}:${REEF_PORT}"
+        depends_on:
+            - manager
+
+    compiler:
+        container_name: reef-compiler
+        image: reef_compiler:latest
+        restart: unless-stopped
+        environment:
+            - "REEF_COMPILER_PORT=${REEF_COMPILER_PORT}"
+
+    db:
+        container_name: reef-db
+        image: postgres:14.1-alpine
+        restart: unless-stopped
+        volumes:
+            - reef-db-data:/var/lib/postgresql/data
+            - /etc/localtime:/etc/localtime:ro
+        environment:
+            - "POSTGRES_USER=${REEF_DB_USERNAME}"
+            - "POSTGRES_PASSWORD=${REEF_DB_PASSWORD}"
+            - "POSTGRES_DB=${REEF_DB_NAME}"
+        # healthcheck:
+        #     test:
+        #         [
+        #             "CMD-SHELL",
+        #             "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'",
+        #         ]
+        #     interval: 10s
+        #     timeout: 3s
+        #     retries: 3
+
+    manager:
+        container_name: reef-manager
+        image: reef_manager:latest
+        restart: unless-stopped
+        environment:
+            - "REEF_MANAGER_PORT=${REEF_MANAGER_PORT}"
+            - "REEF_LOG_LEVEL=${REEF_LOG_LEVEL}"
+            - "REEF_COMPILER_ARTIFACT_PATH=${REEF_COMPILER_ARTIFACT_PATH}"
+
+            - "REEF_COMPILER_IP=reef-compiler"
+            - "REEF_COMPILER_PORT=${REEF_COMPILER_PORT}"
+
+            - "REEF_DB_USERNAME=${REEF_DB_USERNAME}"
+            - "REEF_DB_PASSWORD=${REEF_DB_PASSWORD}"
+            - "REEF_DB_NAME=${REEF_DB_NAME}"
+            - "REEF_DB_HOST=reef-db"
+            - "REEF_DB_PORT=${REEF_DB_PORT}"
+        depends_on:
+            - compiler
+            - db
+
+volumes:
+    reef-db-data:

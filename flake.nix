@@ -82,7 +82,8 @@
           modRoot = "./reef_manager";
           doCheck = false;
 
-          vendorHash = "sha256-nBL00njherjwkakvgqPR4kLSZnUseMVMP0lqjaXPB2g=";
+          vendorHash = "sha256-4oTdcH0S9vuGR7kjUpTF8mhDqnWHXtU+Ikm/17kbzv8=";
+          # vendorHash = lib.fakeHash;
 
           meta = {
             description = "Central management server for Reef distributed compute system";
@@ -188,6 +189,42 @@
         # Conatiner images
         # ================
 
+        # 2.8.4-alpine
+        reef_caddy_image = pkgs.dockerTools.streamLayeredImage {
+          name = "reef_caddy";
+          tag = "latest";
+
+          # fromImage = pkgs.dockerTools.pullImage {
+          #   imageName = "caddy";
+          #   imageDigest = "sha256:896c6fb9e3eae11890f53dc528b8a9be1b4d058f6b7603024feb084fc203c0b4";
+          #   sha256 = "0zkskr01nwvhb2ipq85yzbc910jb2kiwzvcfvpzb5bvza3gh8q1q";
+          #   finalImageName = "caddy";
+          #   finalImageTag = "2.8.4-alpine";
+          # };
+
+          contents = [
+            (pkgs.stdenv.mkDerivation
+              {
+                name = "reef_caddy_content";
+                src = lib.fileset.toSource {
+                  root = ./.;
+                  fileset = ./Caddyfile;
+                };
+                buildPhase = " ";
+                installPhase = ''
+                  mkdir -p $out/static
+                  cp -r ${reef_frontend}/. $out/static
+                  cp ./Caddyfile $out/Caddyfile
+                '';
+              })
+            pkgs.caddy
+          ];
+          config = {
+            Cmd = ["/bin/caddy" "run"];
+            # Cmd = ["cat" ".Caddyfile"];
+          };
+        };
+
         reef_manager_image = pkgs.dockerTools.streamLayeredImage {
           name = "reef_manager";
           tag = "latest";
@@ -227,9 +264,19 @@
           name = "reef_compiler";
           tag = "latest";
 
-          contents = [reef_compiler ./reef_compiler/container_tmp];
+          contents = [
+            reef_compiler
+            # Creating /tmp in the container
+            (pkgs.stdenv.mkDerivation
+              {
+                name = "container_tmp";
+                src = ./reef_compiler;
+                buildPhase = " ";
+                installPhase = "mkdir -p $out/tmp";
+              })
+          ];
           config = {
-            Cmd = ["bin/reef_compiler"];
+            Cmd = ["bin/reef_compiler" "--build-path" "/tmp"];
           };
         };
 
@@ -310,11 +357,15 @@
         formatter = nixpkgs.legacyPackages.${system}.alejandra;
 
         packages = {
-          # Raw binary outputs
-          inherit reef_manager reef_compiler reef_node_native reef_frontend;
+          # Binary outputs
+          inherit reef_manager reef_compiler reef_node_native;
+          # Other outputs
+          inherit reef_frontend;
 
-          # Conatiner images
-          inherit reef_manager_image reef_compiler_image reef_node_native_image;
+          # Conatiner images for central system
+          inherit reef_caddy_image reef_manager_image reef_compiler_image;
+          # Container images for node
+          inherit reef_node_native_image;
         };
 
         apps = {

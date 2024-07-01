@@ -16,7 +16,7 @@ import (
 )
 
 // TODO: read these from env.
-const webPort = 3000
+const webPort = 3001
 const datasetPath = "./datasets/"
 
 type Config struct {

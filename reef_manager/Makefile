@@ -62,7 +62,7 @@ docker-check: $(DOCKER_OK_FILE)
 
 dev-db-up: docker-check
 	@echo "Starting dev database..."
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_DEV_FILE) up  -d
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_DEV_FILE) up -d
 
 dev-db-down: docker-check
 	@echo "Tearing down dev database..."

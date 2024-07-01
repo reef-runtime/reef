@@ -11,7 +11,6 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
-	_ "github.com/golang-migrate/migrate/v4/source/pkger"
 	_ "github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 )
@@ -116,15 +115,15 @@ func Init(pLogger *logrus.Logger, config DatabaseConfig, migrations embed.FS) er
 	return nil
 }
 
-// Solely used for testing purposes.
-func deleteAllTables() error {
-	tables := []string{JobTableName}
+// // Solely used for testing purposes.
+// func deleteAllTables() error {
+// 	tables := []string{JobTableName}
 
-	for _, table := range tables {
-		if _, err := db.builder.Delete(table).Exec(); err != nil {
-			return err
-		}
-	}
+// 	for _, table := range tables {
+// 		if _, err := db.builder.Delete(table).Exec(); err != nil {
+// 			return err
+// 		}
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
