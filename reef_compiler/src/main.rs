@@ -19,15 +19,17 @@ mod server;
 #[command(version, about, long_about = None)]
 struct Args {
     /// The port on which the server listens.
-    port: u16,
+    #[arg(short = 'p', long)]
+    port: Option<u16>,
     /// Compilation / build working dir.
+    #[arg(short = 'b', long)]
     build_path: PathBuf,
 
-    #[arg(short = 't', long)]
     /// Path to language templates.
+    #[arg(short = 't', long)]
     lang_templates: Option<PathBuf>,
+    /// Whether to skip cleanup after compilation.
     #[arg(short = 'c', long)]
-    // Whether to skip cleanup after compilation.
     no_cleanup: bool,
 }
 
@@ -35,7 +37,14 @@ struct Args {
 pub async fn main() -> Result<()> {
     let args = Args::parse();
 
-    let addr = SocketAddr::new(IpAddr::from_str("0.0.0.0")?, args.port);
+    let port = args.port.unwrap_or_else(|| {
+        std::env::var("REEF_COMPILER_PORT")
+            .expect("Failed to read port from env.")
+            .parse()
+            .expect("Failed to parse port env as number.")
+    });
+
+    let addr = SocketAddr::new(IpAddr::from_str("0.0.0.0")?, port);
 
     println!("Reef compiler RPC running at {addr}");
 
