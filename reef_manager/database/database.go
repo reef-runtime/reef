@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"embed"
 	"errors"
 	"fmt"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	_ "github.com/golang-migrate/migrate/v4/source/pkger"
 	_ "github.com/lib/pq"
 	"github.com/sirupsen/logrus"
@@ -46,7 +48,7 @@ type DatabaseConfig struct {
 	DBName   string `env:"REEF_DB_NAME" env-required:"true"`
 }
 
-func Init(pLogger *logrus.Logger, config DatabaseConfig) error {
+func Init(pLogger *logrus.Logger, config DatabaseConfig, migrations embed.FS) error {
 	initLogger(pLogger)
 
 	if db.db != nil {
@@ -79,9 +81,17 @@ func Init(pLogger *logrus.Logger, config DatabaseConfig) error {
 		return err
 	}
 
-	m, err := migrate.NewWithDatabaseInstance(
-		"pkger:///db/migrations",
-		"postgres", driver)
+	source, err := iofs.New(migrations, "db/migrations")
+	if err != nil {
+		return fmt.Errorf("migration ebmed failed: %s", err.Error())
+	}
+
+	m, err := migrate.NewWithInstance(
+		"iofs",
+		source,
+		"postgres",
+		driver,
+	)
 	if err != nil {
 		log.Errorf("Could not run migrations: failed to connect to database: %s", err.Error())
 		return err

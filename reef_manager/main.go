@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"errors"
 	"fmt"
 	"net/http"
@@ -23,6 +24,9 @@ type Config struct {
 	CompilerConfig logic.CompilerConfig
 }
 
+//go:embed db/migrations/*.sql
+var migrations embed.FS
+
 func ship(logger *logrus.Logger) error {
 	//
 	// Database connection.
@@ -38,7 +42,7 @@ func ship(logger *logrus.Logger) error {
 		return fmt.Errorf("configuration error: %s", help)
 	}
 
-	if err := database.Init(logger, config.Database); err != nil {
+	if err := database.Init(logger, config.Database, migrations); err != nil {
 		logger.Fatalf("Initializing database failed: %s", err.Error())
 		return errors.New("database error")
 	}
