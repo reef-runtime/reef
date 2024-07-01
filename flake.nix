@@ -189,6 +189,16 @@
         # Conatiner images
         # ================
 
+        container_tmp =
+          # Creating /tmp in the container
+          pkgs.stdenv.mkDerivation
+          {
+            name = "container_tmp";
+            src = ./reef_compiler;
+            buildPhase = " ";
+            installPhase = "mkdir -p $out/tmp";
+          };
+
         reef_caddy_image = pkgs.dockerTools.streamLayeredImage {
           name = "reef_caddy";
           tag = "latest";
@@ -218,7 +228,7 @@
         reef_manager_image = pkgs.dockerTools.streamLayeredImage {
           name = "reef_manager";
           tag = "latest";
-          contents = [reef_manager];
+          contents = [reef_manager container_tmp];
           config = {
             Cmd = ["bin/reef_manager"];
           };
@@ -254,17 +264,7 @@
           name = "reef_compiler";
           tag = "latest";
 
-          contents = [
-            reef_compiler
-            # Creating /tmp in the container
-            (pkgs.stdenv.mkDerivation
-              {
-                name = "container_tmp";
-                src = ./reef_compiler;
-                buildPhase = " ";
-                installPhase = "mkdir -p $out/tmp";
-              })
-          ];
+          contents = [reef_compiler container_tmp];
           config = {
             Cmd = ["bin/reef_compiler" "--build-path" "/tmp"];
           };
