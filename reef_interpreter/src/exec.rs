@@ -49,10 +49,10 @@ impl ExecHandle {
     }
 
     /// Take the current execution state and serialize it
-    pub fn serialize<W: Write>(&mut self, writer: W) -> Result<()> {
+    pub fn serialize<W: Write>(&mut self, writer: W, extra_data: &[u8]) -> Result<()> {
         let memory = &self.func_handle.instance.memories[0];
         let globals = self.func_handle.instance.globals.iter().map(|g| g.value).collect();
-        let data = SerializationState { stack: &self.stack, memory, globals };
+        let data = SerializationState { stack: &self.stack, memory, globals, extra_data };
 
         let encoder = flate2::write::ZlibEncoder::new(writer, flate2::Compression::best());
         bincode::serialize_into(encoder, &data)?;
@@ -90,8 +90,8 @@ impl<R: FromWasmValueTuple> ExecHandleTyped<R> {
     }
 
     /// See [`ExecHandle::serialize`]
-    pub fn serialize<W: Write>(&mut self, writer: W) -> Result<()> {
-        self.exec_handle.serialize(writer)
+    pub fn serialize<W: Write>(&mut self, writer: W, extra_data: &[u8]) -> Result<()> {
+        self.exec_handle.serialize(writer, extra_data)
     }
 }
 
@@ -100,6 +100,7 @@ pub(crate) struct SerializationState<'a> {
     pub(crate) stack: &'a Stack,
     pub(crate) memory: &'a MemoryInstance,
     pub(crate) globals: Vec<RawWasmValue>,
+    pub(crate) extra_data: &'a [u8],
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
@@ -107,4 +108,5 @@ pub(crate) struct DeserializationState {
     pub(crate) stack: Stack,
     pub(crate) memory: MemoryInstance,
     pub(crate) globals: Vec<RawWasmValue>,
+    pub(crate) extra_data: Vec<u8>,
 }

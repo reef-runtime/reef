@@ -62,7 +62,11 @@ impl Instance {
     }
 
     /// Instantiate the module with the given imports and maybe restore state to resume execution of a function
-    pub fn instantiate(module: Module, imports: Imports, state: Option<&[u8]>) -> Result<(Self, Option<Stack>)> {
+    pub fn instantiate(
+        module: Module,
+        imports: Imports,
+        state: Option<&[u8]>,
+    ) -> Result<(Self, Option<Stack>, Vec<u8>)> {
         let mut instance = Self::instantiate_raw(module, imports)?;
 
         match state {
@@ -74,9 +78,9 @@ impl Instance {
                 instance.memories[0] = state.memory;
                 instance.globals.iter_mut().zip(state.globals.iter()).for_each(|(g, v)| g.value = *v);
 
-                Ok((instance, Some(state.stack)))
+                Ok((instance, Some(state.stack), state.extra_data))
             }
-            None => Ok((instance, None)),
+            None => Ok((instance, None, Vec::new())),
         }
     }
 

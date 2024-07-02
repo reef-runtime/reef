@@ -189,7 +189,7 @@ pub(crate) fn spawn_worker_thread(signal: Arc<AtomicU8>, job_id: String, data: W
                 WorkerSignal::SAVE_STATE => {
                     serialized_state.clear();
                     let mut writer = std::io::Cursor::new(&mut serialized_state);
-                    exec_handle.serialize(&mut writer)?;
+                    exec_handle.serialize(&mut writer, &job_output.borrow().1)?;
 
                     println!("Serialized {} bytes for state of {}.", serialized_state.len(), job_id);
 
@@ -236,9 +236,9 @@ fn setup_interpreter(
     let dataset = Rc::new(data.dataset);
 
     let module = parse_bytes(&data.program)?;
-    let imports = reef_imports(data.sender, sleep_until, job_output, dataset.clone())?;
+    let imports = reef_imports(data.sender, sleep_until, job_output.clone(), dataset.clone())?;
 
-    let (mut instance, stack) = Instance::instantiate(module, imports, data.state.as_deref())?;
+    let (mut instance, stack, extra_data) = Instance::instantiate(module, imports, data.state.as_deref())?;
     if stack.is_some() {
         // reload dataset
         let mut mem = instance.exported_memory_mut("memory")?;
@@ -247,6 +247,8 @@ fn setup_interpreter(
             mem.copy_into_ignored_byte_region(&dataset);
         }
     }
+
+    job_output.borrow_mut().1 = extra_data;
 
     let entry_fn_handle = instance.exported_func::<ReefMainArgs, ReefMainReturn>(REEF_MAIN_NAME)?;
     let exec_handle = entry_fn_handle.call((), stack)?;
