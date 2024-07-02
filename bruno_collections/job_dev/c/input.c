@@ -1,4 +1,4 @@
-#include "../../../reef_compiler/skeletons/c/reef.h"
+#include "../../../reef_compiler/lang_templates/c/reef.h"
 
 #include "reef.h"
 
@@ -14,20 +14,11 @@ void run(uint8_t *dataset, size_t ds_len) {
   reef_puts("Calculating Fibonacci Sequence");
 
   int I = 20;
+
   for (int x = 0; x < I; x++) {
-
-    int its = 29;
-    for (int i = 0; i < its; i++) {
-      char result[10] = {'0'};
-      result[9] = 0;
-
-      int res = fib(i);
-
-      itoa(res, result, 10);
-
-      reef_puts(result);
-    }
-
-    reef_progress((float)x / (float)I);
+    reef_sleep(1.0);
+    float progress = (float)x / (float)I;
+    reef_log_int(progress * 100);
+    reef_progress(progress);
   }
 }
