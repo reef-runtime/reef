@@ -2,7 +2,7 @@
 // Reef data / schema definition file for jobs.
 //
 
-import { ILogEntry } from "./log";
+import { ILogEntry } from './log';
 
 export enum IJobStatus {
   // Job has not yet started, waiting for free worker.
@@ -22,9 +22,9 @@ export enum IJobResultContentType {
   ContentTypeStringJSON = 0,
   // Parse the data as an UTF-8 string but don't do anything fancy with it.
   ContentTypeStringPlain,
-  // Parse the data as a 64-bit signed little-endian integer.
-  // The server guarantees that the length of the `content` array is always 8 elements (= 64 bits).
-  ContentTypeInt64,
+  // Parse the data as a 32-bit signed little-endian integer.
+  // The server guarantees that the length of the `content` array is always 4 elements (= 32 bits).
+  ContentTypeI32,
   // Raw binary data, format as HEX with the option to display it as *lossy* UTF-8.
   ContentTypeRawBytes,
 }
