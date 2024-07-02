@@ -7,6 +7,5 @@ export $(shell sed 's/=.*//' $(ENV_FILE))
 
 run:
 	npm install
-	PORT=$(REEF_NEXTJS_PORT)
-	npm run dev
+	PORT=$(REEF_NEXTJS_PORT) npm run dev
 
