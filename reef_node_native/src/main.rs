@@ -235,12 +235,12 @@ fn send_job_result(worker_index: u16, res: &JobResult, socket: &mut WSConn) -> a
     let mut message = capnp::message::Builder::new_default();
     let mut encapsulating_message: reef_protocol_node::message_capnp::message_from_node::Builder = message.init_root();
     encapsulating_message.set_kind(MessageFromNodeKind::JobResult);
-    let mut state_sync = encapsulating_message.get_body().init_job_result();
+    let mut state_result = encapsulating_message.get_body().init_job_result();
 
-    state_sync.set_worker_index(worker_index);
-    state_sync.set_success(res.success);
-    state_sync.set_contents(&res.contents);
-    state_sync.set_content_type(res.content_type);
+    state_result.set_worker_index(worker_index);
+    state_result.set_success(res.success);
+    state_result.set_contents(&res.contents);
+    state_result.set_content_type(res.content_type);
 
     let mut buffer = vec![];
 

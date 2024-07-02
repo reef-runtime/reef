@@ -167,6 +167,9 @@ pub(crate) fn spawn_worker_thread(signal: Arc<AtomicU8>, job_id: String, data: W
         let job_output = Rc::new(RefCell::new((ResultContentType::Bytes, Vec::new())));
 
         let sender = data.sender.clone();
+        // send initial state sync to move job from starting to running
+        sender.send(FromWorkerMessage::State(data.state.clone().unwrap_or(Vec::new()))).unwrap();
+
         let mut exec_handle = match setup_interpreter(data, sleep_until.clone(), job_output.clone()) {
             Ok(handle) => handle,
             Err(err) => {
