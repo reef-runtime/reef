@@ -23,7 +23,7 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
         <li className="text-sm text-muted-foreground font-bold flex items-center justify-between space-x-1">
           <div className="flex items-center">
             <JobStatusIcon job={job} />
-            <span className="text-primary">{job.name}</span>
+            <span className="ml-1 text-primary">{job.name}</span>
           </div>
           <span
             className={classNames('', {
@@ -48,7 +48,10 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
 
         <li>
           {(function () {
-            if (job.status !== IJobStatus.StatusRunning) {
+            if (
+              job.status !== IJobStatus.StatusRunning ||
+              job.progress < 0.01
+            ) {
               return null;
             }
             const percentage = Math.floor(job.progress * 100);
