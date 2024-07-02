@@ -171,6 +171,35 @@ export default function RootLayout({
                 </nav>
               </aside>
               <div className="flex flex-col sm:gap-4 sm:pl-14 grow h-full">
+                <nav className="sm:hidden sticky top-0 z-10 p-4 bg-background border-b">
+                  <Sheet>
+                    <SheetTrigger asChild>
+                      <Button size="icon" variant="outline">
+                        <PanelLeft className="h-5 w-5" />
+                        <span className="sr-only">Toggle Menu</span>
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent side="left">
+                      <nav className="grid gap-6 text-lg font-medium">
+                        {NAV_ITEMS.map((item) => (
+                          <Link
+                            key={item.title}
+                            href={item.path}
+                            className={`flex items-center gap-4 px-2.5 ${
+                              currentPath === item.path
+                                ? 'text-foreground'
+                                : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                          >
+                            <item.Icon className="h-5 w-5" />
+                            {item.title}
+                          </Link>
+                        ))}
+                      </nav>
+                    </SheetContent>
+                  </Sheet>
+                </nav>
+
                 {children}
               </div>
             </div>
