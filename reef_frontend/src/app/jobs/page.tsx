@@ -41,7 +41,7 @@ export default function Page() {
   }, []);
 
   return (
-    <main className="flex flex-col md:flex-row p-4 md:space-x-4 xl:h-full">
+    <main className="flex flex-col md:flex-row p-4 md:space-x-4 xl:max-h-dvh">
       <div
         className="flex flex-col xl:grid gap-4 w-full"
         style={{

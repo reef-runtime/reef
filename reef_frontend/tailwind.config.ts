@@ -73,6 +73,9 @@ const config = {
         'accordion-up': 'accordion-up 0.2s ease-out',
         'spin-slow': 'spin 2s linear infinite',
       },
+      height: {
+        'full-pad': 'calc(100svh - 2rem)',
+      },
     },
   },
   plugins: [require('tailwindcss-animate')],

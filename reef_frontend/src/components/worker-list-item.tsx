@@ -61,7 +61,6 @@ const WorkerListItem: React.FC<WorkerListItemProps> = ({
           );
         })()}
       </ul>
-      <Separator className="" />
     </div>
   );
 };
