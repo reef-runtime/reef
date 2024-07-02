@@ -1,20 +1,12 @@
 'use client';
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNodes } from '@/stores/nodes.store';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useJobs } from '@/stores/job.store';
-import classNames from 'classnames';
 import { IJob, IJobStatus } from '@/types/job';
 import { BanIcon, CogIcon } from 'lucide-react';
-import JobStatusIcon from '@/components/job-status';
 import JobListItem from '@/components/job-list-item';
 import { useEffect } from 'react';
 import { GetSocket, topicAllJobs } from '@/lib/websocket';
@@ -40,18 +32,18 @@ export default function Page() {
   const { jobs, setJobs } = useJobs();
 
   useEffect(() => {
-    const sock = GetSocket()
-    sock.unsubscribeAll()
+    const sock = GetSocket();
+    sock.unsubscribeAll();
 
     sock.subscribe(topicAllJobs(), (res) => {
-        setJobs(res.data)
-    })
-  }, [])
+      setJobs(res.data);
+    });
+  }, []);
 
   return (
-    <main className="flex flex-col md:flex-row p-4 md:space-x-4 grow">
+    <main className="flex flex-col md:flex-row p-4 md:space-x-4 h-full">
       <div
-        className="flex flex-col xl:grid gap-4 grow w-full"
+        className="flex flex-col xl:grid gap-4 w-full"
         style={{
           gridTemplateColumns: `repeat(${GROUPS.length}, 1fr)`,
         }}
@@ -64,8 +56,8 @@ export default function Page() {
             <CardHeader key={group.title}>
               <CardTitle>{group.title}</CardTitle>
             </CardHeader>
-            <CardContent className="grow">
-              <ScrollArea className="rounded-md grow h-full">
+            <CardContent className="h-full overflow-hidden">
+              <ScrollArea className="rounded-md h-full">
                 {jobs.filter(group.filter).map((job) => (
                   <JobListItem key={job.id} job={job} />
                 ))}

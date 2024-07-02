@@ -42,7 +42,7 @@ const JobStatusIcon: FC<JobStatusIconProps> = ({ job }) => {
           'bg-gray-400': job?.status === IJobStatus.StatusQueued,
           'bg-green-500':
             job?.status === IJobStatus.StatusDone && job.result?.success,
-          'bg-red-500 animate-ping':
+          'bg-red-500':
             job?.status === IJobStatus.StatusDone && !job.result?.success,
         })}
       ></span>
