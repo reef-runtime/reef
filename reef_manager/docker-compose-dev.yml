@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   db:
-    container_name: reef-db
+    container_name: reef-db-dev
     image: postgres:14.1-alpine
     restart: always
     volumes:
