@@ -52,21 +52,31 @@ import { rust } from '@codemirror/lang-rust';
 // import { cpp } from '@codemirror/lang-cpp';
 import { useMemo, useRef } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
-import { vscodeDark } from '@uiw/codemirror-theme-vscode';
+import { vscodeDark, vscodeLight } from '@uiw/codemirror-theme-vscode';
 import { VariantProps } from 'class-variance-authority';
 import { register } from 'module';
 
+import Split from 'react-split-grid';
+
+import { useTheme } from 'next-themes';
+import './code.css';
 
 //
 //
 //
-
 
 const extensions = [rust()];
 
 //
 //
 //
+//
+
+interface CompileRes {
+    success: boolean,
+    message: string,
+    error: string,
+}
 
 const schema = z.object({
   name: z.string().min(2).max(50),
@@ -76,7 +86,9 @@ const schema = z.object({
 
 export default function Page() {
   const { toast } = useToast();
-  const [response, setResponse] = useState<string>('');
+  const [response, setResponse] = useState<CompileRes>({
+    success: false, message: "", error: ""
+  });
 
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
@@ -103,115 +115,156 @@ export default function Page() {
       description: 'Check console for more information',
     });
 
-    setResponse(await res.text());
+    setResponse(await res.json() as CompileRes);
+  };
+
+  const { theme } = useTheme();
+
+  let [columns, setColumns] = useState(`2fr 10px 1fr`);
+
+
+  const handleDrag = (direction: any, track: any, gridTemplateStyle: any) => {
+    setColumns(gridTemplateStyle);
   };
 
   return (
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="flex flex-col xl:flex-row p-4 space-y-4 xl:space-y-0 xl:space-x-4"
+        className="h-full p-4 space-y-4 xl:space-y-0 xl:space-x-4"
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 grow">
-          <Card className="grid w-full gap-2 col-span-3 ">
-            <CardHeader>
-              <CardTitle>Code Editor</CardTitle>
-              {/* TODO: use bundeled default files + a selector (like for sprache.hpi.church) */}
-            </CardHeader>
+        <Split
+          gridTemplateColumns={columns}
+          onDrag={handleDrag}
+          cursor="col-resize"
+          minSize={100}
+          render={({ getGridProps, getGutterProps }) => (
+            <div className="h-full split-grid" {...getGridProps()}>
+              <div className="split-column h-full w-full rounded-lg border bg-card text-card-foreground shadow-sm flex flex-col">
+                <FormField
+                  control={form.control}
+                  name="sourceCode"
+                  render={({ field }) => (
+                    <FormItem style={{ height: '100%' }}>
+                      <FormControl>
+                        <CodeMirror
+                          {...field}
+                          style={{ height: '100%' }}
+                          className={'codeEditor'}
+                          value={'TEST'}
+                          lang="c"
+                          height="100%"
+                          theme={theme === 'dark' ? vscodeDark : vscodeLight}
+                          extensions={extensions}
+                          onChange={(value, _) => {
+                            field.onChange(value);
+                          }}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-            <CardContent style={{ height: '85vh' }}>
-              <FormField
-                control={form.control}
-                name="sourceCode"
-                render={({ field }) => (
-                  <FormItem style={{ height: '100%' }}>
-                    <FormControl
-                    >
+              <div
+                {...getGutterProps('column', 1)}
+                className="gutter gutter-vertical"
+              ></div>
 
-                    <CodeMirror
-                        {...field}
-                        style={{ height: '100%' }}
-                        className={"codeEditor"}
-                        value={"TEST"}
-                        lang="c"
-                        height="100%"
-                        theme={vscodeDark}
-                        extensions={extensions}
-                        onChange={(value, _) => {
-                            field.onChange(value)
-                        }}
+              <div className="split-column h-full flex flex-col space-y-4">
+                <Card className="w-full flex flex-col">
+                  <CardHeader>
+                    <CardTitle>Job Submission</CardTitle>
+                  </CardHeader>
+                  <CardContent className='flex justify-stretch flex-wrap space-x-2'>
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem className='grow'>
+                          <FormLabel>Job Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Job Name" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="language"
+                      render={({ field }) => (
+                        <FormItem className='grow min-w-[30%]'>
+                          <FormLabel>Language</FormLabel>
+                          <FormControl>
+                            <Select
+                              onValueChange={(c) => {
+                                console.dir(c);
+                                field.onChange(c);
+                              }}
+                              defaultValue={'c'}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select a language" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectGroup>
+                                  <SelectItem value="c">C</SelectItem>
+                                  <SelectItem value="rust">Rust</SelectItem>
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
 
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
-        </div>
+                  </CardContent>
 
-        <div className="w-[300px] flex flex-col space-y-4">
-          <Card className="w-[300px] flex flex-col">
-            <CardHeader>
-              <CardTitle>Job Submission</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Job Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Job Name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+                  <div className="grow" />
+                  <Button type="submit" className="rounded-t-none">
+                    Submit Job
+                  </Button>
+                </Card>
+
+                {response && response != '' && (
+                <Card className="h-full w-full flex flex-col">
+                      <div
+                        className="h-full w-full px-4 py-3"
+                        style={{
+                          backgroundColor: 'beige',
+                          fontFamily: 'monospace',
+                          fontSize: '0.9rem',
+                          boxSizing: 'border-box'
+                        }}
+                      >
+                      {response}
+                      </div>
+                      </Card>
                 )}
-              />
-              <FormField
-                control={form.control}
-                name="language"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Language</FormLabel>
-                    <FormControl>
-                      <Select onValueChange={(c) => {
-                        console.dir(c)
-                        field.onChange(c)
-                      }} defaultValue={'c'}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select a language" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectItem value="c">C</SelectItem>
-                            <SelectItem value="rust">Rust</SelectItem>
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-            <div className="grow" />
-            <Button type="submit" className="rounded-t-none">
-              Submit Job
-            </Button>
-          </Card>
-          {response && response != '' && (
-            <Card className="grid w-full gap-2 col-span-3 ">
-              <CardHeader>
-                <CardTitle>Response</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Textarea value={response} className="h-[500px]" />
-              </CardContent>
-            </Card>
+
+
+
+              </div>
+
+            </div>
+            //
+            // <div className="split-grid" {...getGridProps()}>
+            //   <div className="split-column">COLUMN A (position 0)</div>
+            //   <div
+            //     className="gutter gutter-vertical"
+            //     {...getGutterProps('column', 1)}
+            //   />
+            //   <div className="split-column">COLUMN B (position 2)</div>
+            //   <div
+            //     className="gutter gutter-vertical"
+            //     {...getGutterProps('column', 3)}
+            //   />
+            //   <div className="split-column">COLUMN C (position 3)</div>
+            // </div>
           )}
-        </div>
+        />
       </form>
     </Form>
   );

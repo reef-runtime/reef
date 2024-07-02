@@ -1,0 +1,29 @@
+.gutter {
+  /* background-color: #eee; */
+  /* background-repeat: no-repeat; */
+  /* background-position: 50%; */
+  cursor: col-resize;
+}
+
+.gutter.gutter-vertical {
+  /* background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAFAQMAAABo7865AAAABlBMVEVHcEzMzMzyAv2sAAAAAXRSTlMAQObYZgAAABBJREFUeF5jOAMEEAIEEFwAn3kMwcB6I2AAAAAASUVORK5CYII='); */
+  /* background-color: red; */
+
+
+            /* background: repeating-linear-gradient( */
+            /*     45deg, */
+            /*     gray 0px, */
+            /*     gray 2px, */
+            /*     light-gray 2px, */
+            /*     light-gray 0.4rem */
+            /* ); */
+}
+
+.split-grid {
+  display: grid;
+}
+
+.split-column {
+  overflow: auto;
+  height: 100%;
+}
