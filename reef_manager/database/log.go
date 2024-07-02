@@ -59,6 +59,7 @@ func DeleteLogs(jobID string) error {
 	// nolint:goconst
 	_, err := db.builder.Delete(JobTableName).Where("log.job_id=?", jobID).Exec()
 	if err != nil {
+		log.Errorf("Could not delete job logs: exec query: %s", err.Error())
 		return err
 	}
 

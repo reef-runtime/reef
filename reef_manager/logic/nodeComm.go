@@ -21,20 +21,14 @@ func FormatBinarySliceAsHex(input []byte) string {
 }
 
 //
-// Job initialization
+// Job initialization.
 //
 
-// workerIndex         @0 :UInt32;
-// jobId               @1 :Text;
-// programByteCode     @2 :Data;
-// # If the job has just been started these will be 0/empty.
-// progress            @3 :Float32;
-// interpreterState    @4 :Data;
-
+// nolint:funlen
 func toNodeJobInitializationMessage(
 	workerIndex uint32,
 	jobID string,
-	datasetID string,
+	datasetID *string,
 	progress float32,
 	interpreterState []byte,
 	programByteCode []byte,
@@ -75,9 +69,14 @@ func toNodeJobInitializationMessage(
 		return nil, err
 	}
 
-	// Dataset ID
-	if err := nestedBody.SetDatasetId(datasetID); err != nil {
-		return nil, err
+	// Dataset ID.
+	hasDataset := datasetID != nil
+	nestedBody.SetHasDataset(hasDataset)
+
+	if hasDataset {
+		if err := nestedBody.SetDatasetId(*datasetID); err != nil {
+			return nil, err
+		}
 	}
 
 	// Progress.
@@ -124,8 +123,6 @@ func (m *JobManagerT) StartJobOnNode(
 		return err
 	}
 
-	// TODO: what??
-
 	node.Lock.Lock()
 	node.Data.WorkerState[workerIdx] = &job.Data.Data.ID
 	nodeID := node.Data.ID
@@ -141,9 +138,8 @@ func (m *JobManagerT) StartJobOnNode(
 		IDToString(nodeID),
 	)
 
-	// TODO: wait for job to start
-	// Now we wait until the job responds with `CODE_STARTED_JOB`.
-	// Then, we invoke another function to handle this.
+	// NOTE: we don't have to wait for the job to start on the node since the first state sync will be enough to set
+	// the job status to running.
 
 	return nil
 }

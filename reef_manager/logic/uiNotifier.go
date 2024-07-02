@@ -101,9 +101,6 @@ type CachedUpdate struct {
 }
 
 type UISubscriptionsManager struct {
-	// Stores all status updates which have not yet been delivered to the client.
-	Retained map[WebSocketTopic]ToUIUpdateMsg
-
 	FromDatasources chan DataCollectionMsg
 
 	Connections LockedMap[net.Addr, *UIConn[ToUIUpdateMsg]]
@@ -118,7 +115,6 @@ type UISubscriptionsManager struct {
 
 func NewUIManager() UISubscriptionsManager {
 	return UISubscriptionsManager{
-		Retained:              make(map[WebSocketTopic]ToUIUpdateMsg),
 		FromDatasources:       make(chan DataCollectionMsg),
 		Connections:           newLockedMap[net.Addr, *UIConn[ToUIUpdateMsg]](),
 		UpdateCache:           newLockedMap[WebSocketTopic, CachedUpdate](),
@@ -239,22 +235,26 @@ func (m *UISubscriptionsManager) connMainLoop(conn *UIConn[ToUIUpdateMsg]) {
 
 // Waits for incoming update messages and sends them to all listening clients.
 func (m *UISubscriptionsManager) WaitAndNotify() {
-	for {
-		select {
-		case message := <-m.FromDatasources:
-			m.notifyOfEvent(message.Topic, message, true)
-		default:
-			if len(m.Retained) == 0 {
-				time.Sleep(uiManagerIdleSleep)
-				continue
-			}
+	buf := newLockedMap[WebSocketTopic, DataCollectionMsg]()
 
-			for topic, msg := range m.Retained {
-				log.Tracef("[UI] Flushing retained topic `%v`", topic)
-				m.sendUIUpdate(msg)
-				delete(m.Retained, topic)
+	// Main loop.
+	go func() {
+		for {
+			buf.Lock.RLock()
+			for topic, data := range buf.Map {
+				m.notifyOfEvent(topic, data)
 			}
+			buf.Lock.RUnlock()
+
+			buf.Clear()
+
+			time.Sleep(uiManagerIdleSleep)
 		}
+	}()
+
+	for {
+		message := <-m.FromDatasources
+		buf.Insert(message.Topic, message)
 	}
 }
 
@@ -284,20 +284,11 @@ func (m *UISubscriptionsManager) sendUIUpdate(update ToUIUpdateMsg) {
 	m.Connections.Lock.RUnlock()
 }
 
-func (m *UISubscriptionsManager) notifyOfEvent(topic WebSocketTopic, event DataCollectionMsg, retain bool) {
+func (m *UISubscriptionsManager) notifyOfEvent(topic WebSocketTopic, event DataCollectionMsg) {
 	// Marshal the event body as JSON.
 	marshaled, err := json.Marshal(event.Data)
 	if err != nil {
 		log.Errorf("[UI] Could not marshal JSON: %s", err.Error())
-		return
-	}
-
-	last, hadLast := m.UpdateCache.Get(topic)
-	if retain && hadLast && time.Since(last.Time) < minUIUpdateDelay {
-		m.Retained[topic] = ToUIUpdateMsg{
-			Topic: topic,
-			Data:  marshaled,
-		}
 		return
 	}
 

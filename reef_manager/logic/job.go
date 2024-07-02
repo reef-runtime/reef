@@ -69,7 +69,7 @@ func (m *JobManagerT) SubmitJob(
 	language JobProgrammingLanguage,
 	sourceCode string,
 	name string,
-	datasetID string,
+	datasetID *string,
 ) (idString string, compilerErr *string, backendErr error) {
 	now := time.Now()
 
@@ -79,10 +79,12 @@ func (m *JobManagerT) SubmitJob(
 		Language   JobProgrammingLanguage
 		SourceCode string
 		Name       string
+		DatasetID  *string
 	}{
 		Language:   language,
 		SourceCode: sourceCode,
 		Name:       name,
+		DatasetID:  datasetID,
 	}); err != nil {
 		return "", nil, err
 	}

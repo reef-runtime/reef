@@ -8,6 +8,7 @@ import (
 )
 
 const JobTableName = "job"
+const JobHasDatasetTableName = "job_has_dataset"
 const ResultTableName = "job_result"
 
 type ContentType uint16
@@ -28,7 +29,7 @@ type JobTableData struct {
 	// Hash of the compiled Wasm artifact.
 	WasmID string `json:"wasmId"`
 	// Dataset ID of the job.
-	DatasetID string `json:"datasetId"`
+	DatasetID *string `json:"datasetId"`
 }
 
 type JobWithResult struct {
@@ -56,9 +57,27 @@ func AddJob(
 		data.Name,
 		data.Submitted,
 		data.WasmID,
-		data.DatasetID,
 	).Exec(); err != nil {
 		log.Errorf("Could not add job to database: executing query failed: %s", err.Error())
+		return err
+	}
+
+	if data.DatasetID == nil {
+		return nil
+	}
+
+	// If the job has a dataset attached, add the relation.
+	_, err := db.builder.
+		Insert(JobHasDatasetTableName).
+		Columns(
+			"job_id",
+			"dataset_id",
+		).
+		Values(data.ID, *data.DatasetID).
+		Exec()
+
+	if err != nil {
+		log.Errorf("Could not add job to database: add dataset entry: executing query failed: %s", err.Error())
 		return err
 	}
 
@@ -75,13 +94,21 @@ func DeleteJob(jobID string) (found bool, err error) {
 		return false, err
 	}
 
+	_, err = db.builder.Delete(JobHasDatasetTableName).Where("job_id=?", jobID).Exec()
+	if err != nil {
+		log.Errorf("Could not delete job: dataset entry: %s", err.Error())
+		return false, err
+	}
+
 	res, err := db.builder.Delete(JobTableName).Where("job.id=?", jobID).Exec()
 	if err != nil {
+		log.Errorf("Could not delete job: job entry: %s", err.Error())
 		return false, err
 	}
 
 	affected, err := res.RowsAffected()
 	if err != nil {
+		log.Errorf("Could not delete job: job entry: rows affected: ", err.Error())
 		return false, err
 	}
 
@@ -106,6 +133,12 @@ func ListJobs(idFilter *string) ([]JobWithResult, error) {
 			"created",
 		).
 		From(JobTableName).
+		LeftJoin(JobHasDatasetTableName).
+		JoinClause(fmt.Sprintf(
+			"ON %s.id = %s.job_id",
+			JobTableName,
+			JobHasDatasetTableName,
+		)).
 		LeftJoin(ResultTableName).
 		JoinClause(
 			fmt.Sprintf("ON %s.id = %s.job_id",

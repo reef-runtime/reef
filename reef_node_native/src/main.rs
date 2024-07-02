@@ -1,3 +1,4 @@
+use core::panic;
 use std::fmt::Display;
 use std::sync::atomic::Ordering;
 use std::thread;
@@ -324,6 +325,7 @@ impl NodeState {
         let state = if request.interpreter_state.is_empty() { None } else { Some(request.interpreter_state) };
 
         println!("Fetching dataset '{}'...", request.dataset_id.as_deref().unwrap_or("<none>"));
+
         let dataset = match request.dataset_id {
             Some(dataset_id) => {
                 let url = format!("{manager_url}api/dataset/{dataset_id}");
@@ -399,9 +401,17 @@ fn handle_binary(bin_slice: &[u8]) -> Result<Action> {
         (MessageToNodeKind::StartJob, body::Which::StartJob(body)) => {
             let body = body?;
             let job_id = String::from_utf8(body.get_job_id()?.0.to_vec()).with_context(|| "illegal job ID encoding")?;
-            let dataset_id =
+
+            let has_dataset = body.get_has_dataset();
+
+            dbg!(has_dataset);
+
+            let dataset_id_raw =
                 String::from_utf8(body.get_dataset_id()?.0.to_vec()).with_context(|| "illegal dataset ID encoding")?;
-            let dataset_id = if dataset_id.is_empty() { None } else { Some(dataset_id) };
+
+            dbg!(dataset_id_raw.clone());
+
+            let dataset_id = if has_dataset { Some(dataset_id_raw) } else { None };
 
             Ok(Action::StartJob(StartJobRequest {
                 worker_index: body.get_worker_index() as usize,

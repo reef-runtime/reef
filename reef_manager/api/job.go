@@ -13,8 +13,8 @@ const jobIDUrlParam = "job_id"
 
 type JobSubmission struct {
 	Name string `json:"name"`
-	// Attaching a dataset to a job submission is optimal.
-	DatasetID  string                       `json:"datasetId"`
+	// Attaching a dataset to a job submission is optional.
+	DatasetID  *string                      `json:"datasetId"`
 	SourceCode string                       `json:"sourceCode"`
 	Language   logic.JobProgrammingLanguage `json:"language"`
 }
@@ -70,15 +70,24 @@ func SubmitJob(ctx *gin.Context) {
 	}
 
 	// Validate additional constraints, like validity of the dataset and language.
-	found, err := logic.DatasetManager.DoesDatasetExist(submission.DatasetID)
-	if err != nil {
-		serverErr(ctx, err.Error())
-		return
-	}
+	// nolint:nestif
+	if submission.DatasetID != nil {
+		found, err := logic.DatasetManager.DoesDatasetExist(*submission.DatasetID)
+		if err != nil {
+			serverErr(ctx, err.Error())
+			return
+		}
 
-	if !found {
-		badRequest(ctx, fmt.Sprintf("dataset with id `%s` not found", submission.DatasetID))
-		return
+		if !found {
+			dsID := "<nil>"
+
+			if submission.DatasetID != nil {
+				dsID = *submission.DatasetID
+			}
+
+			badRequest(ctx, fmt.Sprintf("dataset with id `%s` not found", dsID))
+			return
+		}
 	}
 
 	if err := submission.Language.Validate(); err != nil {
