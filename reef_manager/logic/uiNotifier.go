@@ -294,7 +294,6 @@ func (m *UISubscriptionsManager) notifyOfEvent(topic WebSocketTopic, event DataC
 
 	last, hadLast := m.UpdateCache.Get(topic)
 	if retain && hadLast && time.Since(last.Time) < minUIUpdateDelay {
-		fmt.Println("======================= HAD TO RETAIN =================")
 		m.Retained[topic] = ToUIUpdateMsg{
 			Topic: topic,
 			Data:  marshaled,

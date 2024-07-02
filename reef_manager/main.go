@@ -108,6 +108,8 @@ func ship(logger *logrus.Logger) error {
 
 func main() {
 	logger := newLogger()
+	// Suppress noise.
+	// logger.SetLevel(logrus.ErrorLevel)
 
 	if err := ship(logger); err != nil {
 		logger.Errorf("Failed to start sailing: %s", err.Error())

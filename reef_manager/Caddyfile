@@ -8,7 +8,7 @@
 }
 
 :10000 {
-  encode zstd gzip
+    encode zstd gzip
 	reverse_proxy /api/* localhost:{$REEF_MANAGER_PORT}
     root * ../reef_frontend/out/
     file_server browse

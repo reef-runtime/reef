@@ -122,11 +122,14 @@ func (m *JobManagerT) ListNodes() []NodeWeb {
 	for nodeID, node := range m.Nodes.Map {
 		node.Lock.RLock()
 
+		workerState := make([]*JobID, len(node.Data.WorkerState))
+		copy(workerState, node.Data.WorkerState)
+
 		nodes[cnt] = NodeWeb{
 			Info:        node.Data.Info,
 			LastPing:    node.Data.LastPing,
 			ID:          IDToString(nodeID),
-			WorkerState: node.Data.WorkerState,
+			WorkerState: workerState,
 		}
 		cnt++
 
@@ -204,18 +207,7 @@ func (m *JobManagerT) StateSyncWithLockingOps(nodeID NodeID, state StateSync) (J
 	job.Data.Logs = append(job.Data.Logs, state.Logs...)
 	job.Data.Progress = state.Progress
 
-	// TODO: is reusing the buffer the best choice here?
-
-	newStateLen := len(state.InterpreterState)
-
-	copied := copy(job.Data.InterpreterState, state.InterpreterState)
-
-	// New state was larger than old state.
-	if newStateLen > copied {
-		// TODO: off-by one?
-		job.Data.InterpreterState = append(job.Data.InterpreterState, state.InterpreterState[:copied]...)
-		log.Tracef("State sync: buffer size was grown by %d bytes, new size is %d bytes", newStateLen-copied, len(job.Data.InterpreterState))
-	}
+	job.Data.InterpreterState = state.InterpreterState
 
 	jobStatus := job.Data.Status
 
@@ -346,7 +338,6 @@ func newJobManager(
 //
 
 func (m *JobManagerT) updateNodeState() {
-	fmt.Println("UPDATING NODE STATE")
 	nodes := m.ListNodes()
 	m.SendUIUpdatesTo <- DataCollectionMsg{
 		Topic: WebSocketTopic{
@@ -355,12 +346,9 @@ func (m *JobManagerT) updateNodeState() {
 		},
 		Data: nodes,
 	}
-	fmt.Println("UPDATED NODE STATE")
 }
 
 func (m *JobManagerT) updateAllJobStates() {
-	fmt.Println("UPDATING JOB STATES")
-
 	jobs, err := m.ListJobs()
 
 	if err != nil {
@@ -375,8 +363,6 @@ func (m *JobManagerT) updateAllJobStates() {
 		},
 		Data: jobs,
 	}
-
-	fmt.Println("UPDATED JOB STATES")
 }
 
 func (m *JobManagerT) updateSingleJobState(jobID string) {

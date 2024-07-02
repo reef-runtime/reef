@@ -118,7 +118,6 @@ func ListJobs(idFilter *string) ([]JobWithResult, error) {
 		baseQuery = baseQuery.Where("id=?", *idFilter)
 	}
 
-	fmt.Println(baseQuery.ToSql())
 	res, err := baseQuery.Query()
 
 	if err != nil {
