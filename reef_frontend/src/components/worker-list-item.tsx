@@ -13,6 +13,8 @@ const WorkerListItem: React.FC<WorkerListItemProps> = ({
   job,
   workerIndex,
 }) => {
+  const percentage = job ? Math.floor(job.progress * 100) : 0;
+
   return (
     <div className="w-full overflow-hidden">
       <ul
@@ -20,7 +22,7 @@ const WorkerListItem: React.FC<WorkerListItemProps> = ({
         className={classNames(
           'space-y-2 p-2 rounded-xl transition-shadow duration-300 hover:shadow-lg cursor-pointer h-12',
           {
-            'flex items-center': job === undefined,
+            'flex items-center': percentage < 1,
           }
         )}
       >
@@ -35,31 +37,17 @@ const WorkerListItem: React.FC<WorkerListItemProps> = ({
           </span>
 
           <span className="text-sm font-medium leading-none">
-            {(function () {
-              if (!job) {
-                return null;
-              }
-
-              const percentage = Math.floor(job.progress * 100);
-              return (
-                <span className="text-sm font-medium leading-none">
-                  {percentage} %
-                </span>
-              );
-            })()}
+            {percentage < 1 ? null : (
+              <span className="text-sm font-medium leading-none">
+                {percentage} %
+              </span>
+            )}
           </span>
         </li>
 
-        {(function () {
-          if (!job) {
-            return null;
-          }
-
-          const percentage = Math.floor(job.progress * 100);
-          return (
-            <Progress value={percentage} className="h-1.5 w-full bg-muted/90" />
-          );
-        })()}
+        {percentage < 1 ? null : (
+          <Progress value={percentage} className="h-1.5 w-full bg-muted/90" />
+        )}
       </ul>
     </div>
   );
