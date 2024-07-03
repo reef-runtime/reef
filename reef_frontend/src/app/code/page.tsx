@@ -73,9 +73,9 @@ const extensions = [rust()];
 //
 
 interface CompileRes {
-    success: boolean,
-    message: string,
-    error: string,
+  success: boolean;
+  message: string;
+  error: string;
 }
 
 const schema = z.object({
@@ -87,7 +87,9 @@ const schema = z.object({
 export default function Page() {
   const { toast } = useToast();
   const [response, setResponse] = useState<CompileRes>({
-    success: false, message: "", error: ""
+    success: false,
+    message: '',
+    error: '',
   });
 
   const form = useForm<z.infer<typeof schema>>({
@@ -115,13 +117,12 @@ export default function Page() {
       description: 'Check console for more information',
     });
 
-    setResponse(await res.json() as CompileRes);
+    setResponse((await res.json()) as CompileRes);
   };
 
   const { theme } = useTheme();
 
   let [columns, setColumns] = useState(`2fr 10px 1fr`);
-
 
   const handleDrag = (direction: any, track: any, gridTemplateStyle: any) => {
     setColumns(gridTemplateStyle);
@@ -138,6 +139,7 @@ export default function Page() {
           onDrag={handleDrag}
           cursor="col-resize"
           minSize={100}
+          // @ts-ignore
           render={({ getGridProps, getGutterProps }) => (
             <div className="h-full split-grid" {...getGridProps()}>
               <div className="split-column h-full w-full rounded-lg border bg-card text-card-foreground shadow-sm flex flex-col">
@@ -176,12 +178,12 @@ export default function Page() {
                   <CardHeader>
                     <CardTitle>Job Submission</CardTitle>
                   </CardHeader>
-                  <CardContent className='flex justify-stretch flex-wrap space-x-2'>
+                  <CardContent className="flex justify-stretch flex-wrap space-x-2">
                     <FormField
                       control={form.control}
                       name="name"
                       render={({ field }) => (
-                        <FormItem className='grow'>
+                        <FormItem className="grow">
                           <FormLabel>Job Name</FormLabel>
                           <FormControl>
                             <Input placeholder="Job Name" {...field} />
@@ -194,7 +196,7 @@ export default function Page() {
                       control={form.control}
                       name="language"
                       render={({ field }) => (
-                        <FormItem className='grow min-w-[30%]'>
+                        <FormItem className="grow min-w-[30%]">
                           <FormLabel>Language</FormLabel>
                           <FormControl>
                             <Select
@@ -219,7 +221,6 @@ export default function Page() {
                         </FormItem>
                       )}
                     />
-
                   </CardContent>
 
                   <div className="grow" />
@@ -228,44 +229,41 @@ export default function Page() {
                   </Button>
                 </Card>
 
-                {response && response != '' && (
-                <Card className="h-full w-full flex flex-col">
-                      <div
-                        className="h-full w-full px-4 py-3"
-                        style={{
-                          backgroundColor: 'beige',
-                          fontFamily: 'monospace',
-                          fontSize: '0.9rem',
-                          boxSizing: 'border-box'
-                        }}
-                      >
-                      {response}
-                      </div>
-                      </Card>
+                {response.message && response.message != '' && (
+                  <Card className="h-full w-full flex flex-col">
+                    <div
+                      className="h-full w-full px-4 py-3"
+                      style={{
+                        backgroundColor: 'beige',
+                        fontFamily: 'monospace',
+                        fontSize: '0.9rem',
+                        boxSizing: 'border-box',
+                      }}
+                    >
+                      {response.message}
+                    </div>
+                  </Card>
                 )}
-
-
-
               </div>
-
             </div>
-            //
-            // <div className="split-grid" {...getGridProps()}>
-            //   <div className="split-column">COLUMN A (position 0)</div>
-            //   <div
-            //     className="gutter gutter-vertical"
-            //     {...getGutterProps('column', 1)}
-            //   />
-            //   <div className="split-column">COLUMN B (position 2)</div>
-            //   <div
-            //     className="gutter gutter-vertical"
-            //     {...getGutterProps('column', 3)}
-            //   />
-            //   <div className="split-column">COLUMN C (position 3)</div>
-            // </div>
           )}
         />
       </form>
     </Form>
   );
 }
+
+//
+// <div className="split-grid" {...getGridProps()}>
+//   <div className="split-column">COLUMN A (position 0)</div>
+//   <div
+//     className="gutter gutter-vertical"
+//     {...getGutterProps('column', 1)}
+//   />
+//   <div className="split-column">COLUMN B (position 2)</div>
+//   <div
+//     className="gutter gutter-vertical"
+//     {...getGutterProps('column', 3)}
+//   />
+//   <div className="split-column">COLUMN C (position 3)</div>
+// </div>
