@@ -403,14 +403,8 @@ fn handle_binary(bin_slice: &[u8]) -> Result<Action> {
             let job_id = String::from_utf8(body.get_job_id()?.0.to_vec()).with_context(|| "illegal job ID encoding")?;
 
             let has_dataset = body.get_has_dataset();
-
-            dbg!(has_dataset);
-
             let dataset_id_raw =
                 String::from_utf8(body.get_dataset_id()?.0.to_vec()).with_context(|| "illegal dataset ID encoding")?;
-
-            dbg!(dataset_id_raw.clone());
-
             let dataset_id = if has_dataset { Some(dataset_id_raw) } else { None };
 
             Ok(Action::StartJob(StartJobRequest {
