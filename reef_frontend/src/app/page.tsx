@@ -32,7 +32,14 @@ export default function Home() {
     sock.unsubscribeAll();
 
     sock.subscribe(topicNodes(), (res) => {
-      setNodes(res.data);
+      setNodes(
+        res.data.toSorted((a, b) => {
+          if (a.id < b.id) {
+            return -1;
+          }
+          return 1;
+        })
+      );
     });
 
     sock.subscribe(topicAllJobs(), (res) => {
