@@ -38,7 +38,7 @@ func MessageToNodeEmptyMessage(kind node.MessageToNodeKind) ([]byte, error) {
 // Node Handshake.
 //
 
-func MessageToNodeAssignID(nodeID logic.NodeID) ([]byte, error) {
+func MessageToNodeAssignId(nodeId logic.NodeId) ([]byte, error) {
 	msg, seg, err := capnp.NewMessage(capnp.SingleSegment(nil))
 	if err != nil {
 		return nil, err
@@ -55,16 +55,16 @@ func MessageToNodeAssignID(nodeID logic.NodeID) ([]byte, error) {
 	// Nested.
 	//
 
-	assignIDMsg, err := node.NewAssignIdMessage(seg)
+	assignIdMsg, err := node.NewAssignIdMessage(seg)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := assignIDMsg.SetNodeId(nodeID[:]); err != nil {
+	if err := assignIdMsg.SetNodeId(nodeId[:]); err != nil {
 		return nil, err
 	}
 
-	if err := toNodeMsg.Body().SetAssignId(assignIDMsg); err != nil {
+	if err := toNodeMsg.Body().SetAssignId(assignIdMsg); err != nil {
 		return nil, err
 	}
 
@@ -122,16 +122,16 @@ func performHandshake(conn *logic.WSConn) (logic.Node, error) {
 		NumWorkers: numWorkers,
 	}, conn)
 
-	assignIDMsg, err := MessageToNodeAssignID(newNode.ID)
+	assignIdMsg, err := MessageToNodeAssignId(newNode.Id)
 	if err != nil {
 		return logic.Node{}, err
 	}
 
-	err = conn.WriteMessage(websocket.BinaryMessage, assignIDMsg)
+	err = conn.WriteMessage(websocket.BinaryMessage, assignIdMsg)
 
 	if err != nil {
 		log.Warnf(
-			"[node] handshake with `%s` failed: could not deliver ID to node: %s",
+			"[node] handshake with `%s` failed: could not deliver Id to node: %s",
 			newNode.Info.EndpointIP,
 			err.Error(),
 		)
@@ -146,9 +146,9 @@ func performHandshake(conn *logic.WSConn) (logic.Node, error) {
 // Dropping Nodes.
 //
 
-func dropNode(conn *logic.WSConn, closeCode int, nodeID logic.NodeID) {
-	nodeIDString := logic.IDToString(nodeID)
-	log.Debugf("[node] Dropping node `%s`...", nodeIDString)
+func dropNode(conn *logic.WSConn, closeCode int, nodeId logic.NodeId) {
+	nodeIdString := logic.IdToString(nodeId)
+	log.Debugf("[node] Dropping node `%s`...", nodeIdString)
 
 	message := websocket.FormatCloseMessage(closeCode, "")
 	if err := conn.WriteControl(websocket.CloseMessage, message); err != nil {
@@ -159,8 +159,8 @@ func dropNode(conn *logic.WSConn, closeCode int, nodeID logic.NodeID) {
 		log.Warnf("[node] could not close TCP connection")
 	}
 
-	if !logic.JobManager.DropNode(nodeID) {
-		log.Errorf("[node] dropping unknown node `%s`, this is a bug", nodeIDString)
+	if !logic.JobManager.DropNode(nodeId) {
+		log.Errorf("[node] dropping unknown node `%s`, this is a bug", nodeIdString)
 	}
 }
 
@@ -190,7 +190,7 @@ func pingOrPongMessage(isPing bool) ([]byte, error) {
 	return msg.Marshal()
 }
 
-func nodePingHandler(conn *logic.WSConn, nodeID logic.NodeID) func(string) error {
+func nodePingHandler(conn *logic.WSConn, nodeId logic.NodeId) func(string) error {
 	return func(_ string) error {
 		msg, err := pingOrPongMessage(false)
 		if err != nil {
@@ -204,10 +204,10 @@ func nodePingHandler(conn *logic.WSConn, nodeID logic.NodeID) func(string) error
 			return err
 		}
 
-		if !logic.JobManager.RegisterPing(nodeID) {
+		if !logic.JobManager.RegisterPing(nodeId) {
 			log.Errorf(
 				"[node] could not register ping, node `%s` does not exist, this is a bug",
-				logic.IDToString(nodeID),
+				logic.IdToString(nodeId),
 			)
 		}
 
@@ -236,7 +236,7 @@ func HandleNodeConnection(c *gin.Context) {
 
 	// Add node to manager.
 
-	pingHandler := nodePingHandler(wsConn, node.ID)
+	pingHandler := nodePingHandler(wsConn, node.Id)
 	conn.SetPingHandler(pingHandler)
 
 	conn.SetPongHandler(func(appData string) error {
@@ -245,7 +245,7 @@ func HandleNodeConnection(c *gin.Context) {
 	})
 
 	conn.SetCloseHandler(func(code int, text string) error {
-		dropNode(wsConn, code, node.ID)
+		dropNode(wsConn, code, node.Id)
 		return nil
 	})
 
@@ -257,7 +257,7 @@ func HandleNodeConnection(c *gin.Context) {
 		msgType, message, err := wsConn.ReadMessageWithTimeout(time.Time{})
 		if err != nil {
 			log.Debugf("[node] error while reading message: %s", err.Error())
-			dropNode(wsConn, websocket.CloseAbnormalClosure, node.ID)
+			dropNode(wsConn, websocket.CloseAbnormalClosure, node.Id)
 			break
 		}
 
@@ -269,12 +269,12 @@ func HandleNodeConnection(c *gin.Context) {
 
 			if err := handleGenericIncoming(node, message, pingHandler); err != nil {
 				log.Errorf("[node] failed to act upon message: %s", err.Error())
-				dropNode(wsConn, websocket.CloseAbnormalClosure, node.ID)
+				dropNode(wsConn, websocket.CloseAbnormalClosure, node.Id)
 				return
 			}
 		case websocket.PingMessage:
 			if err := pingHandler(string(message[1:])); err != nil {
-				dropNode(wsConn, websocket.CloseAbnormalClosure, node.ID)
+				dropNode(wsConn, websocket.CloseAbnormalClosure, node.Id)
 				return
 			}
 		case websocket.PongMessage:
@@ -304,31 +304,31 @@ func handleGenericIncoming(nodeData logic.Node, message []byte, pingHandler func
 	case node.MessageFromNodeKind_ping:
 		return pingHandler(string(message[1:]))
 	case node.MessageFromNodeKind_pong:
-		log.Tracef("Received pong from node `%s` (%s)", logic.IDToString(nodeData.ID), nodeData.Info.EndpointIP)
+		log.Tracef("Received pong from node `%s` (%s)", logic.IdToString(nodeData.Id), nodeData.Info.EndpointIP)
 		return nil
 	case node.MessageFromNodeKind_jobStateSync:
-		return processStateSyncFromNode(nodeData.ID, decodedEnclosingMsg)
+		return processStateSyncFromNode(nodeData.Id, decodedEnclosingMsg)
 	case node.MessageFromNodeKind_jobResult:
-		return processJobResultFromNode(nodeData.ID, decodedEnclosingMsg)
+		return processJobResultFromNode(nodeData.Id, decodedEnclosingMsg)
 	default:
 		return fmt.Errorf("received illegal message kind from node: %d", kind)
 	}
 }
 
-func processStateSyncFromNode(nodeID logic.NodeID, message node.MessageFromNode) error {
-	parsed, err := parseStateSync(nodeID, message)
+func processStateSyncFromNode(nodeId logic.NodeId, message node.MessageFromNode) error {
+	parsed, err := parseStateSync(nodeId, message)
 	if err != nil {
 		return err
 	}
 
-	if err := logic.JobManager.StateSync(nodeID, parsed); err != nil {
+	if err := logic.JobManager.StateSync(nodeId, parsed); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func parseStateSync(nodeID logic.NodeID, message node.MessageFromNode) (logic.StateSync, error) {
+func parseStateSync(nodeId logic.NodeId, message node.MessageFromNode) (logic.StateSync, error) {
 	if message.Body().Which() != node.MessageFromNode_body_Which_jobStateSync {
 		panic("assertion failed: expected body type is job state sync, got something different")
 	}
@@ -338,12 +338,12 @@ func parseStateSync(nodeID logic.NodeID, message node.MessageFromNode) (logic.St
 		return logic.StateSync{}, fmt.Errorf("could not parse job state sync: %s", err.Error())
 	}
 
-	nodeInfo, found := logic.JobManager.Nodes.Get(nodeID)
+	nodeInfo, found := logic.JobManager.Nodes.Get(nodeId)
 	if !found {
 		// nolint:goconst
 		return logic.StateSync{}, fmt.Errorf(
-			"illegal node: node ID `%s` references non-existent node",
-			logic.IDToString(nodeID),
+			"illegal node: node Id `%s` references non-existent node",
+			logic.IdToString(nodeId),
 		)
 	}
 
@@ -363,10 +363,10 @@ func parseStateSync(nodeID logic.NodeID, message node.MessageFromNode) (logic.St
 	}
 
 	nodeInfo.Lock.RLock()
-	jobID := nodeInfo.Data.WorkerState[workerIndex]
+	jobId := nodeInfo.Data.WorkerState[workerIndex]
 	nodeInfo.Lock.RUnlock()
 
-	if jobID == nil {
+	if jobId == nil {
 		// nolint:goconst
 		return logic.StateSync{}, fmt.Errorf(
 			"wrong worker index: node returned worker index (%d), this worker is idle",
@@ -408,35 +408,35 @@ func parseStateSync(nodeID logic.NodeID, message node.MessageFromNode) (logic.St
 			Kind:    logKind,
 			Created: time.Now(),
 			Content: string(content),
-			JobID:   *jobID,
+			JobId:   *jobId,
 		}
 	}
 
 	return logic.StateSync{
 		WorkerIndex:      workerIndex,
-		JobID:            *jobID,
+		JobId:            *jobId,
 		Progress:         progress,
 		Logs:             logsOutput,
 		InterpreterState: interpreterState,
 	}, nil
 }
 
-func processJobResultFromNode(nodeID logic.NodeID, message node.MessageFromNode) error {
-	result, err := parseJobResultFromNode(nodeID, message)
+func processJobResultFromNode(nodeId logic.NodeId, message node.MessageFromNode) error {
+	result, err := parseJobResultFromNode(nodeId, message)
 	if err != nil {
 		return fmt.Errorf("parse job result: %s", err.Error())
 	}
 
 	log.Debugf("Job result: %s", result.String())
 
-	if err := logic.JobManager.ProcessResult(nodeID, result); err != nil {
+	if err := logic.JobManager.ProcessResult(nodeId, result); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func parseJobResultFromNode(nodeID logic.NodeID, message node.MessageFromNode) (logic.JobResult, error) {
+func parseJobResultFromNode(nodeId logic.NodeId, message node.MessageFromNode) (logic.JobResult, error) {
 	if message.Body().Which() != node.MessageFromNode_body_Which_jobResult {
 		panic("assertion failed: expected body type is job result, got something different")
 	}
@@ -446,11 +446,11 @@ func parseJobResultFromNode(nodeID logic.NodeID, message node.MessageFromNode) (
 		return logic.JobResult{}, fmt.Errorf("could not parse job result: %s", err.Error())
 	}
 
-	nodeInfo, found := logic.JobManager.Nodes.Get(nodeID)
+	nodeInfo, found := logic.JobManager.Nodes.Get(nodeId)
 	if !found {
 		return logic.JobResult{}, fmt.Errorf(
-			"illegal node: node ID `%s` references non-existent node",
-			logic.IDToString(nodeID),
+			"illegal node: node Id `%s` references non-existent node",
+			logic.IdToString(nodeId),
 		)
 	}
 
@@ -469,10 +469,10 @@ func parseJobResultFromNode(nodeID logic.NodeID, message node.MessageFromNode) (
 	}
 
 	nodeInfo.Lock.RLock()
-	jobID := nodeInfo.Data.WorkerState[workerIndex]
+	jobId := nodeInfo.Data.WorkerState[workerIndex]
 	nodeInfo.Lock.RUnlock()
 
-	if jobID == nil {
+	if jobId == nil {
 		return logic.JobResult{}, fmt.Errorf(
 			"wrong worker index: node returned worker index (%d), this worker is idle",
 			workerIndex,
@@ -485,7 +485,7 @@ func parseJobResultFromNode(nodeID logic.NodeID, message node.MessageFromNode) (
 	}
 
 	return logic.JobResult{
-		JobID:       *jobID,
+		JobId:       *jobId,
 		WorkerIndex: workerIndex,
 		Success:     result.Success(),
 		ContentType: result.ContentType(),

@@ -19,11 +19,11 @@ type APIJob struct {
 
 func (j *APIJob) MarshalJSON() ([]byte, error) {
 	intermediate := map[string]interface{}{
-		"id":        j.Job.Job.ID,
+		"id":        j.Job.Job.Id,
 		"name":      j.Job.Job.Name,
 		"submitted": j.Job.Job.Submitted,
-		"wasmId":    j.Job.Job.WasmID,
-		"datasetId": j.Job.Job.DatasetID,
+		"wasmId":    j.Job.Job.WasmId,
+		"datasetId": j.Job.Job.DatasetId,
 		"progress":  j.Progress,
 		"status":    j.Status,
 		"logs":      j.Logs,
@@ -48,7 +48,7 @@ func (m *JobManagerT) ListJobs() ([]APIJob, error) {
 	return jobs, nil
 }
 
-func (m *JobManagerT) GetJob(id JobID, withLogs bool) (job APIJob, found bool, err error) {
+func (m *JobManagerT) GetJob(id JobId, withLogs bool) (job APIJob, found bool, err error) {
 	raw, found, err := database.GetJob(id)
 	if err != nil || !found {
 		return job, found, err
@@ -62,7 +62,7 @@ func (m *JobManagerT) enrichJob(job database.JobWithResult, withLogs bool) APIJo
 	var logs []database.JobLog
 	status := StatusDone
 
-	runningJob, found := m.NonFinishedJobs.Get(job.Job.ID)
+	runningJob, found := m.NonFinishedJobs.Get(job.Job.Id)
 	if found {
 		// If the job in the DB is running, add runtime information to the output.
 		runningJob.Lock.RLock()

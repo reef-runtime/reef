@@ -13,8 +13,8 @@ post {
 body:json {
   {
     "name": "Bruno test job",
-    "datasetId": "f014eb5cbf8e95de854056b2f6a3e98320a66851a4d1d0f0d20fe3e982345ff3",
-    "sourceCode": "\n#include \"reef.h\"\n\nint fib(int n) {\n  if (n < 2) {\n    return n;\n  }\n\n  return fib(n - 2) + fib(n - 1);\n}\n\nvoid run(uint8_t *dataset, size_t ds_len) {\n  reef_puts(\"Calculating Fibonacci Sequence\");\n\n  int I = 1000;\n  for (int x = 0; x < I; x++) {\n\n    int its = 29;\n    for (int i = 0; i < its; i++) {\n      char result[10] = {'0'};\n      result[9] = 0;\n\n      int res = fib(i);\n\n      itoa(res, result, 10);\n\n      reef_puts(result);\n    }\n    reef_progress((float)x / (float)I);\n  }\n}\n",
+    "datasetId": "8b4985d2f8011f74fdf8566611b8cc8cae398ad350bc33f8b5db5bc840f92cbb",
+    "sourceCode": "\n#include \"reef.h\"\n\nint fib(int n) {\n  if (n < 2) {\n    return n;\n  }\n\n  return fib(n - 2) + fib(n - 1);\n}\n\nvoid run(uint8_t *dataset, size_t ds_len) {\n  reef_puts(\"Calculating Fibonacci Sequence\");\n\n  int I = 20;\n\n  for (int x = 0; x < I; x++) {\n    reef_sleep(1.0);\n    float progress = (float)x / (float)I;\n    reef_log_int(progress * 100);\n    reef_progress(progress);\n  }\n}\n",
     "language": "c"
   }
 }

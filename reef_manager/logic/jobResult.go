@@ -11,7 +11,7 @@ import (
 )
 
 type JobResult struct {
-	JobID       JobID
+	JobId       JobId
 	WorkerIndex uint16
 	Success     bool
 	ContentType node.ResultContentType
@@ -42,26 +42,26 @@ func (r JobResult) String() string {
 		outcome = "SUCCESS"
 	}
 
-	return fmt.Sprintf("[%s] on %s@%d (%s): %s", outcome, r.JobID, r.WorkerIndex, contentTypeStr, content)
+	return fmt.Sprintf("[%s] on %s@%d (%s): %s", outcome, r.JobId, r.WorkerIndex, contentTypeStr, content)
 }
 
-func (m *JobManagerT) ProcessResult(nodeID NodeID, result JobResult) error {
-	jobID, err := m.processResultWithLockingOps(nodeID, result)
+func (m *JobManagerT) ProcessResult(nodeId NodeId, result JobResult) error {
+	jobId, err := m.processResultWithLockingOps(nodeId, result)
 	if err != nil {
 		return err
 	}
 
-	m.updateSingleJobState(jobID)
+	m.updateSingleJobState(jobId)
 	m.updateNodeState()
 
 	return nil
 }
 
-func (m *JobManagerT) processResultWithLockingOps(nodeID NodeID, result JobResult) (jobID JobID, err error) {
-	node, found := m.Nodes.Get(nodeID)
+func (m *JobManagerT) processResultWithLockingOps(nodeId NodeId, result JobResult) (jobId JobId, err error) {
+	node, found := m.Nodes.Get(nodeId)
 
 	if !found {
-		return "", fmt.Errorf("process result: node ID is illegal: `%s`", IDToString(nodeID))
+		return "", fmt.Errorf("process result: node Id is illegal: `%s`", IdToString(nodeId))
 	}
 
 	node.Lock.RLock()
@@ -72,18 +72,18 @@ func (m *JobManagerT) processResultWithLockingOps(nodeID NodeID, result JobResul
 		return "", fmt.Errorf("process result: worker index is illegal: %d", result.WorkerIndex)
 	}
 
-	_, exists, err := database.GetResult(result.JobID)
+	_, exists, err := database.GetResult(result.JobId)
 	if err != nil {
 		return "", err
 	}
 
 	if exists {
-		return "", fmt.Errorf("result for job `%s` already exists in database", result.JobID)
+		return "", fmt.Errorf("result for job `%s` already exists in database", result.JobId)
 	}
 
 	if err := database.SaveResult(database.Result{
 		Success:     result.Success,
-		JobID:       result.JobID,
+		JobId:       result.JobId,
 		Content:     result.Contents,
 		ContentType: database.ContentType(result.ContentType),
 		Created:     time.Now(),
@@ -92,14 +92,14 @@ func (m *JobManagerT) processResultWithLockingOps(nodeID NodeID, result JobResul
 	}
 
 	node.Lock.Lock()
-	jobID = *node.Data.WorkerState[result.WorkerIndex]
+	jobId = *node.Data.WorkerState[result.WorkerIndex]
 	// Finally, delete the job from the worker.
 	node.Data.WorkerState[result.WorkerIndex] = nil
 	node.Lock.Unlock()
 
-	job, found := m.NonFinishedJobs.Delete(jobID)
+	job, found := m.NonFinishedJobs.Delete(jobId)
 	if !found {
-		return "", fmt.Errorf("illegal job id in result: `%s`", jobID)
+		return "", fmt.Errorf("illegal job id in result: `%s`", jobId)
 	}
 
 	job.Lock.Lock()
@@ -116,5 +116,5 @@ func (m *JobManagerT) processResultWithLockingOps(nodeID NodeID, result JobResul
 	job.Data.Progress = 1.0
 	job.Lock.Unlock()
 
-	return jobID, nil
+	return jobId, nil
 }

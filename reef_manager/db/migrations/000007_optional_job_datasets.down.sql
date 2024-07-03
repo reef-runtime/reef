@@ -1,4 +1,0 @@
-DROP TABLE IF EXISTS job_has_dataset;
-
-ALTER TABLE job
-ADD COLUMN dataset_id VARCHAR(64) DEFAULT 'invalid' NOT NULL;

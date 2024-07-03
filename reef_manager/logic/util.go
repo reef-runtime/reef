@@ -2,6 +2,6 @@ package logic
 
 import "encoding/hex"
 
-func IDToString(id NodeID) string {
+func IdToString(id NodeId) string {
 	return hex.EncodeToString(id[0:])
 }

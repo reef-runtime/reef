@@ -31,7 +31,7 @@ type JobLog struct {
 	Kind    LogKind   `json:"kind"`
 	Created time.Time `json:"created"`
 	Content string    `json:"content"`
-	JobID   string    `json:"jobId"`
+	JobId   string    `json:"jobId"`
 }
 
 func AddLog(joblog JobLog) error {
@@ -44,7 +44,7 @@ func AddLog(joblog JobLog) error {
 		joblog.Kind,
 		joblog.Content,
 		joblog.Created,
-		joblog.JobID,
+		joblog.JobId,
 	).Exec()
 
 	if err != nil {
@@ -55,9 +55,9 @@ func AddLog(joblog JobLog) error {
 	return nil
 }
 
-func DeleteLogs(jobID string) error {
+func DeleteLogs(jobId string) error {
 	// nolint:goconst
-	_, err := db.builder.Delete(JobTableName).Where("log.job_id=?", jobID).Exec()
+	_, err := db.builder.Delete(JobTableName).Where("log.job_id=?", jobId).Exec()
 	if err != nil {
 		log.Errorf("Could not delete job logs: exec query: %s", err.Error())
 		return err
@@ -66,11 +66,11 @@ func DeleteLogs(jobID string) error {
 	return nil
 }
 
-func GetLastLogs(limit *uint64, jobID string) ([]JobLog, error) {
+func GetLastLogs(limit *uint64, jobId string) ([]JobLog, error) {
 	query := db.builder.
 		Select("*").
 		From(LogTableName).
-		Where("log.job_id=?", jobID).
+		Where("log.job_id=?", jobId).
 		OrderBy("created ASC")
 
 	if limit != nil {
@@ -102,7 +102,7 @@ func GetLastLogs(limit *uint64, jobID string) ([]JobLog, error) {
 			&joblog.Kind,
 			&joblog.Content,
 			&joblog.Created,
-			&joblog.JobID,
+			&joblog.JobId,
 		); err != nil {
 			log.Errorf("Could not list logs: scanning results failed: %s", err.Error())
 			return nil, err

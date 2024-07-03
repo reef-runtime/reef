@@ -16,8 +16,8 @@ const minUIUpdateDelay = time.Second
 
 type JobManagerT struct {
 	Compiler        *CompilerManager
-	Nodes           LockedMap[NodeID, LockedValue[Node]]
-	NonFinishedJobs LockedMap[JobID, LockedValue[Job]]
+	Nodes           LockedMap[NodeId, LockedValue[Node]]
+	NonFinishedJobs LockedMap[JobId, LockedValue[Job]]
 	// Job manager will send data to this channel once something changed.
 	SendUIUpdatesTo chan DataCollectionMsg
 	// UI manager will send data into this channel once it receives some updates.
@@ -58,7 +58,7 @@ const (
 
 type Job struct {
 	Data             database.JobTableData
-	WorkerNodeID     *NodeID
+	WorkerNodeId     *NodeId
 	Progress         float32
 	Status           JobStatus `json:"status"`
 	Logs             []database.JobLog
@@ -69,22 +69,22 @@ func (m *JobManagerT) SubmitJob(
 	language JobProgrammingLanguage,
 	sourceCode string,
 	name string,
-	datasetID *string,
+	datasetId string,
 ) (idString string, compilerErr *string, backendErr error) {
 	now := time.Now()
 
-	// Create a hash for the ID.
+	// Create a hash for the Id.
 	var buffer bytes.Buffer
 	if err := gob.NewEncoder(&buffer).Encode(struct {
 		Language   JobProgrammingLanguage
 		SourceCode string
 		Name       string
-		DatasetID  *string
+		DatasetId  string
 	}{
 		Language:   language,
 		SourceCode: sourceCode,
 		Name:       name,
-		DatasetID:  datasetID,
+		DatasetId:  datasetId,
 	}); err != nil {
 		return "", nil, err
 	}
@@ -116,11 +116,11 @@ func (m *JobManagerT) SubmitJob(
 	}
 
 	jobTableData := database.JobTableData{
-		ID:        idString,
+		Id:        idString,
 		Name:      name,
 		Submitted: now,
-		WasmID:    artifact.Hash,
-		DatasetID: datasetID,
+		WasmId:    artifact.Hash,
+		DatasetId: datasetId,
 	}
 
 	if backendErr = database.AddJob(jobTableData); backendErr != nil {
@@ -133,7 +133,7 @@ func (m *JobManagerT) SubmitJob(
 		Status:           StatusQueued,
 		Logs:             make([]database.JobLog, 0),
 		InterpreterState: nil,
-		WorkerNodeID:     nil,
+		WorkerNodeId:     nil,
 	}
 
 	m.NonFinishedJobs.Insert(idString, NewLockedValue(job))
@@ -146,10 +146,10 @@ func (m *JobManagerT) SubmitJob(
 
 // Places a job back into queued.
 // Would be called if a node disconnects while a job runs on this very node.
-func (m *JobManagerT) ParkJob(jobID string) error {
-	job, found := m.NonFinishedJobs.Get(jobID)
+func (m *JobManagerT) ParkJob(jobId string) error {
+	job, found := m.NonFinishedJobs.Get(jobId)
 	if !found {
-		return fmt.Errorf("could not park job `%s`: job not found", jobID)
+		return fmt.Errorf("could not park job `%s`: job not found", jobId)
 	}
 
 	job.Lock.RLock()
@@ -157,7 +157,7 @@ func (m *JobManagerT) ParkJob(jobID string) error {
 	job.Lock.RUnlock()
 
 	if jobStatus == StatusQueued {
-		log.Tracef("Park: found job `%s` but it is already in <queued> status", jobID)
+		log.Tracef("Park: found job `%s` but it is already in <queued> status", jobId)
 		return nil
 	}
 
@@ -165,19 +165,19 @@ func (m *JobManagerT) ParkJob(jobID string) error {
 	m.setJobStatus(job, StatusQueued)
 
 	if !found {
-		return fmt.Errorf("park: job `%s` not found", jobID)
+		return fmt.Errorf("park: job `%s` not found", jobId)
 	}
 
-	// Set worker node ID to `nil`.
+	// Set worker node Id to `nil`.
 
 	job.Lock.Lock()
-	job.Data.WorkerNodeID = nil
+	job.Data.WorkerNodeId = nil
 	job.Lock.Unlock()
 
-	log.Debugf("[job] Parked ID `%s`", jobID)
+	log.Debugf("[job] Parked Id `%s`", jobId)
 
 	// Notify UI about state change.
-	m.updateSingleJobState(jobID)
+	m.updateSingleJobState(jobId)
 
 	return nil
 }
@@ -218,15 +218,15 @@ func (m *JobManagerT) Init() error {
 			continue
 		}
 
-		log.Tracef("Loaded saved job from DB as queued: `%s`", dbJob.Job.ID)
+		log.Tracef("Loaded saved job from DB as queued: `%s`", dbJob.Job.Id)
 
 		// Put job back in queued state.
 		job := Job{
 			Data: database.JobTableData{
-				ID:        dbJob.Job.ID,
+				Id:        dbJob.Job.Id,
 				Name:      dbJob.Job.Name,
-				WasmID:    dbJob.Job.WasmID,
-				DatasetID: dbJob.Job.DatasetID,
+				WasmId:    dbJob.Job.WasmId,
+				DatasetId: dbJob.Job.DatasetId,
 				Submitted: dbJob.Job.Submitted,
 			},
 
@@ -235,10 +235,10 @@ func (m *JobManagerT) Init() error {
 			Status:           StatusQueued,
 			Logs:             make([]database.JobLog, 0),
 			InterpreterState: nil,
-			WorkerNodeID:     nil,
+			WorkerNodeId:     nil,
 		}
 
-		m.NonFinishedJobs.Insert(dbJob.Job.ID, NewLockedValue(job))
+		m.NonFinishedJobs.Insert(dbJob.Job.Id, NewLockedValue(job))
 	}
 
 	// Launch job queue daemon.

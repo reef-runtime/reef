@@ -17,7 +17,7 @@ const jobAbortMessage = "Job was aborted."
 // Job Abortion.
 //
 
-func MessageToNodeAbortJob(jobID string) ([]byte, error) {
+func MessageToNodeAbortJob(jobId string) ([]byte, error) {
 	msg, seg, err := capnp.NewMessage(capnp.SingleSegment(nil))
 	if err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func MessageToNodeAbortJob(jobID string) ([]byte, error) {
 		return nil, err
 	}
 
-	if err := abortMsg.SetJobId(jobID); err != nil {
+	if err := abortMsg.SetJobId(jobId); err != nil {
 		return nil, err
 	}
 
@@ -56,8 +56,8 @@ func MessageToNodeAbortJob(jobID string) ([]byte, error) {
 // For queued jobs, no communication with a node is required.
 //
 
-func (m *JobManagerT) AbortJob(jobID string) (found bool, err error) {
-	job, found := m.NonFinishedJobs.Get(jobID)
+func (m *JobManagerT) AbortJob(jobId string) (found bool, err error) {
+	job, found := m.NonFinishedJobs.Get(jobId)
 	if !found {
 		return false, nil
 	}
@@ -68,32 +68,32 @@ func (m *JobManagerT) AbortJob(jobID string) (found bool, err error) {
 
 	switch status {
 	case StatusQueued:
-		if found, err := m.abortQueuedJob(jobID); !found || err != nil {
+		if found, err := m.abortQueuedJob(jobId); !found || err != nil {
 			return found, err
 		}
 	case StatusStarting, StatusRunning:
 		// If there is no executing node, something bad happened.
 		job.Lock.RLock()
-		workerNodeID := job.Data.WorkerNodeID
+		workerNodeId := job.Data.WorkerNodeId
 		job.Lock.RUnlock()
 
-		if workerNodeID == nil {
-			log.Errorf("Possible internal state corruption: non-queued job `%s` has no worker node", jobID)
+		if workerNodeId == nil {
+			log.Errorf("Possible internal state corruption: non-queued job `%s` has no worker node", jobId)
 			return false, nil
 		}
-		nodeID := *workerNodeID
+		nodeId := *workerNodeId
 
 		// Inform the node that the job is to be killed.
 		// Do not actually delete the job but retain the output.
-		node, found := m.Nodes.Get(nodeID)
+		node, found := m.Nodes.Get(nodeId)
 		if !found {
 			return false, fmt.Errorf(
 				"job says its running on node `%s`, which does not exist",
-				IDToString(nodeID),
+				IdToString(nodeId),
 			)
 		}
 
-		abortMsg, err := MessageToNodeAbortJob(jobID)
+		abortMsg, err := MessageToNodeAbortJob(jobId)
 		if err != nil {
 			return false, err
 		}
@@ -108,14 +108,14 @@ func (m *JobManagerT) AbortJob(jobID string) (found bool, err error) {
 		if err != nil {
 			errMsg := fmt.Sprintf(
 				"node `%s` dropped connection whilst job should be killed and could not be dropped",
-				IDToString(nodeID),
+				IdToString(nodeId),
 			)
 
-			if !m.DropNode(nodeID) {
+			if !m.DropNode(nodeId) {
 				return false, errors.New(errMsg)
 			}
 
-			if _, err := m.abortQueuedJob(jobID); err != nil {
+			if _, err := m.abortQueuedJob(jobId); err != nil {
 				return false, fmt.Errorf("%s: %s", errMsg, err.Error())
 			}
 
@@ -127,20 +127,20 @@ func (m *JobManagerT) AbortJob(jobID string) (found bool, err error) {
 	}
 
 	// Notify UI about change.
-	m.updateSingleJobState(jobID)
+	m.updateSingleJobState(jobId)
 
 	return true, nil
 }
 
-func (m *JobManagerT) abortQueuedJob(jobID string) (found bool, err error) {
-	_, found = m.NonFinishedJobs.Delete(jobID)
+func (m *JobManagerT) abortQueuedJob(jobId string) (found bool, err error) {
+	_, found = m.NonFinishedJobs.Delete(jobId)
 	if !found {
 		return false, nil
 	}
 
 	if err := database.SaveResult(database.Result{
 		Success:     false,
-		JobID:       jobID,
+		JobId:       jobId,
 		Content:     []byte(jobAbortMessage),
 		ContentType: database.StringPlain,
 		Created:     time.Now(),

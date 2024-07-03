@@ -14,11 +14,11 @@ func GetLogs(ctx *gin.Context) {
 		badRequest(ctx, "invalid amount value")
 	}
 
-	jobID := ctx.Query("jobid")
+	jobId := ctx.Query("jobid")
 
 	amountUint64 := uint64(amount)
 
-	logs, err := database.GetLastLogs(&amountUint64, jobID)
+	logs, err := database.GetLastLogs(&amountUint64, jobId)
 	if err != nil {
 		ctx.Status(http.StatusInternalServerError)
 		return

@@ -9,12 +9,12 @@ import (
 	"github.com/reef-runtime/reef/reef_manager/logic"
 )
 
-const jobIDUrlParam = "job_id"
+const jobIdUrlParam = "job_id"
 
 type JobSubmission struct {
 	Name string `json:"name"`
-	// Attaching a dataset to a job submission is optional.
-	DatasetID  *string                      `json:"datasetId"`
+	// Attaching a dataset to a job submission is non-optional.
+	DatasetId  string                       `json:"datasetId"`
 	SourceCode string                       `json:"sourceCode"`
 	Language   logic.JobProgrammingLanguage `json:"language"`
 }
@@ -36,9 +36,9 @@ func GetJobs(ctx *gin.Context) {
 
 // Returns a job, including logs.
 func GetJob(ctx *gin.Context) {
-	jobID := ctx.Param(jobIDUrlParam)
+	jobId := ctx.Param(jobIdUrlParam)
 
-	job, found, err := logic.JobManager.GetJob(jobID, true)
+	job, found, err := logic.JobManager.GetJob(jobId, true)
 	if err != nil {
 		serverErr(ctx, err.Error())
 		return
@@ -48,7 +48,7 @@ func GetJob(ctx *gin.Context) {
 		respondErr(
 			ctx,
 			"illegal job",
-			fmt.Sprintf("job with id `%s` not found", jobID),
+			fmt.Sprintf("job with id `%s` not found", jobId),
 			http.StatusUnprocessableEntity,
 		)
 		return
@@ -70,24 +70,16 @@ func SubmitJob(ctx *gin.Context) {
 	}
 
 	// Validate additional constraints, like validity of the dataset and language.
-	// nolint:nestif
-	if submission.DatasetID != nil {
-		found, err := logic.DatasetManager.DoesDatasetExist(*submission.DatasetID)
-		if err != nil {
-			serverErr(ctx, err.Error())
-			return
-		}
 
-		if !found {
-			dsID := "<nil>"
+	found, err := logic.DatasetManager.DoesDatasetExist(submission.DatasetId)
+	if err != nil {
+		serverErr(ctx, err.Error())
+		return
+	}
 
-			if submission.DatasetID != nil {
-				dsID = *submission.DatasetID
-			}
-
-			badRequest(ctx, fmt.Sprintf("dataset with id `%s` not found", dsID))
-			return
-		}
+	if !found {
+		badRequest(ctx, fmt.Sprintf("dataset with id `%s` not found", submission.DatasetId))
+		return
 	}
 
 	if err := submission.Language.Validate(); err != nil {
@@ -100,7 +92,7 @@ func SubmitJob(ctx *gin.Context) {
 		submission.Language,
 		submission.SourceCode,
 		submission.Name,
-		submission.DatasetID,
+		submission.DatasetId,
 	)
 
 	if systemErr != nil {
@@ -116,8 +108,8 @@ func SubmitJob(ctx *gin.Context) {
 
 	ctx.JSON(
 		http.StatusOK,
-		IDBody{
-			ID: id,
+		IdBody{
+			Id: id,
 		},
 	)
 }
@@ -127,14 +119,14 @@ func SubmitJob(ctx *gin.Context) {
 //
 
 func AbortOrCancelJob(ctx *gin.Context) {
-	var job IDBody
+	var job IdBody
 
 	if err := ctx.ShouldBindJSON(&job); err != nil {
 		badRequest(ctx, err.Error())
 		return
 	}
 
-	found, err := logic.JobManager.AbortJob(job.ID)
+	found, err := logic.JobManager.AbortJob(job.Id)
 	if err != nil {
 		ctx.Status(http.StatusInternalServerError)
 		return
@@ -153,14 +145,14 @@ func AbortOrCancelJob(ctx *gin.Context) {
 }
 
 func GetResult(ctx *gin.Context) {
-	var id IDBody
+	var id IdBody
 
 	if err := ctx.ShouldBindJSON(&id); err != nil {
 		badRequest(ctx, err.Error())
 		return
 	}
 
-	result, found, err := database.GetResult(id.ID)
+	result, found, err := database.GetResult(id.Id)
 	if !found {
 		respond(
 			ctx,

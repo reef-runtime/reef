@@ -324,16 +324,11 @@ impl NodeState {
 
         let state = if request.interpreter_state.is_empty() { None } else { Some(request.interpreter_state) };
 
-        println!("Fetching dataset '{}'...", request.dataset_id.as_deref().unwrap_or("<none>"));
+        println!("Fetching dataset '{}'...", request.dataset_id);
 
-        let dataset = match request.dataset_id {
-            Some(dataset_id) => {
-                let url = format!("{manager_url}api/dataset/{dataset_id}");
-                let resp = reqwest::blocking::get(url)?;
-                resp.bytes()?.to_vec()
-            }
-            None => Vec::new(),
-        };
+        let url = format!("{}api/dataset/{}", manager_url, request.dataset_id);
+        let resp = reqwest::blocking::get(url)?;
+        let dataset = resp.bytes()?.to_vec();
 
         let handle = spawn_worker_thread(
             signal.clone(),
@@ -366,7 +361,7 @@ impl NodeState {
 struct StartJobRequest {
     worker_index: usize,
     job_id: String,
-    dataset_id: Option<String>,
+    dataset_id: String,
     progress: f32,
 
     program_byte_code: Vec<u8>,
@@ -402,10 +397,8 @@ fn handle_binary(bin_slice: &[u8]) -> Result<Action> {
             let body = body?;
             let job_id = String::from_utf8(body.get_job_id()?.0.to_vec()).with_context(|| "illegal job ID encoding")?;
 
-            let has_dataset = body.get_has_dataset();
-            let dataset_id_raw =
+            let dataset_id =
                 String::from_utf8(body.get_dataset_id()?.0.to_vec()).with_context(|| "illegal dataset ID encoding")?;
-            let dataset_id = if has_dataset { Some(dataset_id_raw) } else { None };
 
             Ok(Action::StartJob(StartJobRequest {
                 worker_index: body.get_worker_index() as usize,

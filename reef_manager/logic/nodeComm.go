@@ -27,8 +27,8 @@ func FormatBinarySliceAsHex(input []byte) string {
 // nolint:funlen
 func toNodeJobInitializationMessage(
 	workerIndex uint32,
-	jobID string,
-	datasetID *string,
+	jobId string,
+	datasetId string,
 	progress float32,
 	interpreterState []byte,
 	programByteCode []byte,
@@ -50,33 +50,22 @@ func toNodeJobInitializationMessage(
 		return nil, err
 	}
 
-	//
 	// Worker index.
-	//
 	nestedBody.SetWorkerIndex(workerIndex)
 
-	//
-	// Job ID.
-	//
-	if err := nestedBody.SetJobId(jobID); err != nil {
+	// Job Id.
+	if err := nestedBody.SetJobId(jobId); err != nil {
 		return nil, err
 	}
 
-	//
 	// Program Byte Code.
-	//
 	if err := nestedBody.SetProgramByteCode(programByteCode); err != nil {
 		return nil, err
 	}
 
-	// Dataset ID.
-	hasDataset := datasetID != nil
-	nestedBody.SetHasDataset(hasDataset)
-
-	if hasDataset {
-		if err := nestedBody.SetDatasetId(*datasetID); err != nil {
-			return nil, err
-		}
+	// Dataset
+	if err := nestedBody.SetDatasetId(datasetId); err != nil {
+		return nil, err
 	}
 
 	// Progress.
@@ -102,8 +91,8 @@ func (m *JobManagerT) StartJobOnNode(
 ) error {
 	msg, err := toNodeJobInitializationMessage(
 		uint32(workerIdx),
-		job.Data.Data.ID,
-		job.Data.Data.DatasetID,
+		job.Data.Data.Id,
+		job.Data.Data.DatasetId,
 		job.Data.Progress,
 		job.Data.InterpreterState,
 		programByteCode,
@@ -124,18 +113,18 @@ func (m *JobManagerT) StartJobOnNode(
 	}
 
 	node.Lock.Lock()
-	node.Data.WorkerState[workerIdx] = &job.Data.Data.ID
-	nodeID := node.Data.ID
+	node.Data.WorkerState[workerIdx] = &job.Data.Data.Id
+	nodeId := node.Data.Id
 	node.Lock.Unlock()
 
 	job.Lock.RLock()
-	jobID := job.Data.Data.ID
+	jobId := job.Data.Data.Id
 	job.Lock.RUnlock()
 
 	log.Debugf(
 		"[node] Job `%s` starting on node `%s`",
-		jobID,
-		IDToString(nodeID),
+		jobId,
+		IdToString(nodeId),
 	)
 
 	// NOTE: we don't have to wait for the job to start on the node since the first state sync will be enough to set
@@ -144,59 +133,59 @@ func (m *JobManagerT) StartJobOnNode(
 	return nil
 }
 
-func (m *JobManagerT) findFreeNode() (nodeID NodeID, workerIdx uint16, found bool) {
+func (m *JobManagerT) findFreeNode() (nodeId NodeId, workerIdx uint16, found bool) {
 	m.Nodes.Lock.RLock()
 	defer m.Nodes.Lock.RUnlock()
 
-	for nodeID, node := range m.Nodes.Map {
+	for nodeId, node := range m.Nodes.Map {
 		node.Lock.RLock()
 
-		for workerIdx, jobID := range node.Data.WorkerState {
-			if jobID == nil {
+		for workerIdx, jobId := range node.Data.WorkerState {
+			if jobId == nil {
 				node.Lock.RUnlock()
-				return nodeID, uint16(workerIdx), true
+				return nodeId, uint16(workerIdx), true
 			}
 		}
 
 		node.Lock.RUnlock()
 	}
 
-	return nodeID, 0, false
+	return nodeId, 0, false
 }
 
 func (m *JobManagerT) StartJobOnFreeNode(job LockedValue[Job]) (couldStart bool, err error) {
 	// Load the WasmCode from storage again.
 	job.Lock.RLock()
-	wasmID := job.Data.Data.WasmID
+	wasmId := job.Data.Data.WasmId
 	job.Lock.RUnlock()
 
-	wasmCode, err := m.Compiler.getCached(wasmID)
+	wasmCode, err := m.Compiler.getCached(wasmId)
 	if err != nil {
 		log.Errorf("failed to park job `%s`: could not load job's Wasm from cache", err.Error())
 		return false, err
 	}
 
-	nodeID, workerIndex, nodeFound := m.findFreeNode()
+	nodeId, workerIndex, nodeFound := m.findFreeNode()
 	if !nodeFound {
 		return false, nil
 	}
 
-	node, nodeFound := m.Nodes.Get(nodeID)
+	node, nodeFound := m.Nodes.Get(nodeId)
 	if !nodeFound {
 		return false, nil
 	}
 
 	job.Lock.RLock()
-	jobID := job.Data.Data.ID
+	jobId := job.Data.Data.Id
 	job.Lock.RUnlock()
 
-	log.Debugf("[node] Found free worker index %d on node `%s`", workerIndex, IDToString(nodeID))
+	log.Debugf("[node] Found free worker index %d on node `%s`", workerIndex, IdToString(nodeId))
 
 	if err := m.StartJobOnNode(node, job, workerIndex, wasmCode); err != nil {
 		log.Errorf(
 			"[node] Could not start job `%s` on node `%s`: %s",
-			jobID,
-			IDToString(nodeID),
+			jobId,
+			IdToString(nodeId),
 			err.Error(),
 		)
 		return false, nil
@@ -205,10 +194,10 @@ func (m *JobManagerT) StartJobOnFreeNode(job LockedValue[Job]) (couldStart bool,
 	// Set the new status and worker node of this job.
 	job.Lock.Lock()
 	job.Data.Status = StatusStarting
-	job.Data.WorkerNodeID = &nodeID
+	job.Data.WorkerNodeId = &nodeId
 	job.Lock.Unlock()
 
-	m.updateSingleJobState(jobID)
+	m.updateSingleJobState(jobId)
 	m.updateNodeState()
 
 	return true, nil

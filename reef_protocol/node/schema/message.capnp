@@ -38,13 +38,11 @@ struct JobStartMessage {
     workerIndex         @0 :UInt32;
     jobId               @1 :Text;
     programByteCode     @2 :Data;
-    # If the job has just been started these will be 0/empty.
-    progress            @3 :Float32;
-    interpreterState    @4 :Data;
+    datasetId           @3 :Text;
 
-    # Datasets are optional => include a bool to indicate whether the dataset actually exists.
-    hasDataset          @5: Bool;
-    datasetId           @6 :Text;
+    # If the job has just been started these will be 0/empty.
+    progress            @4 :Float32;
+    interpreterState    @5 :Data;
 }
 
 struct JobAbortMessage {

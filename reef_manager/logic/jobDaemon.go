@@ -52,7 +52,7 @@ func (m *JobManagerT) TryToStartQueuedJobs() error {
 		}
 
 		first.Lock.RLock()
-		id := first.Data.Data.ID
+		id := first.Data.Data.Id
 		first.Lock.RUnlock()
 
 		log.Debugf("Attempting to start job `%s`...", id)

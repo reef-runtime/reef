@@ -82,7 +82,7 @@
           modRoot = "./reef_manager";
           doCheck = false;
 
-          vendorHash = "sha256-iBcAmPNrheKHpTq1lJve8J5s/3tp0iHtl33pt7tlYBU=";
+          vendorHash = "sha256-dfBQ9VRbj4WUAIry48nhIaMrYlgVYlaYKG8HIAZnSxs=";
           # vendorHash = lib.fakeHash;
 
           meta = {
@@ -177,7 +177,9 @@
 
           src = ./reef_frontend;
 
-          npmDepsHash = "sha256-U6m2WoH2SPZ9cFqa4ibjLdN8IsIUZtZhNH23SEZlaLQ=";
+          npmDepsHash = "sha256-mPOh43GjflnyJYdEUt31HtmNoKD5/89ZPgWw+CxkyBM=";
+          # npmDepsHash = lib.fakeHash;
+
           npmPackFlags = ["--ignore-scripts"];
 
           installPhase = ''

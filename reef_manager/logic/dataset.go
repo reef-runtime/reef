@@ -35,7 +35,7 @@ func (m *DatasetManagerT) AddDataset(name string, data []byte) (id string, err e
 	}
 
 	alreadyExists, err := database.AddDataset(database.Dataset{
-		ID:   id,
+		Id:   id,
 		Name: name,
 		Size: uint32(len(data)),
 	})

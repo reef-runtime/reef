@@ -9,14 +9,14 @@ const DSTableName = "dataset"
 
 type Dataset struct {
 	// Is guaranteed to be 64 chars long.
-	ID   string `json:"id"`
+	Id   string `json:"id"`
 	Name string `json:"name"`
 	Size uint32 `json:"size"` // Size of the dataset in bytes.
 }
 
 func AddDataset(dataset Dataset) (bool, error) {
 	var _id string
-	err := db.builder.Select("id").From(DSTableName).Where("id=?", dataset.ID).QueryRow().Scan(&_id)
+	err := db.builder.Select("id").From(DSTableName).Where("id=?", dataset.Id).QueryRow().Scan(&_id)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return false, err
 	}
@@ -27,7 +27,7 @@ func AddDataset(dataset Dataset) (bool, error) {
 	}
 
 	if _, err := db.builder.Insert(DSTableName).Values(
-		dataset.ID,
+		dataset.Id,
 		dataset.Name,
 		dataset.Size,
 	).Exec(); err != nil {
@@ -38,8 +38,8 @@ func AddDataset(dataset Dataset) (bool, error) {
 	return false, nil
 }
 
-func DeleteDataset(datasetID string) (found bool, err error) {
-	res, err := db.builder.Delete(DSTableName).Where("dataset.ID=?", datasetID).Exec()
+func DeleteDataset(datasetId string) (found bool, err error) {
+	res, err := db.builder.Delete(DSTableName).Where("dataset.Id=?", datasetId).Exec()
 	if err != nil {
 		log.Errorf("Could not delete database: executing query failed: %s", err.Error())
 		return false, err
@@ -68,7 +68,7 @@ func ListDatasets() ([]Dataset, error) {
 	for res.Next() {
 		var ds Dataset
 		if err := res.Scan(
-			&ds.ID,
+			&ds.Id,
 			&ds.Name,
 			&ds.Size,
 		); err != nil {
