@@ -249,6 +249,7 @@ fn setup_interpreter(
         if mem.get_ignored_byte_region().1 == dataset.len() {
             mem.copy_into_ignored_byte_region(&dataset);
         }
+        drop(dataset);
     }
 
     job_output.borrow_mut().1 = extra_data;
@@ -320,6 +321,7 @@ fn reef_imports(
     // Reef dataset.
     // Reef std implementations guarantee, that the dataset is at least 8 byte aligned.
     let dataset_len = dataset.len();
+    let dataset = std::cell::RefCell::new(Some(dataset));
     imports.define(
         REEF_MODULE_NAME,
         REEF_DATASET_LEN_NAME,
@@ -332,7 +334,12 @@ fn reef_imports(
             let mut mem = ctx.exported_memory_mut("memory")?;
 
             mem.set_ignored_byte_region(ptr as usize, dataset_len);
-            mem.copy_into_ignored_byte_region(&dataset);
+            mem.copy_into_ignored_byte_region(dataset.borrow().as_deref().unwrap_or(&Rc::new(Vec::new())));
+
+            // Drop the remaining Rc reference to free the Vec
+            if dataset.borrow().is_some() {
+                *dataset.borrow_mut() = None;
+            }
 
             Ok(())
         }),

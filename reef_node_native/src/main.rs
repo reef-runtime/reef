@@ -1,4 +1,3 @@
-use core::panic;
 use std::fmt::Display;
 use std::sync::atomic::Ordering;
 use std::thread;
