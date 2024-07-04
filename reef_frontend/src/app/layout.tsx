@@ -61,7 +61,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <TooltipProvider>
-            <div className="flex flex-col min-h-screen h-screen w-full bg-background">
+            <div className="flex flex-col min-h-screen h-screen w-full bg-background min-h-svh">
               <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-card sm:flex">
                 <nav className="flex flex-col items-center gap-4 px-2 sm:py-5">
                   <img src="/logo-no-text.svg" />
@@ -103,7 +103,7 @@ export default function RootLayout({
                   </Tooltip>
                 </nav>
               </aside>
-              <div className="flex flex-col sm:gap-4 sm:pl-14">
+              <div className="flex flex-col sm:gap-4 sm:pl-14 min-h-svh">
                 <nav className="sm:hidden sticky top-0 z-10 p-4 bg-background border-b">
                   <Sheet>
                     <SheetTrigger asChild>

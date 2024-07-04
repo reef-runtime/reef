@@ -49,10 +49,7 @@ export default function Home() {
 
   return (
     <main className="flex flex-col xl:flex-row p-4 space-y-4 xl:space-y-0 xl:space-x-4">
-      <div
-        className="grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 min-[1660px]:grid-cols-4 gap-4 grid-flow-row-dense"
-        style={{ gridAutoRows: '320px' }}
-      >
+      <div className="grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 min-[1660px]:grid-cols-4 gap-4 grid-flow-row-dense grid-rows auto-rows-[320px]">
         {nodes.map((node) => (
           <Card
             key={node.id}

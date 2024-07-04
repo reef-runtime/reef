@@ -41,9 +41,9 @@ export default function Page() {
   }, []);
 
   return (
-    <main className="flex flex-col md:flex-row p-4 md:space-x-4 xl:max-h-dvh">
+    <main className="flex flex-col md:flex-row p-4 md:space-x-4 xl:max-h-dvh h-full">
       <div
-        className="flex flex-col xl:grid gap-4 w-full"
+        className="flex flex-col xl:grid gap-4 w-full h-full"
         style={{
           gridTemplateColumns: `repeat(${GROUPS.length}, 1fr)`,
         }}
@@ -51,7 +51,7 @@ export default function Page() {
         {GROUPS.map((group) => (
           <Card
             key={group.title}
-            className="flex flex-col w-full xl:overflow-hidden"
+            className="flex flex-col w-full h-full xl:overflow-hidden"
           >
             <CardHeader key={group.title}>
               <CardTitle>{group.title}</CardTitle>
