@@ -3,11 +3,27 @@ SHELL:=/usr/bin/env bash
 include .env
 export $(shell sed 's/=.*//' .env)
 
-.PHONY: build_containers
+DOCKER_REGISTRY:=docker.io/mikmuellerdev
+
+REEF_CADDY_IMAGE_TAG:=reef_caddy
+REEF_MANAGER_IMAGE_TAG:=reef_manager
+REEF_COMPILER_IMAGE:=reef_caddy
+CONTAINER_TAGS:="$(REEF_CADDY_IMAGE_TAG) $(REEF_MANAGER_IMAGE_TAG) $(REEF_COMPILER_IMAGE)"
+
+.PHONY: build_containers push_containers
 build_containers:
-	nix build .#reef_caddy_image && ./result | docker load
-	nix build .#reef_manager_image && ./result | docker load
-	nix build .#reef_compiler_image && ./result | docker load
+	for image in "$(CONTAINER_TAGS)"; do \
+		echo "Building '$$image'"; \
+		nix build ".#$${image}_image" && ./result | docker load ; \
+		echo "Renaming '$$image' to $(DOCKER_REGISTRY)/$${image}"; \
+		docker tag "$${image}" "$(DOCKER_REGISTRY)/$${image}" ; \
+	done
+
+push_containers:
+	for image in "$(CONTAINER_TAGS)"; do \
+		echo "Pushing image: '$(DOCKER_REGISTRY)/$$image'"; \
+		docker push "$(DOCKER_REGISTRY)/$$image"; \
+	done
 
 PORT=3000
 
