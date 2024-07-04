@@ -90,7 +90,17 @@ func newDatasetManager(datasetPath string) (DatasetManagerT, error) {
 		return DatasetManager, fmt.Errorf("could not create dataset dir: %s", err.Error())
 	}
 
-	return DatasetManagerT{
+	m := DatasetManagerT{
 		DatasetPath: datasetPath,
-	}, nil
+	}
+
+	// Add empty dataset.
+	id, err := m.AddDataset("Empty Dataset", []byte{})
+	if err != nil {
+		log.Fatalf("Failed to add empty dataset: %s", err.Error())
+		return DatasetManagerT{}, err
+	}
+	log.Tracef("Added Empty dataset with ID `%s`", id)
+
+	return m, nil
 }

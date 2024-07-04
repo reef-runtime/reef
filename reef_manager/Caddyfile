@@ -2,7 +2,7 @@
     admin off
 }
 
-:3002 {
-	reverse_proxy /api/* localhost:3000
-	reverse_proxy localhost:3001
+:{$REEF_DEV_PORT} {
+       reverse_proxy /api/* localhost:{$REEF_MANAGER_PORT}
+       reverse_proxy localhost:{$REEF_NEXTJS_PORT}
 }

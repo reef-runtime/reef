@@ -52,14 +52,6 @@ func ship(logger *logrus.Logger) error {
 		return errors.New("system error")
 	}
 
-	// Add empty dataset
-	id, err := logic.DatasetManager.AddDataset("Empty Dataset", []byte{})
-	if err != nil {
-		logger.Fatalf("Failed to add empty dataset: %s", err.Error())
-		return errors.New("system error")
-	}
-	logger.Infof("Add Empty dataset with id %s", id)
-
 	// TODO: put HTTP stuff into separate file.
 
 	//
