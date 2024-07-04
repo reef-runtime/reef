@@ -61,6 +61,7 @@ import Split from 'react-split-grid';
 import { useTheme } from 'next-themes';
 import './code.css';
 import { IDataset } from '@/types/dataset';
+import { Label } from '@/components/ui/label';
 
 //
 //
@@ -83,6 +84,8 @@ const schema = z.object({
   name: z.string().min(2).max(50),
   language: z.enum(['c', 'rust']),
   sourceCode: z.string(),
+  datasetId: z.string().optional(),
+  datasetFile: z.any().optional(),
 });
 
 export default function Page() {
@@ -96,18 +99,10 @@ export default function Page() {
   // Load dataset list on page init.
   // const [datasets, setDatasets] = useState<IDataset[]>([]);
 
-  async function fetchDatasets() {
-        const res: IDataset[] = await (await fetch("/api/datasets")).json()
-        return res
-  }
-
-  const { datasets, setDatasets } = useDatasets();
+  const { datasets, fetchDatasets, uploadDataset } = useDatasets();
 
   useEffect(() => {
-        fetchDatasets().then((res) => {
-            console.log(res)
-            setDatasets(res);
-        })
+    fetchDatasets();
   }, []);
 
   const form = useForm<z.infer<typeof schema>>({
@@ -121,6 +116,24 @@ export default function Page() {
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     console.log(values);
+
+    let datasetId = values.datasetId;
+    if (
+      values.datasetFile &&
+      values.datasetFile instanceof FileList &&
+      values.datasetFile.length > 0
+    ) {
+      const newDataset = await uploadDataset(values.datasetFile[0]);
+      form.setValue('datasetId', newDataset.id);
+    }
+
+    if (!datasetId) {
+      toast({
+        title: 'Error',
+        description: 'No dataset selected',
+      });
+      return;
+    }
 
     const res = await fetch('/api/jobs/submit', {
       method: 'POST',
@@ -196,49 +209,101 @@ export default function Page() {
                   <CardHeader>
                     <CardTitle>Job Submission</CardTitle>
                   </CardHeader>
-                  <CardContent className="flex justify-stretch flex-wrap space-x-2">
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem className="grow">
-                          <FormLabel>Job Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Job Name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="language"
-                      render={({ field }) => (
-                        <FormItem className="grow min-w-[30%]">
-                          <FormLabel>Language</FormLabel>
-                          <FormControl>
-                            <Select
-                              onValueChange={(c) => {
-                                console.dir(c);
-                                field.onChange(c);
-                              }}
-                              defaultValue={'c'}
-                            >
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Select a language" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectGroup>
-                                  <SelectItem value="c">C</SelectItem>
-                                  <SelectItem value="rust">Rust</SelectItem>
-                                </SelectGroup>
-                              </SelectContent>
-                            </Select>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <CardContent className="flex flex-col space-y-2">
+                    <div className="flex justify-stretch flex-wrap space-x-2">
+                      <FormField
+                        control={form.control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem className="grow">
+                            <FormLabel>Job Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Job Name" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="language"
+                        render={({ field }) => (
+                          <FormItem className="grow min-w-[30%]">
+                            <FormLabel>Language</FormLabel>
+                            <FormControl>
+                              <Select
+                                onValueChange={(c) => {
+                                  console.dir(c);
+                                  field.onChange(c);
+                                }}
+                                defaultValue={'c'}
+                              >
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Select a language" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectGroup>
+                                    <SelectItem value="c">C</SelectItem>
+                                    <SelectItem value="rust">Rust</SelectItem>
+                                  </SelectGroup>
+                                </SelectContent>
+                              </Select>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="flex flex-col space-y-2 pt-7 pb-4">
+                      <FormField
+                        control={form.control}
+                        name="datasetId"
+                        render={({ field }) => (
+                          <FormItem className="grow min-w-[30%]">
+                            <FormLabel>Select Existing</FormLabel>
+                            <FormControl>
+                              <Select
+                                onValueChange={(c) => {
+                                  console.dir(c);
+                                  field.onChange(c);
+                                }}
+                                defaultValue={datasets[0]?.id}
+                              >
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Select an Existing Dataset" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectGroup>
+                                    {datasets.map((dataset, i) => (
+                                      <SelectItem value={dataset.id} key={i}>
+                                        {dataset.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectGroup>
+                                </SelectContent>
+                              </Select>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="flex items-center space-x-5 text-xl py-1">
+                        <hr className="w-full grow border-gray-300 " />
+                        <span>OR</span>
+                        <hr className="w-full grow border-gray-300" />
+                      </div>
+
+                      <div className="grid w-full items-center gap-1.5">
+                        <Label htmlFor="datasetFile">Upload New Dataset</Label>
+
+                        <Input
+                          className="w-full"
+                          id="datasetFile"
+                          type="file"
+                          {...form.register('datasetFile')}
+                        />
+                      </div>
+                    </div>
                   </CardContent>
 
                   <div className="grow" />
