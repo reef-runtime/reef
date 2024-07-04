@@ -18,7 +18,7 @@ import JobStatusIcon from '@/components/job-status';
 import JobListItem from '@/components/job-list-item';
 // import { useLogs } from '@/stores/log.store';
 import React, { useEffect, useState } from 'react';
-// import { useLogs } from '@/stores/log.store';
+import { useDatasets } from '@/stores/datasets.store';
 import { ILogEntry, ILogKind } from '@/types/log';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -60,6 +60,7 @@ import Split from 'react-split-grid';
 
 import { useTheme } from 'next-themes';
 import './code.css';
+import { IDataset } from '@/types/dataset';
 
 //
 //
@@ -91,6 +92,23 @@ export default function Page() {
     message: '',
     error: '',
   });
+
+  // Load dataset list on page init.
+  // const [datasets, setDatasets] = useState<IDataset[]>([]);
+
+  async function fetchDatasets() {
+        const res: IDataset[] = await (await fetch("/api/datasets")).json()
+        return res
+  }
+
+  const { datasets, setDatasets } = useDatasets();
+
+  useEffect(() => {
+        fetchDatasets().then((res) => {
+            console.log(res)
+            setDatasets(res);
+        })
+  }, []);
 
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
