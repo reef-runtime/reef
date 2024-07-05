@@ -27,8 +27,6 @@ type WSConn = WebSocket<MaybeTlsStream<TcpStream>>;
 
 use crate::worker::{spawn_worker_thread, JobResult, WorkerSignal};
 
-const NODE_REGISTER_PATH: &str = "/api/node/connect";
-
 const MAIN_THREAD_SLEEP: Duration = Duration::from_millis(10);
 
 /// Reef worker node (native)
@@ -82,7 +80,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     let mut connect_url = args.manager_url.clone();
-    connect_url.set_path(NODE_REGISTER_PATH);
+    connect_url.set_path(reef_wasm_interface::NODE_REGISTER_PATH);
     connect_url.set_scheme(scheme).unwrap();
 
     println!("Connecting to {}...", &connect_url);
@@ -266,7 +264,7 @@ impl NodeState {
                 }
                 Action::Ping
             }
-            Message::Pong(_) => Action::Pong,
+            Message::Pong(_) => Action::Ping,
             Message::Close(_) => Action::Disconnect,
             Message::Frame(_) => unreachable!("received a raw frame, this should never happen"),
         };
@@ -282,10 +280,7 @@ impl NodeState {
                 self.abort_job(&job_id)?;
             }
             Action::Ping => {
-                println!("received ping, would send pong here...");
-            }
-            Action::Pong => {
-                print!("received pong, doing nothing...");
+                // ignore any Ping/Pong
             }
             Action::Disconnect => bail!("disconnected: connection lost"),
         }
@@ -368,10 +363,9 @@ struct StartJobRequest {
 }
 
 enum Action {
+    Ping,
     StartJob(StartJobRequest),
     AbortJob(String),
-    Ping,
-    Pong,
     Disconnect,
 }
 
@@ -414,7 +408,6 @@ fn handle_binary(bin_slice: &[u8]) -> Result<Action> {
             let job_id = String::from_utf8(body.get_job_id()?.0.to_vec()).with_context(|| "illegal job ID encoding")?;
             Ok(Action::AbortJob(job_id))
         }
-        (MessageToNodeKind::Pong, body::Which::Empty(_)) => Ok(Action::Pong),
         (MessageToNodeKind::Ping, body::Which::Empty(_)) => Ok(Action::Ping),
         (_, _) => bail!("Illegal message received instead of Job control."),
     }

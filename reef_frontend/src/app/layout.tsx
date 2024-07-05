@@ -3,7 +3,14 @@
 import localFont from 'next/font/local';
 import './globals.css';
 import Link from 'next/link';
-import { Code, FileCog, PanelLeft, Settings, Workflow } from 'lucide-react';
+import {
+  Code,
+  FileCog,
+  PanelLeft,
+  Settings,
+  Workflow,
+  AppWindowMac,
+} from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -35,6 +42,11 @@ const NAV_ITEMS = [
     title: 'Code',
     Icon: Code,
     path: '/code',
+  },
+  {
+    title: 'Node Web',
+    Icon: AppWindowMac,
+    path: '/nodeweb',
   },
 ];
 

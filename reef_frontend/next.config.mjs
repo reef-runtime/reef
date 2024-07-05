@@ -7,14 +7,22 @@ const nextConfig = {
   output: 'export',
   trailingSlash: true,
   images: { unoptimized: true },
-//   rewrites: async () => {
-//     return [
-//       {
-//         source: '/api/:path*',
-//         destination: `${process.env.API_URL}/:path*`,
-//       },
-//     ];
-//   },
+  //   rewrites: async () => {
+  //     return [
+  //       {
+  //         source: '/api/:path*',
+  //         destination: `${process.env.API_URL}/:path*`,
+  //       },
+  //     ];
+  //   },
+  webpack: function (config, _) {
+    config.experiments = {
+      asyncWebAssembly: true,
+      layers: true,
+    };
+
+    return config;
+  },
 };
 
 export default nextConfig;

@@ -10,6 +10,7 @@ path = "src/main.rs"
 [dependencies]
 reef_interpreter.workspace = true
 reef_protocol_node.workspace = true
+reef_wasm_interface.workspace = true
 
 capnp.workspace = true
 

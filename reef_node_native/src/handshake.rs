@@ -7,7 +7,7 @@ use crate::WSConn;
 
 fn ack_handshake_message(num_workers: u16, node_name: &str) -> Result<Message> {
     let mut message = capnp::message::Builder::new_default();
-    let mut root: reef_protocol_node::message_capnp::handshake_respond_message::Builder = message.init_root();
+    let mut root: message_capnp::handshake_respond_message::Builder = message.init_root();
     root.set_num_workers(num_workers);
     root.set_node_name(node_name);
 
@@ -51,7 +51,7 @@ pub(crate) fn perform(node_name: &str, num_workers: u16, socket: &mut WSConn) ->
 
         let message = serialize::read_message(bin.as_slice(), ReaderOptions::new()).unwrap();
 
-        let decoded = message.get_root::<reef_protocol_node::message_capnp::message_to_node::Reader>().unwrap();
+        let decoded = message.get_root::<message_to_node::Reader>().unwrap();
 
         let kind = decoded.get_kind().with_context(|| "failed to determine incoming binary message kind")?;
 
@@ -60,7 +60,7 @@ pub(crate) fn perform(node_name: &str, num_workers: u16, socket: &mut WSConn) ->
                 println!("received handshake initializer...");
                 break;
             }
-            MessageToNodeKind::Ping | MessageToNodeKind::Pong => {}
+            MessageToNodeKind::Ping => {}
             other => bail!("first binary message from server is not the expected handshake initializer, got {other:?}"),
         }
     }
@@ -81,9 +81,8 @@ pub(crate) fn perform(node_name: &str, num_workers: u16, socket: &mut WSConn) ->
             let reader = serialize::read_message(bin.as_slice(), ReaderOptions::new())
                 .with_context(|| "could not read node ID")?;
 
-            let decoded = reader
-                .get_root::<reef_protocol_node::message_capnp::message_to_node::Reader>()
-                .with_context(|| "could not decode node ID message")?;
+            let decoded =
+                reader.get_root::<message_to_node::Reader>().with_context(|| "could not decode node ID message")?;
 
             let kind = decoded.get_kind().unwrap();
 
@@ -99,7 +98,7 @@ pub(crate) fn perform(node_name: &str, num_workers: u16, socket: &mut WSConn) ->
 
                     break id_final;
                 }
-                (MessageToNodeKind::Ping | MessageToNodeKind::Pong, _) => (),
+                (MessageToNodeKind::Ping, _) => (),
                 (_, _) => bail!("illegal message received instead of ID"),
             }
         }

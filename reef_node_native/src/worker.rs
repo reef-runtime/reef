@@ -9,61 +9,23 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use anyhow::Context;
+use tungstenite::Message;
 
 use reef_interpreter::PAGE_SIZE;
 use reef_interpreter::{
-    exec::{CallResultTyped, ExecHandleTyped},
+    exec::CallResultTyped,
     imports::{Extern, Imports},
     parse_bytes,
     reference::MemoryStringExt,
     Instance,
 };
 use reef_protocol_node::message_capnp::{MessageFromNodeKind, ResultContentType};
-use tungstenite::Message;
+use reef_wasm_interface::*;
 
 use crate::WSConn;
 
 // TODO: use a shared constant for this.
 const TODO_LOG_KIND_DEFAULT: u16 = 0;
-
-//
-// Wasm interface declaration
-//
-
-// Entrypoint
-
-const REEF_MAIN_NAME: &str = "reef_main";
-type ReefMainArgs = ();
-type ReefMainReturn = ();
-type ReefMainHandle = ExecHandleTyped<ReefMainReturn>;
-
-// Imports
-const REEF_MODULE_NAME: &str = "reef";
-
-const REEF_LOG_NAME: &str = "log";
-type ReefLogArgs = (i32, i32);
-// type ReefLogReturn = ();
-
-const REEF_PROGRESS_NAME: &str = "progress";
-type ReefProgressArgs = (f32,);
-// type ReefProgressReturn = ();
-
-const REEF_SLEEP_NAME: &str = "sleep";
-// Seconds to sleep.
-type ReefSleepArgs = (f32,);
-type ReefSleepReturn = ();
-
-const REEF_DATASET_LEN_NAME: &str = "dataset_len";
-type ReefDatasetLenArgs = ();
-type ReefDatasetLenReturn = (i32,);
-
-const REEF_DATASET_WRITE_NAME: &str = "dataset_write";
-type ReefDatasetWriteArgs = (i32,);
-type ReefDatasetWriteReturn = ();
-
-const REEF_RESULT_NAME: &str = "result";
-type ReefResultArgs = (i32, i32, i32);
-type ReefResultReturn = ();
 
 const ITERATION_CYCLES: usize = 0x10000;
 
@@ -74,6 +36,7 @@ pub(crate) struct ReefLog {
     pub(crate) content: String,
     pub(crate) kind: u16,
 }
+
 #[derive(Debug)]
 pub(crate) struct Job {
     pub(crate) last_sync: Instant,
@@ -91,6 +54,7 @@ pub(crate) struct Job {
     pub(crate) progress: f32,
 }
 
+#[derive(Debug)]
 pub(crate) struct JobResult {
     pub(crate) success: bool,
     pub(crate) content_type: ResultContentType,

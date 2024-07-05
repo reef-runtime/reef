@@ -122,11 +122,23 @@
           inherit src buildInputs nativeBuildInputs;
 
           strictDeps = true;
-
+        };
+        nativeArgs = {
           CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
           CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
         };
-        cargoArtifacts = craneLib.buildDepsOnly (commonArgs // {pname = "reef_dependencies";});
+        wasmArgs = {
+          CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
+        };
+        cargoArtifacts = craneLib.buildDepsOnly (commonArgs
+          // {
+            src = lib.fileset.toSource {
+              root = ./.;
+              fileset = ./Cargo.lock;
+            };
+            pname = "reef_dependencies";
+            version = "0.0.1";
+          });
 
         individualCrateArgs =
           commonArgs
@@ -147,24 +159,36 @@
                 ./reef_compiler/Cargo.toml
                 ./reef_interpreter/Cargo.toml
                 ./reef_node_native/Cargo.toml
+                ./reef_node_web/Cargo.toml
                 ./reef_protocol/compiler/rust/Cargo.toml
                 ./reef_protocol/node/rust/Cargo.toml
+                ./reef_protocol/reef_wasm_interface/Cargo.toml
               ]
               ++ crate);
           };
 
         # Build the top-level crates of the workspace as individual derivations.
         reef_compiler_bin = craneLib.buildPackage (individualCrateArgs
+          // nativeArgs
           // {
             pname = "reef_compiler";
             cargoExtraArgs = "-p reef_compiler";
             src = fileSetForCrate [./reef_compiler/src ./reef_protocol];
           });
         reef_node_native = craneLib.buildPackage (individualCrateArgs
+          // nativeArgs
           // {
             pname = "reef_node_native";
             cargoExtraArgs = "-p reef_node_native";
             src = fileSetForCrate [./reef_node_native ./reef_interpreter ./reef_protocol];
+          });
+        reef_node_web_bin = craneLib.buildPackage (individualCrateArgs
+          // wasmArgs
+          // {
+            pname = "reef_node_web";
+            cargoExtraArgs = "-p reef_node_web";
+            src = fileSetForCrate [./reef_node_web ./reef_interpreter ./reef_protocol];
+            doCheck = false;
           });
 
         # ===============
@@ -175,15 +199,47 @@
           pname = "reef_frontend";
           version = "0.1.0";
 
-          src = ./reef_frontend;
+          src = lib.fileset.toSource {
+            root = ./.;
+            fileset = ./reef_frontend;
+          };
 
-          npmDepsHash = "sha256-mPOh43GjflnyJYdEUt31HtmNoKD5/89ZPgWw+CxkyBM=";
+          npmDepsHash = "sha256-J+Xb+6uzFwMMj7jFV7bPR/LB53Pal9jxVFmy0Y2W9cs=";
           # npmDepsHash = lib.fakeHash;
 
           npmPackFlags = ["--ignore-scripts"];
 
+          postPatch = ''
+            cd reef_frontend
+            cp -r ${reef_node_web}/pkg/ ./src/lib/node_web_generated
+          '';
+
           installPhase = ''
             cp -r out $out
+          '';
+        };
+
+        reef_node_web = pkgs.stdenv.mkDerivation {
+          name = "reef_node_web";
+          src = lib.fileset.toSource {
+            root = ./.;
+            fileset = lib.fileset.unions [];
+          };
+          nativeBuildInputs = with pkgs; [
+            wasm-bindgen-cli
+            binaryen
+          ];
+
+          unpackPhase = ''
+            cp -r ${reef_node_web_bin}/lib .
+          '';
+          buildPhase = ''
+            wasm-bindgen --out-dir pkg --target web ./lib/reef_node_web.wasm
+            wasm-opt -o ./pkg/reef_node_web_bg.wasm -O4 --strip-debug ./pkg/reef_node_web_bg.wasm
+          '';
+          installPhase = ''
+            mkdir -p $out
+            cp -r pkg $out
           '';
         };
 
@@ -312,6 +368,7 @@
             wasmtime
             wabt
             binaryen
+            wasm-bindgen-cli
 
             # Communications / Capnproto
             capnproto
@@ -352,7 +409,7 @@
           # Binary outputs
           inherit reef_manager reef_compiler reef_node_native;
           # Other outputs
-          inherit reef_frontend;
+          inherit reef_frontend reef_node_web_bin reef_node_web;
 
           # Conatiner images for central system
           inherit reef_caddy_image reef_manager_image reef_compiler_image;

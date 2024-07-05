@@ -11,12 +11,11 @@ $Go.import("foo/message");
 
 enum MessageToNodeKind {
     ping                @0;
-    pong                @1;
 
+    initHandShake       @1;
     assignId            @2;
-    initHandShake       @3;
-    startJob            @4;
-    abortJob            @5;
+    startJob            @3;
+    abortJob            @4;
 }
 
 struct MessageToNode {

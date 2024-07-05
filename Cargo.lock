@@ -985,10 +985,23 @@ dependencies = [
  "hex",
  "reef_interpreter",
  "reef_protocol_node",
+ "reef_wasm_interface",
  "reqwest",
  "sysinfo",
  "tungstenite",
  "url",
+]
+
+[[package]]
+name = "reef_node_web"
+version = "0.0.1"
+dependencies = [
+ "capnp",
+ "hex",
+ "reef_interpreter",
+ "reef_protocol_node",
+ "reef_wasm_interface",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1005,6 +1018,13 @@ version = "0.0.1"
 dependencies = [
  "capnp",
  "capnpc",
+]
+
+[[package]]
+name = "reef_wasm_interface"
+version = "0.0.1"
+dependencies = [
+ "reef_interpreter",
 ]
 
 [[package]]

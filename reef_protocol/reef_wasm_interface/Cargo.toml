@@ -1,0 +1,10 @@
+[package]
+name = "reef_wasm_interface"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+repository.workspace = true
+edition.workspace = true
+
+[dependencies]
+reef_interpreter.workspace = true
