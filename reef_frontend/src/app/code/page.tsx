@@ -42,10 +42,13 @@ import { ToastAction } from '@/components/ui/toast';
 import { useToast } from '@/components/ui/use-toast';
 // import { Editor } from './editor';
 import { FormEvent } from 'react';
+
 import { rust } from '@codemirror/lang-rust';
+import { cpp } from '@codemirror/lang-cpp';
+
 // import { cpp } from '@codemirror/lang-cpp';
 import { useMemo, useRef } from 'react';
-import CodeMirror from '@uiw/react-codemirror';
+import CodeMirror, { Extension } from '@uiw/react-codemirror';
 import { vscodeDark, vscodeLight } from '@uiw/codemirror-theme-vscode';
 import { VariantProps } from 'class-variance-authority';
 import { register } from 'module';
@@ -90,8 +93,7 @@ export default function Page() {
     error: '',
   });
 
-  // Load dataset list on page init.
-  // const [datasets, setDatasets] = useState<IDataset[]>([]);
+  const [language, setLanguage] = useState<'rust' | 'c'>('c');
 
   const { datasets, fetchDatasets, uploadDataset } = useDatasets();
 
@@ -179,10 +181,10 @@ export default function Page() {
                           style={{ height: '100%' }}
                           className={'codeEditor'}
                           value={'TEST'}
-                          lang="c"
+                          lang={language}
                           height="100%"
                           theme={theme === 'dark' ? vscodeDark : vscodeLight}
-                          extensions={extensions}
+                          extensions={language === 'c' ? [cpp()] : [rust()]}
                           onChange={(value, _) => {
                             field.onChange(value);
                           }}
@@ -226,9 +228,10 @@ export default function Page() {
                             <FormLabel>Language</FormLabel>
                             <FormControl>
                               <Select
-                                onValueChange={(c) => {
-                                  console.dir(c);
-                                  field.onChange(c);
+                                onValueChange={(newLang) => {
+                                  console.dir(newLang);
+                                  field.onChange(newLang);
+                                  setLanguage(newLang as any)
                                 }}
                                 defaultValue={'c'}
                               >
@@ -306,21 +309,37 @@ export default function Page() {
                   </Button>
                 </Card>
 
-                {response.message && response.message != '' && (
                   <Card className="h-full w-full flex flex-col">
                     <div
-                      className="h-full w-full px-4 py-3"
+                      className="h-full w-full px-4 py-3 bg-blue-50 dark:bg-transparent overflow-auto h-full"
                       style={{
-                        backgroundColor: 'beige',
+                        // backgroundColor: 'beige',
                         fontFamily: 'monospace',
                         fontSize: '0.9rem',
                         boxSizing: 'border-box',
                       }}
                     >
-                      {response.message}
+
+                        <span className='font-bold'>
+                        {response.message ? response.message.toUpperCase() : "JOB OUTPUT"}
+                        </span>
+
+
+                      <Separator className='my-5'></Separator>
+
+                    {
+                        function() {
+                            if(response.message && response.message != '') {
+                                return <div dangerouslySetInnerHTML={{__html: response.error.replaceAll('\n', '<br>')
+                                    .replaceAll(' ', '&nbsp;')
+                                }}></div>
+                            } else {
+                                return <div>a</div>
+                            }
+                        }()
+                    }
                     </div>
                   </Card>
-                )}
               </div>
             </div>
           )}
@@ -329,18 +348,3 @@ export default function Page() {
     </Form>
   );
 }
-
-//
-// <div className="split-grid" {...getGridProps()}>
-//   <div className="split-column">COLUMN A (position 0)</div>
-//   <div
-//     className="gutter gutter-vertical"
-//     {...getGutterProps('column', 1)}
-//   />
-//   <div className="split-column">COLUMN B (position 2)</div>
-//   <div
-//     className="gutter gutter-vertical"
-//     {...getGutterProps('column', 3)}
-//   />
-//   <div className="split-column">COLUMN C (position 3)</div>
-// </div>
