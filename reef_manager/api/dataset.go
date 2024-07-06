@@ -10,7 +10,7 @@ import (
 )
 
 const datasetIdURLParam = "id"
-const formFileFieldName = "dataset"
+const formFileFieldName = "file"
 
 type IdBody struct {
 	Id string `json:"id"`
