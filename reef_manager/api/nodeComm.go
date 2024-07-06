@@ -168,7 +168,7 @@ func dropNode(conn *logic.WSConn, closeCode int, nodeId logic.NodeId) {
 // Ping & Heartbeating.
 //
 
-func pingOrPongMessage(isPing bool) ([]byte, error) {
+func pingMessage() ([]byte, error) {
 	msg, seg, err := capnp.NewMessage(capnp.SingleSegment(nil))
 	if err != nil {
 		return nil, err
@@ -179,10 +179,7 @@ func pingOrPongMessage(isPing bool) ([]byte, error) {
 		return nil, err
 	}
 
-	kind := node.MessageToNodeKind_pong
-	if isPing {
-		kind = node.MessageToNodeKind_ping
-	}
+	kind := node.MessageToNodeKind_ping
 
 	toNode.SetKind(kind)
 	toNode.Body().SetEmpty()
@@ -192,7 +189,7 @@ func pingOrPongMessage(isPing bool) ([]byte, error) {
 
 func nodePingHandler(conn *logic.WSConn, nodeId logic.NodeId) func(string) error {
 	return func(_ string) error {
-		msg, err := pingOrPongMessage(false)
+		msg, err := pingMessage()
 		if err != nil {
 			return err
 		}
