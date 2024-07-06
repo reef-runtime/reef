@@ -13,10 +13,17 @@ const WorkerListItem: React.FC<WorkerListItemProps> = ({
   job,
   workerIndex,
 }) => {
+  function handleClick() {
+    if (!job) {
+        return
+    }
+    window.location.href = '/jobs/detail/?id=' + encodeURIComponent(job.id);
+  }
+
   const percentage = job ? Math.floor(job.progress * 100) : 0;
 
   return (
-    <div className="w-full overflow-hidden">
+    <div className="w-full overflow-hidden" onClick={handleClick}>
       <ul
         key={workerIndex}
         className={classNames(

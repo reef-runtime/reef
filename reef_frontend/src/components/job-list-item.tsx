@@ -14,11 +14,11 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
   }
 
   return (
-    <div className="w-full overflow-hidden">
+    <div className="w-full overflow-hidden"
+    onClick={handleClick}>
       <ul
         key={job.id}
         className="space-y-2 p-2 rounded-xl transition-shadow duration-300 hover:shadow-lg cursor-pointer"
-        onClick={handleClick}
       >
         <li className="text-sm text-muted-foreground font-bold flex items-center justify-between space-x-1">
           <div className="flex items-center">
