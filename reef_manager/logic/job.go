@@ -195,7 +195,7 @@ func (m *JobManagerT) ListenToRefreshRequests() {
 		case WSTopicAllJobs:
 			m.updateAllJobStates()
 		case WSTopicSingleJob:
-			m.updateSingleJobState(*msg.Additional)
+			m.updateSingleJobState(msg.Additional)
 		case WSTopicNodes:
 			m.updateNodeState()
 		default:

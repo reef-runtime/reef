@@ -240,15 +240,15 @@ func (m *JobManagerT) ConnectNode(node NodeInfo, conn *WSConn) (nodeObj Node) {
 		Info:        node,
 		LastPing:    now,
 		Conn:        conn,
-		Id:          newId,
+		Id:          newID,
 		WorkerState: make([]*string, node.NumWorkers),
 	}
 
-	m.Nodes.Insert(newId, NewLockedValue(nodeObj))
+	m.Nodes.Insert(newID, NewLockedValue(nodeObj))
 
 	log.Infof(
 		"[node] Handshake success: connected to new node `%s` ip=`%s` name=`%s` with %d workers",
-		newIdString,
+		newIDString,
 		node.EndpointIP,
 		node.Name,
 		node.NumWorkers,
@@ -342,7 +342,7 @@ func (m *JobManagerT) updateNodeState() {
 	m.SendUIUpdatesTo <- DataCollectionMsg{
 		Topic: WebSocketTopic{
 			Kind:       WSTopicNodes,
-			Additional: nil,
+			Additional: "",
 		},
 		Data: nodes,
 	}
@@ -359,29 +359,29 @@ func (m *JobManagerT) updateAllJobStates() {
 	m.SendUIUpdatesTo <- DataCollectionMsg{
 		Topic: WebSocketTopic{
 			Kind:       WSTopicAllJobs,
-			Additional: nil,
+			Additional: "",
 		},
 		Data: jobs,
 	}
 }
 
-func (m *JobManagerT) updateSingleJobState(jobId string) {
-	job, found, err := m.GetJob(jobId, true)
+func (m *JobManagerT) updateSingleJobState(jobID string) {
+	job, found, err := m.GetJob(jobID, true)
 
 	if err != nil {
-		log.Errorf("Could not notify UI about single job state change: job `%s` caused error: %s", jobId, err.Error())
+		log.Errorf("Could not notify UI about single job state change: job `%s` caused error: %s", jobID, err.Error())
 		return
 	}
 
 	if !found {
-		log.Errorf("Could not notify UI about single job state change: job `%s` not found", jobId)
+		log.Errorf("Could not notify UI about single job state change: job `%s` not found", jobID)
 		return
 	}
 
 	m.SendUIUpdatesTo <- DataCollectionMsg{
 		Topic: WebSocketTopic{
 			Kind:       WSTopicSingleJob,
-			Additional: &jobId,
+			Additional: jobID,
 		},
 		Data: job,
 	}

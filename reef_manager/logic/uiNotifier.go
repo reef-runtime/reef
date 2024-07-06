@@ -46,8 +46,8 @@ type DataCollectionMsg struct {
 
 type WebSocketTopic struct {
 	Kind WebSocketTopicKind `json:"kind"`
-	// Is not null when topic requires additional information, such as single job.
-	Additional *string `json:"additional"`
+	// Is populated when topic requires additional information, such as single job.
+	Additional string `json:"additional"`
 }
 
 type WebSocketTopicKind string
@@ -61,13 +61,13 @@ const (
 func (t WebSocketTopic) Validate() error {
 	switch t.Kind {
 	case WSTopicAllJobs, WSTopicNodes:
-		if t.Additional != nil {
-			return errors.New("the additional field must be `nil` for this topic kind")
+		if t.Additional != "" {
+			return errors.New("the additional field must be empty for this topic kind")
 		}
 		return nil
 	case WSTopicSingleJob:
-		if t.Additional == nil {
-			return errors.New("the additional field cannot be `nil` for single jobs")
+		if t.Additional == "" {
+			return errors.New("the additional field cannot be empty for single jobs")
 		}
 		return nil
 	default:
