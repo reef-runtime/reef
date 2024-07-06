@@ -383,7 +383,8 @@ func (m *JobManagerT) updateSingleJobState(jobID string) {
 			Kind:       WSTopicSingleJob,
 			Additional: jobID,
 		},
-		Data: job,
+		// NOTE: this reference is important: if it is missing, the wrong marshaler is called and breaks the frontend.
+		Data: &job,
 	}
 
 	m.updateAllJobStates()
