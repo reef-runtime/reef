@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react';
 // import { useLogs } from '@/stores/log.store';
 import { ILogEntry, ILogKind } from '@/types/log';
 import { GetSocket, topicSingleJob } from '@/lib/websocket';
+import { toast } from '@/components/ui/use-toast';
 
 export default function Page() {
   const { nodes, setNodes } = useNodes();
@@ -32,30 +33,32 @@ export default function Page() {
     const queryParams = new URLSearchParams(window.location.search);
     const jobId = queryParams.get('id');
 
+    console.log(jobId)
+
     if (!jobId) {
-      // TODO: redirect to 404 page
-      return;
+        throw "bug"
+        // TODO: redirect to 404 page
+        return
     }
 
-    setJob(jobs.find((job) => job.id === jobId) ?? null);
-    setInitialized(true);
 
     const sock = GetSocket();
     sock.unsubscribeAll();
 
     sock.subscribe(topicSingleJob(jobId), (res) => {
-      setJobs([res.data]);
-    });
-  }, []);
+        console.dir(res.data)
+        setJobs([res.data])
 
-  if (!initialized) {
+        setJob(res.data);
+        setInitialized(true);
+    })
+  }, [window.location.search]);
+
+  if (!initialized || !job) {
     return null;
   }
 
-  if (!job) {
-    window.location.href = '/jobs';
-    return null;
-  }
+  // return <span>{JSON.stringify(job)}</span>;
 
   return (
     <main className="flex xl:flex-row p-4 xl:space-x-4 grow">
@@ -102,15 +105,15 @@ export default function Page() {
             <div className="space-y-4">
               <div>
                 <h4 className="font-bold">Job ID</h4>
-                <p>{job.id}</p>
+                <p className='overflow-hidden text-ellipsis'>{job.id}</p>
               </div>
               <div>
                 <h4 className="font-bold">Job Name</h4>
-                <p>{job.name}</p>
+                <p className='overflow-hidden text-ellipsis'>{job.name}</p>
               </div>
               <div>
                 <h4 className="font-bold">Submitted</h4>
-                <p>{job.submitted}</p>
+                <p className='overflow-hidden text-ellipsis'>{new Date(job.submitted).toLocaleString()}</p>
               </div>
               {job.result && (
                 <>
