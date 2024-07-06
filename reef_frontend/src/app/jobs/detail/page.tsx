@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNodes } from '@/stores/nodes.store';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -39,19 +33,19 @@ export default function Page() {
     const jobId = queryParams.get('id');
 
     if (!jobId) {
-        // TODO: redirect to 404 page
-        return
+      // TODO: redirect to 404 page
+      return;
     }
 
     setJob(jobs.find((job) => job.id === jobId) ?? null);
     setInitialized(true);
 
-    const sock = GetSocket()
-    sock.unsubscribeAll()
+    const sock = GetSocket();
+    sock.unsubscribeAll();
 
     sock.subscribe(topicSingleJob(jobId), (res) => {
-        setJobs([res.data])
-    })
+      setJobs([res.data]);
+    });
   }, []);
 
   if (!initialized) {
@@ -74,7 +68,8 @@ export default function Page() {
           </CardHeader>
           <CardContent className="grow p-2 flex flex-col">
             <div className="bg-black p-2 rounded-sm grow">
-              {job.logs?.sort(
+              {job.logs
+                ?.sort(
                   (a, b) =>
                     new Date(a.created).getTime() -
                     new Date(b.created).getTime()
