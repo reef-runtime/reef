@@ -14,5 +14,6 @@ reef_wasm_interface.workspace = true
 
 capnp.workspace = true
 
+console_error_panic_hook = "0.1.7"
 hex.workspace = true
 wasm-bindgen.workspace = true
