@@ -228,11 +228,11 @@ func (m *JobManagerT) StateSyncWithLockingOps(nodeId NodeId, state StateSync) (J
 }
 
 func (m *JobManagerT) ConnectNode(node NodeInfo, conn *WSConn) (nodeObj Node) {
-	newId := sha256.Sum256(append([]byte(node.EndpointIP), []byte(node.Name)...))
-	newIdString := hex.EncodeToString(newId[0:])
+	newID := sha256.Sum256(append([]byte(node.EndpointIP), []byte(node.Name)...))
+	newIDString := hex.EncodeToString(newID[0:])
 
 	if _, alreadyExists := m.Nodes.Get(nodeObj.Id); alreadyExists {
-		panic(fmt.Sprintf("[bug] node with Id %x already exists", newId))
+		panic(fmt.Sprintf("[bug] node with Id `%s` already exists", newIDString))
 	}
 
 	now := time.Now()
