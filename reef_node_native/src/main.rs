@@ -106,8 +106,6 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let mut state = NodeState::new(num_workers);
-
     let node_info =
         handshake::perform(&node_name, num_workers as u16, &mut socket).with_context(|| "handshake failed")?;
 
@@ -122,6 +120,8 @@ fn main() -> anyhow::Result<()> {
             panic!("Unknown stream type!");
         }
     }
+
+    let mut state = NodeState::new(num_workers);
 
     let sync_wait_duration = Duration::from_millis(args.sync_delay_millis as u64);
 

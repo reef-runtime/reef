@@ -1,20 +1,9 @@
 use anyhow::{bail, Context, Result};
 use capnp::{message::ReaderOptions, serialize};
-use reef_protocol_node::message_capnp::{self, message_to_node, MessageToNodeKind};
+use reef_protocol_node::message_capnp::{self, message_to_node, MessageFromNodeKind, MessageToNodeKind};
 use tungstenite::Message;
 
 use crate::WSConn;
-
-fn ack_handshake_message(num_workers: u16, node_name: &str) -> Result<Message> {
-    let mut message = capnp::message::Builder::new_default();
-    let mut root: message_capnp::handshake_respond_message::Builder = message.init_root();
-    root.set_num_workers(num_workers);
-    root.set_node_name(node_name);
-
-    let mut buffer = vec![];
-    capnp::serialize::write_message(&mut buffer, &message).with_context(|| "could not encode message")?;
-    Ok(Message::Binary(buffer))
-}
 
 #[derive(Debug)]
 pub(crate) struct NodeInfo {
@@ -105,4 +94,19 @@ pub(crate) fn perform(node_name: &str, num_workers: u16, socket: &mut WSConn) ->
     };
 
     Ok(NodeInfo { node_id })
+}
+
+fn ack_handshake_message(num_workers: u16, node_name: &str) -> Result<Message> {
+    let mut message = capnp::message::Builder::new_default();
+    let mut encapsulating_message: reef_protocol_node::message_capnp::message_from_node::Builder = message.init_root();
+    encapsulating_message.set_kind(MessageFromNodeKind::HandshakeResponse);
+
+    let mut handshake_response = encapsulating_message.get_body().init_handshake_response();
+
+    handshake_response.set_num_workers(num_workers);
+    handshake_response.set_node_name(node_name);
+
+    let mut buffer = vec![];
+    capnp::serialize::write_message(&mut buffer, &message).with_context(|| "could not encode message")?;
+    Ok(Message::Binary(buffer))
 }

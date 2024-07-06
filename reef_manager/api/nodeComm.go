@@ -82,7 +82,6 @@ func performHandshake(conn *logic.WSConn) (logic.Node, error) {
 		websocket.BinaryMessage,
 		initMsg,
 	)
-
 	if err != nil {
 		return logic.Node{}, err
 	}
@@ -101,9 +100,27 @@ func performHandshake(conn *logic.WSConn) (logic.Node, error) {
 		return logic.Node{}, err
 	}
 
-	handshakeResponse, err := node.ReadRootHandshakeRespondMessage(unmarshaledRaw)
+	decodedEnclosingMsg, err := node.ReadRootMessageFromNode(unmarshaledRaw)
 	if err != nil {
 		return logic.Node{}, fmt.Errorf("could not read handshake response: %s", err.Error())
+	}
+
+	kind := decodedEnclosingMsg.Kind()
+
+	switch kind {
+	case node.MessageFromNodeKind_handshakeResponse:
+		log.Tracef("Received handshakeResponse")
+	default:
+		return logic.Node{}, fmt.Errorf("received illegal/unexpected message kind from node during handshake: %d", kind)
+	}
+
+	if decodedEnclosingMsg.Body().Which() != node.MessageFromNode_body_Which_handshakeResponse {
+		return logic.Node{}, fmt.Errorf("received illegal body kind from node during handshake: %d", decodedEnclosingMsg.Body().Which())
+	}
+
+	handshakeResponse, err := decodedEnclosingMsg.Body().HandshakeResponse()
+	if err != nil {
+		return logic.Node{}, fmt.Errorf("could not parse massage body from node during handshake: %s", err.Error())
 	}
 
 	numWorkers := handshakeResponse.NumWorkers()
@@ -187,7 +204,7 @@ func pingMessage() ([]byte, error) {
 	return msg.Marshal()
 }
 
-func nodePingHandler(conn *logic.WSConn, nodeId logic.NodeId) func(string) error {
+func messagePingHandler(conn *logic.WSConn, nodeId logic.NodeId) func(string) error {
 	return func(_ string) error {
 		msg, err := pingMessage()
 		if err != nil {
@@ -201,14 +218,18 @@ func nodePingHandler(conn *logic.WSConn, nodeId logic.NodeId) func(string) error
 			return err
 		}
 
-		if !logic.JobManager.RegisterPing(nodeId) {
-			log.Errorf(
-				"[node] could not register ping, node `%s` does not exist, this is a bug",
-				logic.IdToString(nodeId),
-			)
-		}
+		setLastPing(nodeId)
 
 		return nil
+	}
+}
+
+func setLastPing(nodeId logic.NodeId) {
+	if !logic.JobManager.RegisterPing(nodeId) {
+		log.Errorf(
+			"[node] could not register ping, node `%s` does not exist, this is a bug",
+			logic.IdToString(nodeId),
+		)
 	}
 }
 
@@ -233,7 +254,7 @@ func HandleNodeConnection(c *gin.Context) {
 
 	// Add node to manager.
 
-	pingHandler := nodePingHandler(wsConn, node.Id)
+	pingHandler := messagePingHandler(wsConn, node.Id)
 	conn.SetPingHandler(pingHandler)
 
 	conn.SetPongHandler(func(appData string) error {
@@ -263,8 +284,9 @@ func HandleNodeConnection(c *gin.Context) {
 			fmt.Printf("text: %s\n", string(message))
 		case websocket.BinaryMessage:
 			// log.Tracef("[node] received binary message: %s", logic.FormatBinarySliceAsHex(message))
+			setLastPing(node.Id)
 
-			if err := handleGenericIncoming(node, message, pingHandler); err != nil {
+			if err := handleGenericIncoming(node, message); err != nil {
 				log.Errorf("[node] failed to act upon message: %s", err.Error())
 				dropNode(wsConn, websocket.CloseAbnormalClosure, node.Id)
 				return
@@ -284,7 +306,7 @@ func HandleNodeConnection(c *gin.Context) {
 	}
 }
 
-func handleGenericIncoming(nodeData logic.Node, message []byte, pingHandler func(string) error) error {
+func handleGenericIncoming(nodeData logic.Node, message []byte) error {
 	unmarshaledRaw, err := capnp.Unmarshal(message)
 	if err != nil {
 		return err
@@ -298,10 +320,8 @@ func handleGenericIncoming(nodeData logic.Node, message []byte, pingHandler func
 	kind := decodedEnclosingMsg.Kind()
 
 	switch kind {
-	case node.MessageFromNodeKind_ping:
-		return pingHandler(string(message[1:]))
-	case node.MessageFromNodeKind_pong:
-		log.Tracef("Received pong from node `%s` (%s)", logic.IdToString(nodeData.Id), nodeData.Info.EndpointIP)
+	case node.MessageFromNodeKind_handshakeResponse:
+		log.Tracef("Received late handshakeResponse fron node `%s` (%s)", logic.IdToString(nodeData.Id), nodeData.Info.EndpointIP)
 		return nil
 	case node.MessageFromNodeKind_jobStateSync:
 		return processStateSyncFromNode(nodeData.Id, decodedEnclosingMsg)

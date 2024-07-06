@@ -611,19 +611,16 @@ const MessageFromNodeKind_TypeID = 0x980a0508f8ad6c6f
 
 // Values of MessageFromNodeKind.
 const (
-	MessageFromNodeKind_ping         MessageFromNodeKind = 0
-	MessageFromNodeKind_pong         MessageFromNodeKind = 1
-	MessageFromNodeKind_jobStateSync MessageFromNodeKind = 2
-	MessageFromNodeKind_jobResult    MessageFromNodeKind = 3
+	MessageFromNodeKind_handshakeResponse MessageFromNodeKind = 0
+	MessageFromNodeKind_jobStateSync      MessageFromNodeKind = 1
+	MessageFromNodeKind_jobResult         MessageFromNodeKind = 2
 )
 
 // String returns the enum's constant name.
 func (c MessageFromNodeKind) String() string {
 	switch c {
-	case MessageFromNodeKind_ping:
-		return "ping"
-	case MessageFromNodeKind_pong:
-		return "pong"
+	case MessageFromNodeKind_handshakeResponse:
+		return "handshakeResponse"
 	case MessageFromNodeKind_jobStateSync:
 		return "jobStateSync"
 	case MessageFromNodeKind_jobResult:
@@ -638,10 +635,8 @@ func (c MessageFromNodeKind) String() string {
 // or the zero value if there's no such value.
 func MessageFromNodeKindFromString(c string) MessageFromNodeKind {
 	switch c {
-	case "ping":
-		return MessageFromNodeKind_ping
-	case "pong":
-		return MessageFromNodeKind_pong
+	case "handshakeResponse":
+		return MessageFromNodeKind_handshakeResponse
 	case "jobStateSync":
 		return MessageFromNodeKind_jobStateSync
 	case "jobResult":
@@ -663,20 +658,20 @@ type MessageFromNode_body MessageFromNode
 type MessageFromNode_body_Which uint16
 
 const (
-	MessageFromNode_body_Which_empty        MessageFromNode_body_Which = 0
-	MessageFromNode_body_Which_jobStateSync MessageFromNode_body_Which = 1
-	MessageFromNode_body_Which_jobResult    MessageFromNode_body_Which = 2
+	MessageFromNode_body_Which_handshakeResponse MessageFromNode_body_Which = 0
+	MessageFromNode_body_Which_jobStateSync      MessageFromNode_body_Which = 1
+	MessageFromNode_body_Which_jobResult         MessageFromNode_body_Which = 2
 )
 
 func (w MessageFromNode_body_Which) String() string {
-	const s = "emptyjobStateSyncjobResult"
+	const s = "handshakeResponsejobStateSyncjobResult"
 	switch w {
-	case MessageFromNode_body_Which_empty:
-		return s[0:5]
+	case MessageFromNode_body_Which_handshakeResponse:
+		return s[0:17]
 	case MessageFromNode_body_Which_jobStateSync:
-		return s[5:17]
+		return s[17:29]
 	case MessageFromNode_body_Which_jobResult:
-		return s[17:26]
+		return s[29:38]
 
 	}
 	return "MessageFromNode_body_Which(" + strconv.FormatUint(uint64(w), 10) + ")"
@@ -751,9 +746,36 @@ func (s MessageFromNode_body) Message() *capnp.Message {
 func (s MessageFromNode_body) Segment() *capnp.Segment {
 	return capnp.Struct(s).Segment()
 }
-func (s MessageFromNode_body) SetEmpty() {
-	capnp.Struct(s).SetUint16(2, 0)
+func (s MessageFromNode_body) HandshakeResponse() (HandshakeRespondMessage, error) {
+	if capnp.Struct(s).Uint16(2) != 0 {
+		panic("Which() != handshakeResponse")
+	}
+	p, err := capnp.Struct(s).Ptr(0)
+	return HandshakeRespondMessage(p.Struct()), err
+}
 
+func (s MessageFromNode_body) HasHandshakeResponse() bool {
+	if capnp.Struct(s).Uint16(2) != 0 {
+		return false
+	}
+	return capnp.Struct(s).HasPtr(0)
+}
+
+func (s MessageFromNode_body) SetHandshakeResponse(v HandshakeRespondMessage) error {
+	capnp.Struct(s).SetUint16(2, 0)
+	return capnp.Struct(s).SetPtr(0, capnp.Struct(v).ToPtr())
+}
+
+// NewHandshakeResponse sets the handshakeResponse field to a newly
+// allocated HandshakeRespondMessage struct, preferring placement in s's segment.
+func (s MessageFromNode_body) NewHandshakeResponse() (HandshakeRespondMessage, error) {
+	capnp.Struct(s).SetUint16(2, 0)
+	ss, err := NewHandshakeRespondMessage(capnp.Struct(s).Segment())
+	if err != nil {
+		return HandshakeRespondMessage{}, err
+	}
+	err = capnp.Struct(s).SetPtr(0, capnp.Struct(ss).ToPtr())
+	return ss, err
 }
 
 func (s MessageFromNode_body) JobStateSync() (JobStateSync, error) {
@@ -846,6 +868,9 @@ type MessageFromNode_body_Future struct{ *capnp.Future }
 func (f MessageFromNode_body_Future) Struct() (MessageFromNode_body, error) {
 	p, err := f.Future.Ptr()
 	return MessageFromNode_body(p.Struct()), err
+}
+func (p MessageFromNode_body_Future) HandshakeResponse() HandshakeRespondMessage_Future {
+	return HandshakeRespondMessage_Future{Future: p.Future.Field(0, nil)}
 }
 func (p MessageFromNode_body_Future) JobStateSync() JobStateSync_Future {
 	return JobStateSync_Future{Future: p.Future.Field(0, nil)}
@@ -942,181 +967,6 @@ type HandshakeRespondMessage_Future struct{ *capnp.Future }
 func (f HandshakeRespondMessage_Future) Struct() (HandshakeRespondMessage, error) {
 	p, err := f.Future.Ptr()
 	return HandshakeRespondMessage(p.Struct()), err
-}
-
-type JobStartedMessage capnp.Struct
-
-// JobStartedMessage_TypeID is the unique identifier for the type JobStartedMessage.
-const JobStartedMessage_TypeID = 0xa0fe80f134c822da
-
-func NewJobStartedMessage(s *capnp.Segment) (JobStartedMessage, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1})
-	return JobStartedMessage(st), err
-}
-
-func NewRootJobStartedMessage(s *capnp.Segment) (JobStartedMessage, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1})
-	return JobStartedMessage(st), err
-}
-
-func ReadRootJobStartedMessage(msg *capnp.Message) (JobStartedMessage, error) {
-	root, err := msg.Root()
-	return JobStartedMessage(root.Struct()), err
-}
-
-func (s JobStartedMessage) String() string {
-	str, _ := text.Marshal(0xa0fe80f134c822da, capnp.Struct(s))
-	return str
-}
-
-func (s JobStartedMessage) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
-	return capnp.Struct(s).EncodeAsPtr(seg)
-}
-
-func (JobStartedMessage) DecodeFromPtr(p capnp.Ptr) JobStartedMessage {
-	return JobStartedMessage(capnp.Struct{}.DecodeFromPtr(p))
-}
-
-func (s JobStartedMessage) ToPtr() capnp.Ptr {
-	return capnp.Struct(s).ToPtr()
-}
-func (s JobStartedMessage) IsValid() bool {
-	return capnp.Struct(s).IsValid()
-}
-
-func (s JobStartedMessage) Message() *capnp.Message {
-	return capnp.Struct(s).Message()
-}
-
-func (s JobStartedMessage) Segment() *capnp.Segment {
-	return capnp.Struct(s).Segment()
-}
-func (s JobStartedMessage) WorkerIndex() uint32 {
-	return capnp.Struct(s).Uint32(0)
-}
-
-func (s JobStartedMessage) SetWorkerIndex(v uint32) {
-	capnp.Struct(s).SetUint32(0, v)
-}
-
-func (s JobStartedMessage) JobId() (string, error) {
-	p, err := capnp.Struct(s).Ptr(0)
-	return p.Text(), err
-}
-
-func (s JobStartedMessage) HasJobId() bool {
-	return capnp.Struct(s).HasPtr(0)
-}
-
-func (s JobStartedMessage) JobIdBytes() ([]byte, error) {
-	p, err := capnp.Struct(s).Ptr(0)
-	return p.TextBytes(), err
-}
-
-func (s JobStartedMessage) SetJobId(v string) error {
-	return capnp.Struct(s).SetText(0, v)
-}
-
-// JobStartedMessage_List is a list of JobStartedMessage.
-type JobStartedMessage_List = capnp.StructList[JobStartedMessage]
-
-// NewJobStartedMessage creates a new list of JobStartedMessage.
-func NewJobStartedMessage_List(s *capnp.Segment, sz int32) (JobStartedMessage_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1}, sz)
-	return capnp.StructList[JobStartedMessage](l), err
-}
-
-// JobStartedMessage_Future is a wrapper for a JobStartedMessage promised by a client call.
-type JobStartedMessage_Future struct{ *capnp.Future }
-
-func (f JobStartedMessage_Future) Struct() (JobStartedMessage, error) {
-	p, err := f.Future.Ptr()
-	return JobStartedMessage(p.Struct()), err
-}
-
-type JobLogMessage capnp.Struct
-
-// JobLogMessage_TypeID is the unique identifier for the type JobLogMessage.
-const JobLogMessage_TypeID = 0x826c5949cafafbdd
-
-func NewJobLogMessage(s *capnp.Segment) (JobLogMessage, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1})
-	return JobLogMessage(st), err
-}
-
-func NewRootJobLogMessage(s *capnp.Segment) (JobLogMessage, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1})
-	return JobLogMessage(st), err
-}
-
-func ReadRootJobLogMessage(msg *capnp.Message) (JobLogMessage, error) {
-	root, err := msg.Root()
-	return JobLogMessage(root.Struct()), err
-}
-
-func (s JobLogMessage) String() string {
-	str, _ := text.Marshal(0x826c5949cafafbdd, capnp.Struct(s))
-	return str
-}
-
-func (s JobLogMessage) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
-	return capnp.Struct(s).EncodeAsPtr(seg)
-}
-
-func (JobLogMessage) DecodeFromPtr(p capnp.Ptr) JobLogMessage {
-	return JobLogMessage(capnp.Struct{}.DecodeFromPtr(p))
-}
-
-func (s JobLogMessage) ToPtr() capnp.Ptr {
-	return capnp.Struct(s).ToPtr()
-}
-func (s JobLogMessage) IsValid() bool {
-	return capnp.Struct(s).IsValid()
-}
-
-func (s JobLogMessage) Message() *capnp.Message {
-	return capnp.Struct(s).Message()
-}
-
-func (s JobLogMessage) Segment() *capnp.Segment {
-	return capnp.Struct(s).Segment()
-}
-func (s JobLogMessage) LogKind() uint16 {
-	return capnp.Struct(s).Uint16(0)
-}
-
-func (s JobLogMessage) SetLogKind(v uint16) {
-	capnp.Struct(s).SetUint16(0, v)
-}
-
-func (s JobLogMessage) Content() ([]byte, error) {
-	p, err := capnp.Struct(s).Ptr(0)
-	return []byte(p.Data()), err
-}
-
-func (s JobLogMessage) HasContent() bool {
-	return capnp.Struct(s).HasPtr(0)
-}
-
-func (s JobLogMessage) SetContent(v []byte) error {
-	return capnp.Struct(s).SetData(0, v)
-}
-
-// JobLogMessage_List is a list of JobLogMessage.
-type JobLogMessage_List = capnp.StructList[JobLogMessage]
-
-// NewJobLogMessage creates a new list of JobLogMessage.
-func NewJobLogMessage_List(s *capnp.Segment, sz int32) (JobLogMessage_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1}, sz)
-	return capnp.StructList[JobLogMessage](l), err
-}
-
-// JobLogMessage_Future is a wrapper for a JobLogMessage promised by a client call.
-type JobLogMessage_Future struct{ *capnp.Future }
-
-func (f JobLogMessage_Future) Struct() (JobLogMessage, error) {
-	p, err := f.Future.Ptr()
-	return JobLogMessage(p.Struct()), err
 }
 
 type JobStateSync capnp.Struct
@@ -1235,58 +1085,89 @@ func (f JobStateSync_Future) Struct() (JobStateSync, error) {
 	return JobStateSync(p.Struct()), err
 }
 
-type ResultContentType uint16
+type JobLogMessage capnp.Struct
 
-// ResultContentType_TypeID is the unique identifier for the type ResultContentType.
-const ResultContentType_TypeID = 0xcb3158a325d2d5bb
+// JobLogMessage_TypeID is the unique identifier for the type JobLogMessage.
+const JobLogMessage_TypeID = 0x826c5949cafafbdd
 
-// Values of ResultContentType.
-const (
-	ResultContentType_i32         ResultContentType = 0
-	ResultContentType_bytes       ResultContentType = 1
-	ResultContentType_stringPlain ResultContentType = 2
-	ResultContentType_stringJSON  ResultContentType = 3
-)
-
-// String returns the enum's constant name.
-func (c ResultContentType) String() string {
-	switch c {
-	case ResultContentType_i32:
-		return "i32"
-	case ResultContentType_bytes:
-		return "bytes"
-	case ResultContentType_stringPlain:
-		return "stringPlain"
-	case ResultContentType_stringJSON:
-		return "stringJSON"
-
-	default:
-		return ""
-	}
+func NewJobLogMessage(s *capnp.Segment) (JobLogMessage, error) {
+	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1})
+	return JobLogMessage(st), err
 }
 
-// ResultContentTypeFromString returns the enum value with a name,
-// or the zero value if there's no such value.
-func ResultContentTypeFromString(c string) ResultContentType {
-	switch c {
-	case "i32":
-		return ResultContentType_i32
-	case "bytes":
-		return ResultContentType_bytes
-	case "stringPlain":
-		return ResultContentType_stringPlain
-	case "stringJSON":
-		return ResultContentType_stringJSON
-
-	default:
-		return 0
-	}
+func NewRootJobLogMessage(s *capnp.Segment) (JobLogMessage, error) {
+	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1})
+	return JobLogMessage(st), err
 }
 
-type ResultContentType_List = capnp.EnumList[ResultContentType]
+func ReadRootJobLogMessage(msg *capnp.Message) (JobLogMessage, error) {
+	root, err := msg.Root()
+	return JobLogMessage(root.Struct()), err
+}
 
-func NewResultContentType_List(s *capnp.Segment, sz int32) (ResultContentType_List, error) {
-	return capnp.NewEnumList[ResultContentType](s, sz)
+func (s JobLogMessage) String() string {
+	str, _ := text.Marshal(0x826c5949cafafbdd, capnp.Struct(s))
+	return str
+}
+
+func (s JobLogMessage) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
+	return capnp.Struct(s).EncodeAsPtr(seg)
+}
+
+func (JobLogMessage) DecodeFromPtr(p capnp.Ptr) JobLogMessage {
+	return JobLogMessage(capnp.Struct{}.DecodeFromPtr(p))
+}
+
+func (s JobLogMessage) ToPtr() capnp.Ptr {
+	return capnp.Struct(s).ToPtr()
+}
+func (s JobLogMessage) IsValid() bool {
+	return capnp.Struct(s).IsValid()
+}
+
+func (s JobLogMessage) Message() *capnp.Message {
+	return capnp.Struct(s).Message()
+}
+
+func (s JobLogMessage) Segment() *capnp.Segment {
+	return capnp.Struct(s).Segment()
+}
+func (s JobLogMessage) LogKind() uint16 {
+	return capnp.Struct(s).Uint16(0)
+}
+
+func (s JobLogMessage) SetLogKind(v uint16) {
+	capnp.Struct(s).SetUint16(0, v)
+}
+
+func (s JobLogMessage) Content() ([]byte, error) {
+	p, err := capnp.Struct(s).Ptr(0)
+	return []byte(p.Data()), err
+}
+
+func (s JobLogMessage) HasContent() bool {
+	return capnp.Struct(s).HasPtr(0)
+}
+
+func (s JobLogMessage) SetContent(v []byte) error {
+	return capnp.Struct(s).SetData(0, v)
+}
+
+// JobLogMessage_List is a list of JobLogMessage.
+type JobLogMessage_List = capnp.StructList[JobLogMessage]
+
+// NewJobLogMessage creates a new list of JobLogMessage.
+func NewJobLogMessage_List(s *capnp.Segment, sz int32) (JobLogMessage_List, error) {
+	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1}, sz)
+	return capnp.StructList[JobLogMessage](l), err
+}
+
+// JobLogMessage_Future is a wrapper for a JobLogMessage promised by a client call.
+type JobLogMessage_Future struct{ *capnp.Future }
+
+func (f JobLogMessage_Future) Struct() (JobLogMessage, error) {
+	p, err := f.Future.Ptr()
+	return JobLogMessage(p.Struct()), err
 }
 
 type JobResult capnp.Struct
@@ -1390,93 +1271,146 @@ func (f JobResult_Future) Struct() (JobResult, error) {
 	return JobResult(p.Struct()), err
 }
 
-const schema_c5f4c7dc14cbdbf0 = "x\xda\x8cVo\x88T\xd5\x1b~\x9fs\xe6\xdf.\xbb" +
-	";{\x7f\xb3?\xf8\xfd\x91\x16%#\x97VtW#" +
-	"\xa5\xd2U\x14wt\xd7=\xbb\xab\x96)vg\xe74" +
-	"\xce\xee\xcc\xbd\xd3\xbdw\xd3AL\x11\x8d\x122\x85D" +
-	"\x8d\x08-\x85>$\x19dD!h F\xda\x87\x0a" +
-	"\xa1,\xa9\x04\x13!\xa9\x96\xa2\xbfz\xe3\xdc{\x9d\x19" +
-	"gg\xb5Os\xef9\xcf\x9c\xf7}\x9f\xf7y\x9fs" +
-	"gd\xf8\xfc\xd0\xcc\xc6\x17\"\xc4\xc4\xb2p\xc4\xbd\xf8" +
-	"\xe7\x1f\x1fu?\x9a\xdbF\xa2\x09p\x7f\xfc\xf2l\xcb" +
-	"Wg~>MaD\x89\x12\xed\xfcRb\x0eWO" +
-	"\xb3\xf9\x06\x82;k\xf7\xd3\xbb\x92\xdf\x9d\x7f\xae&x" +
-	"\x0f\xff q\xc0\x03\xef\xe5W\x08\xee\xc1M_\x9f\xa9" +
-	"\xbb\xff\xa1\xbd$&\x01\xae\xb1r\xf5\xe6N\xd7z\x95" +
-	"V \x8a\x10\xd09\x1a\xaa\x07!\xb19\xa4\xb0\x8fm" +
-	"Z\xd4\xf5\xeb\xf7\xa3\xfbj\x1e\xbc6<\x96\xc8\x86\xd5" +
-	"\x93\x0c\xab,\xcc\xdc\xd1\xdfb\xe1\xfa\xfd\xa45\xb12" +
-	"\x96\xd0y$\xfc/$\x8e{\xc8\xb7\xc2\x19\x82{a" +
-	"\xca\x87\xb3~\xdaz\xe3`\xadc;/\x86\x19\x12W" +
-	"=\xf4e\xef\xdcR\x8a\xb5\x92X\x14\xb9\x94\x10\x11\xf5" +
-	"\xd4\x13Q\xe0\x91\xffoXyh\x0f;FZ\xd38" +
-	"\xec\xf3\x91\xb1\xc4\x01\x0f\xbb72\x8f\xe0~>\xef\xe1" +
-	"\xb5\xdb\x97\xcbS\xd5\x07\x87\x14\xe4xd,qJ\x81" +
-	";ODV\x81\xe0\xbe\x7f\xfe\xd3\xa9\xaf=2\xf3\xec" +
-	"\xb8\xf2&\xc7\x18\x12\xed1\xf5\xa7i1U\xde\xf0\x13" +
-	"\xefmz\xe6\xd07\x9f\xd5,oE\xac\x03\x09\xe9\xa1" +
-	"\xf5\x98\xca\xf8\xa9s\x17\xb6\xaf{e\xe7\x17\xb52>" +
-	"\x1d\x1bK|\xe2a?\x8e\xa9\x8cw\xbc\xb4\xee\xca\xae" +
-	"\x17\xef\xb9<.\x87k*\x87\xdf=\xe4/\xb1-\x04" +
-	"\xf7\xfa>L\xaa\xef=\xf7\x03\x89\xbbP\xd1G\xd5e" +
-	"\x0et\xce\xa9\xfb\x9f\xearW\xdd\x9b\x04w\xca;'" +
-	"c+\xc7\xda\xdc\xea|\x99:\xee\xdb\xba\x0b\x89ku" +
-	"\xea\xe9j\xdd\x15jw\xf3\xd2\xb6\xf5\x8c\x9c\xce\x86\xf4" +
-	"\x82Q\x98\x9b4S\xcb\xccL\x8f\xb4\xed\xa8\x9e\x91}" +
-	"\x80\x88\xf1\x10Q\x08D\xda\xb4\x05D\xe2n\x0e1\x83" +
-	"\x01h\x81ZkWk\xf7r\x88Y\x0c[rff" +
-	"i\xd6H#J\x0cQ\xc2\x96!\xd3p\xa4\xe1\xa0\x91" +
-	"\x18\x1a\x095b\xf5K{4\xe7\x90\x8a\xd3\\\x8a\xa3" +
-	"\xa7\x88\xc4\xe3\x1c\"\xc7\xa0\xa1\xd9\x0f\x94U\x81\xd2\x1c" +
-	"\xa2\xc0\xa01\xd6\x02F\xa4\xe5\x152\xc7!62\x80" +
-	"\xb7\x80\x13i\xa3I\"\xe1p\x88\xad\x0c\xee\x06\xd3\x1a" +
-	"\x91V\xb7A\xd1\xb4\xdcX\xca\xcb\x1e\x1d\x1a\x92\xb6\x0d" +
-	"\x10\x83\x92B\x90\xe7 E\x8b\x05\x89xY\x1a\x04\xc4" +
-	"\xcb\xfb6\x11\x8d\xab\x85\xfb\xb5\xf4\xf8\xaf\x83f\xaf\x99" +
-	"\x96\xd3Sf\xbaH\xa4Jjp]?\x7f\xbd\x83H" +
-	"\xac\xe1\x10\xeb\x19\x1aq\xc3\xf5\x0b\x90\xc9rU\x8d\xec" +
-	"\xba\xeb\x97\x90O\x96\xcbj\xe4\x7f\xb9-\x08U\x15\xd6" +
-	"*\xf3\x05\xa7H\x11W\xb7\xedl\xc6\xe8N\xab\xd4\x9a" +
-	"\xcb\xd3B@3\xc1\xb5\x1d\xddr\x92f\xca\xdf-\xcd" +
-	"G\xb0\xab\xa7\xcc\x8a\xdd\x92n\x83\xdd\xaaf\x05\x05." +
-	"\xb6\xcc\xd6\xbc\xaa\xb1J\x1am\x95\xd2@\x85^\xb5\xf6" +
-	"6b\xf1\x11%\x8bx\xd9R|b\xe3\x8a\xa7\x09\x98" +
-	"\\l\x99^\x9c\xa5Y\x03iO\x1f\x1ea*\x10\xa0" +
-	"MV?L\xfb\xef0\x11\xb8\xf6\xef~\xa2x!k" +
-	"d\xe2\x05\xd3\xc8\xb8\xc3fj\xc0\xd1\x1dI\xf1\x81\xa2" +
-	"1\xa4^=\x99\x11\x9c\xeaXI\x0fi92\x1dD" +
-	"\xa5\xaa\xb2Reu\xdfT\xfcL\xd5\xc8\xfb8\xc4\x03" +
-	"\xe3\xf4\x15#\x86\x18\xa1u\xd8Lu\xa7\xd1@\x0c\x0d" +
-	"\x13\x129h\xf6F\xefLc\xc9\xdco\xa1\xb1d\x1b" +
-	"\xb5h\x0c\xc2t\x05\xc2\xe8\x91\xad\xde\xba\x0a\x14*\x05" +
-	"j\x9cK$b\x1c\xa2\x85a\x9ea\xa6ew\xfa6" +
-	"S\xeaqTy\xd0\x7fJ\x07\x1dP\x0c\xed\xe7\x10\x87" +
-	"\xcb\x0c\x1dR\x0c\xbd\xcc!^W\xa3\x0a_\xe9G\xb6" +
-	"\x11\x89\xc3\x1c\xe2\x18\x83\xc6\x99/\xf4\xa3\xfdD\xe2\x0d" +
-	"\x0e\xf1.\x83\x16\x82\xaf\xf3\xe3J\xe7os\x88\x93\x0c" +
-	"Z\x98\xb7 L\xa4\x9d\xd8I$Nr\x88s\xff\x90" +
-	"\xf5\x82ef,=\xbf\x00EG.4\xd3\xb2<\xb9" +
-	"i\xdd\xd1m\xe9t\x13\xaa\xd0\xd2\xf6&\xbc\x9e\x18\xea" +
-	"\x09n\xd6p\xa4U\xb0$\x1ci\xf9z\x9ap\xfa}" +
-	"\x1b[\x18\xd8H\xb1\xe0\xeb(P\xec\x14_\xb1\x1d\xbe" +
-	"bS\xbebW\x13E\xb3\x9d\x1d\xad\xa9\xa2#m\xd7" +
-	"v\xac\xac\x91\xe9\xcbQT\xcf\x1a\xc1[r\x80\xf8\xf2" +
-	"\xde\xeaHKt#m\xaf\xd7Gd\xbf\xb4\x0b\xa6q" +
-	"K{+t\xb4\xba\x86n\x15\xad38\xc4\x83\x0c\xae" +
-	"1\x9a_\xa5H$n\xd97m\xd1U:\xe8\xd5\xf3" +
-	"R\x910\x81x\x93f\xaaK\xb9\xc6\x04\xaa\xea(\xab" +
-	"j\x82!\xa8e\x97\xea\xce\xf0\x08\xf3\x952\xdb\x1f\xf1" +
-	"v\xcb#lZ\xd2#l\xaa\xfa\x09i\x93\x93\xc1\xa4" +
-	"\xbbY#\xeb(2\xa8u@\xd1Qi\x84\x95\xb6W" +
-	"irwp\x9a\xe9)\x93\xa7\x8b\xa2\xa1\xc2\xb4\x17\xa9" +
-	"\x82\xe6s\x88e\x95\xa6\xdd=L$\x96p\x88\xc1J" +
-	"\xd3\x16J\xcb}\x1cbM\x85=\xdfjEh.\xdf" +
-	"\xcd\x81\xcbV\x98\x13\x9a\xcb\x1f~\xb5=8\x19\x9c6" +
-	"P\xe4\xc6\xd0\xed\xee\xcc\xa0\xe5Y\xd5\xf2\xf5\x1c\xc2a" +
-	"@pe>\xd9\x16\xdc-\xcf\xaa9\x84\x9f\xfb\x0e\xf5" +
-	"\xef\xed\x1cb\xf7Dwf\xad\x09\x89\xe7\xcc\x8c\x8d&" +
-	"B\x1f\x07\x9a\xcb\x9f\xb8\x04\xb5X\x9a\x1f\x8a:\xd2\xba" +
-	"99\x7f\x07\x00\x00\xff\xff\xa6\x87\xfb\xb4"
+type ResultContentType uint16
+
+// ResultContentType_TypeID is the unique identifier for the type ResultContentType.
+const ResultContentType_TypeID = 0xcb3158a325d2d5bb
+
+// Values of ResultContentType.
+const (
+	ResultContentType_i32         ResultContentType = 0
+	ResultContentType_bytes       ResultContentType = 1
+	ResultContentType_stringPlain ResultContentType = 2
+	ResultContentType_stringJSON  ResultContentType = 3
+)
+
+// String returns the enum's constant name.
+func (c ResultContentType) String() string {
+	switch c {
+	case ResultContentType_i32:
+		return "i32"
+	case ResultContentType_bytes:
+		return "bytes"
+	case ResultContentType_stringPlain:
+		return "stringPlain"
+	case ResultContentType_stringJSON:
+		return "stringJSON"
+
+	default:
+		return ""
+	}
+}
+
+// ResultContentTypeFromString returns the enum value with a name,
+// or the zero value if there's no such value.
+func ResultContentTypeFromString(c string) ResultContentType {
+	switch c {
+	case "i32":
+		return ResultContentType_i32
+	case "bytes":
+		return ResultContentType_bytes
+	case "stringPlain":
+		return ResultContentType_stringPlain
+	case "stringJSON":
+		return ResultContentType_stringJSON
+
+	default:
+		return 0
+	}
+}
+
+type ResultContentType_List = capnp.EnumList[ResultContentType]
+
+func NewResultContentType_List(s *capnp.Segment, sz int32) (ResultContentType_List, error) {
+	return capnp.NewEnumList[ResultContentType](s, sz)
+}
+
+const schema_c5f4c7dc14cbdbf0 = "x\xda\x84V\x7fl\x14\xd5\x16>\xdf\xbd\xbb\x9dm\xd3" +
+	"\xed\xee\xbc\xedK\x1e\xef\xc1k \x8f\x97\xd7&%\xb4" +
+	"\x85G\x1ey\x88@ t\xb1\xa5\xb7-?\x8a\x10\x9c" +
+	"\xed^\xb7\xdb\xee\xce\xac;SaC\x14C\xa8\x11\x12" +
+	"\x09\x10\x0dh\xd4\x88B\xa2\x89DL\xc4\xf8#&h" +
+	"B\x88\xc2_\x1a\x12E\x8d\x86D\xf9\xc7DmL\xfc" +
+	"\x89c\xee\xccvg\xd9n\xe1\xaf\x9d\xb9\xf7\xcc=\xe7" +
+	";\xe7\xfb\xbe\xbbKW\xf0\xbbC]\xd1\x15\x0d\xc4\xc4" +
+	"\xc6p\x83\xfb\xc5o\xbf~\xd8;\x92;@\xa2\x05p" +
+	"\xbf\xff\xecr\xeb\xe7\x97~\xbcHahD\x09\xf0\xeb" +
+	"\x89(WO\x8d|\x0f\xc1]v\xf4\xe1#\xc9o\xae" +
+	"\x1e\xaa\x1b,\xf9\xfb\x89\xbc\x17\x9c\xe57\x08\xee\xf3\xfb" +
+	"\xbe\xbc\xd4\xf8\xdfUO\x92\x98\x0f\xb8\xe6\xd6\x1d\x0f\xf5" +
+	"\xb8\xc5\x17h\x0b4\x84\x80\x9e\xdeP\x13\x08\x09\x11R" +
+	"\xb1\xf7\xee[\xbf\xe6\xa7o'O\xd4=\xb8+<\x9d" +
+	"X\x15VO\xff\x0b\xab*\xac\xdc\xd9\x9f#\xe1\xa6\x93" +
+	"\xa4\xb7\xb0 \x96\xd0S\x0a\xff\x05\x89C^\xe4Tx" +
+	"3U%\xadw\xec\xcb\xe1\xeb\x89\xf3^\xf0k\xde\xb1" +
+	"\x13\xff\xd8\xb3\xf5\xd41v\x8e\xf4\x96Y\xb1?\x84\xa7" +
+	"\x137\xbd\xd8_\xc2\xab\x09\xee'\xab\xef\xdaup\xb3" +
+	"|\xaf\xf6\xe0\x90\x0a\x99\xd70\x9dX\xdc\xa0\x11\xf5," +
+	"l\xd8\x06\x82\xfb\xce\xd5\x8f\x16\xbf\xb8\xbd\xeb\xf2\xac\x82" +
+	"\xa74\x86\xc41M}\xf4\xb8\x96!\xb8\xe3\xf7\xbf\xbd" +
+	"\xef\xd1S_}\\\xaf\xe0\x9e\xb7\xb4n$>\xf0\xa2" +
+	"/j\xaa\xe2\x07\xaf\\;\xb8\xfb\xb9\xc3\x9f\xd6\xab\xb8" +
+	"=2\x9dX\x1e\xf1\xda\x17Q\x15O=\xbd\xfb\xc6\x91" +
+	"'\xfe\xfd\xf5\xac\x1aD\x84!\xb1\xcb\x8b\x1c\x89\xec'" +
+	"\xb87O`~S\xff\x95\xefH\xfc\x13U\x93Qs" +
+	"\xe3@\xcf\xb3\x91\xbf\xab\xb9\x9d\x89\xbcJp\x17\xbdq" +
+	"!\xb2u\xba\xc3\xad\xad\x97\xa9\xe3\xfa\x1a\xaf%F\x1a" +
+	"\xd5\xd3\x96\xc6\x1b\xd4\xe9\xe6\xa5m\x1b\x19\xb9\x84\x8d\x1a" +
+	"\x05\xb3\xb02i\xa5\xee\xb12}\xd2\xb65##\x07" +
+	"\x00\x11\xe1!\xa2\x10\x88\xf4\xf6\xb5D\xe2_\x1cb)" +
+	"\x03\xd0\x0a\xb5\xd6\xa9\xd6\xfe\xc3!\x961\xec\xcfY\x99" +
+	"MY3\x0d\x8d\x184\xc2\xfeQ\xcbt\xa4\xe9 J" +
+	"\x0cQB\x9d\\\x83\xd2\x9e\xcc9\xa4\xf2\xc4+y\x8c" +
+	"\x14\x91\xb8\x8fC\xe4\x18t\xc4\xfdDY\x95(\xcd!" +
+	"\x0a\x0c:c\xad`Dz^E\xe68\xc4^\x06\xf0" +
+	"Vp\"}2I$\x1c\x0e\xf1\x08\x83\xbb\xc7*N" +
+	"\xc8b\xafIZZ\xee\xad\xd4eO\x8e\x8eJ\xdb\x06" +
+	"\x88AQ\xa1\\\xe70i\xa5\x82D,\xa0\x06\x01\xb1" +
+	"`\xdf&\xa2YX\xb8\x8f\xa5\xcf\x7f\x1d\xb6\xfa\xad\xb4" +
+	"\\\x92\xb2\xd2%\"\x05\xa9\xd9u\xfd\xfa\x8dn\"\xb1" +
+	"\x93C\x8c1D\xf1\x87\xeb\x03\x90\xc9\x00U\x94\xddt" +
+	"}\x08\xf9d\x00+\xca\x7fw[\x11\xaa\x01\xd6&\xf3" +
+	"\x05\xa7D\x0d\xaea\xdb\xd9\x8c\xd9\x9bV\xa5\xc5\x03\xb5" +
+	"\x10\x10'\xb8\xb6c\x14\x9d\xa4\x95\xf2w+\xfa(\xef" +
+	"\x1a)\xabj\xb7\xc2\xdb\xf2n\xcd\xb0\xca\x007\x14\xad" +
+	"\xb6\xbc\xc2XC\x8d\x8ejj\xa0\x8a\xafzg\x07\xb1" +
+	"\xd8\x84\xa2E,0\x09\xbf\xb11\xd5\xa79:\xb9\xa1" +
+	"hyy6eM\xa4U\xb2f\xafa\x0b\x8e\xabo" +
+	"\xf5\x05\xe3D`\xfa\xbcA\"w\xcc0\xd3\xf6\x981" +
+	"\x019(\xed\x82e\xda\x90\xee\xb8\x95\x1ar\x0cGR" +
+	"l\xa8d\x8e\xaaW\x8fi\x04g\x0e\\\xc3V\xbfv" +
+	"gT\x15\xf7\xbc\x05UE\xc5\xf5P\x95\xd3\xac)\xcf" +
+	"\xa9O\xb6y\xeb*Q\xa8\x92(\xba\x92HD8D" +
+	"+\xc3j\xd3J\xcb\xde\xf4mD3\xa4\xa6Z}\xd0" +
+	"\xdf*\x07=\xa5\x04q\x92C\x9c\x0e$zJ1\xef" +
+	"\x19\x0e\xf1\x92R\x0e|\xe2\x9d9@$Ns\x88s" +
+	"\x0c:g>\xef\xce\x0e\x12\x89W8\xc4\x9b\x0cz\x08" +
+	">\xed\xce+\xda\xbd\xce!.0\xe8a\xde\x8a0\x91" +
+	"\xfe\xeea\"q\x81C\\\x99%\xb2\x081D\x08m" +
+	"\xe3V\xaa7\x8dfbh&\xb8\x85\xa2\x95)\x1a\xf9" +
+	"\xb5(9r\x9d\x95\x96\x81\x90\xd2\x86c\xd8\xd2\xe9%" +
+	"\xd4DK\xdb\x13\\\x1314\x11\xdc\xac\xe9\xc8b\xa1" +
+	"(\xe1\xc8\xa2?\xdb9\xc5\xe8\xbb\xca\xba\xb2\xaaK\x05" +
+	"\xe9\x1b\x8c\x07\xbc}\x91G\xa0\x85\xdd>\x81RD\xe0" +
+	"\xfa_w\x10i\xd9\x9e\xee\xb6T\xc9\x91\xb6k;\xc5" +
+	"\xac\x99\x19\xc8\x91fd\xcd\xf2[r\x88\xf8\xe6\xfe\xda" +
+	"L\x1b\xcb\xdc+S\xef\x96\xf1V\xf1hG`\x923" +
+	"S\xe9Rm]\xca!\xfe\xcf\xe0\x9a\x93\xf9m\xaa\x89" +
+	"\xc4\x8b\xf6\x8cK\xb9\x8a\x07\xfdF^\xaa&\xcc4f" +
+	"6\x19\xd6(\x11\xcf\xc1\xaa\xee\x80U5\xe3\xb8\x9d{" +
+	")\x0b\xf7\x1a\xe63ey\x87\xd7\xb0\xce\xa2\xd7\xb0\xf6" +
+	"\xa4\xd7\xb0\xc5\xea'\xa4/L\x12\xc5\x0aY3\xe3f" +
+	"\xcd\xac\xa3\x9aAmC\xaa\x1d\xd5\xbeT\xedB\xd5\x9e" +
+	"s\x07\xe1/IY<]\x12\xcdU\x1e\xba\xfe8\x91" +
+	"\xd8\xc8!\x86\xab=T\x8c\x13\x89\x01\x0e\xb1\xb3\xdaC" +
+	"G\x14\x97\xb7s\x884C=\x8b@<\xb8\xd7\xcb\x8e" +
+	"w\xabi \x1e\\\xa4A\xc0\x8c\x8d \x1e\xfc\xef\xaa" +
+	"o\x98\xc9\xf2iC%n\x8e\xde\xee\x82+\x13\"\xab" +
+	"\x081\xc6!\x1c\x06\x94\xef\xb7\x07:\xca\x17\xc1cJ" +
+	"\xa5\xf0\x91M\xa9\xaf\x0fr\x88\xa3s]p\xf5\xf4\x13" +
+	"\xcbY\x19\x1b-\x84\x01\x0e\xc4\x83\x7f\x98\x04\xb5XQ" +
+	"\x17i\x8e,\xce\xe8\xea\xcf\x00\x00\x00\xff\xffD\xe5\xdd" +
+	"\xae"
 
 func RegisterSchema(reg *schemas.Registry) {
 	reg.Register(&schemas.Schema{
@@ -1487,7 +1421,6 @@ func RegisterSchema(reg *schemas.Registry) {
 			0x953d3609c7df7ba0,
 			0x9775ecf741457b5b,
 			0x980a0508f8ad6c6f,
-			0xa0fe80f134c822da,
 			0xa272ff337d5a566e,
 			0xb00291a156771b6b,
 			0xc1654f845d3e3fd8,

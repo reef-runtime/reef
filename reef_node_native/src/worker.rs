@@ -270,8 +270,6 @@ fn reef_imports(
         REEF_MODULE_NAME,
         REEF_SLEEP_NAME,
         Extern::typed_func::<_, ReefSleepReturn>(move |_ctx, (seconds,): ReefSleepArgs| {
-            println!("Sleep");
-
             sleep_until.set(
                 Instant::now()
                     .checked_add(Duration::from_secs_f32(seconds))

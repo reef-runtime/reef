@@ -54,36 +54,25 @@ struct JobAbortMessage {
 #
 
 enum MessageFromNodeKind {
-    ping                @0;
-    pong                @1;
+    handshakeResponse   @0;
 
-    jobStateSync        @2;
-    jobResult           @3;
+    jobStateSync        @1;
+    jobResult           @2;
 }
 
 struct MessageFromNode {
     kind @0 :MessageFromNodeKind;
 
     body :union {
-        empty           @1 :Void;
-        jobStateSync    @2 :JobStateSync;
-        jobResult       @3 :JobResult;
+        handshakeResponse   @1 :HandshakeRespondMessage;
+        jobStateSync        @2 :JobStateSync;
+        jobResult           @3 :JobResult;
     }
 }
 
 struct HandshakeRespondMessage {
     numWorkers          @0 :UInt16;
     nodeName            @1 :Text;
-}
-
-struct JobStartedMessage {
-    workerIndex         @0 :UInt32;
-    jobId               @1 :Text;
-}
-
-struct JobLogMessage {
-    logKind             @0 :UInt16;
-    content             @1 :Data;
 }
 
 struct JobStateSync {
@@ -94,11 +83,9 @@ struct JobStateSync {
     interpreter         @3 :Data;
 }
 
-enum ResultContentType {
-	i32                 @0;
-	bytes               @1;
-	stringPlain         @2;
-	stringJSON          @3;
+struct JobLogMessage {
+    logKind             @0 :UInt16;
+    content             @1 :Data;
 }
 
 struct JobResult {
@@ -106,4 +93,11 @@ struct JobResult {
     success             @1: Bool;
     contentType         @2: ResultContentType;
     contents            @3: Data;
+}
+
+enum ResultContentType {
+	i32                 @0;
+	bytes               @1;
+	stringPlain         @2;
+	stringJSON          @3;
 }
