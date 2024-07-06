@@ -260,9 +260,9 @@ export default function Page() {
                             <FormLabel>Select Existing</FormLabel>
                             <FormControl>
                               <Select
-                                onValueChange={(c) => {
-                                  console.dir(c);
-                                  field.onChange(c);
+                                onValueChange={(newDataset) => {
+                                  console.dir(newDataset);
+                                  field.onChange(newDataset);
                                 }}
                                 defaultValue={datasets[0]?.id}
                               >
@@ -298,6 +298,30 @@ export default function Page() {
                           id="datasetFile"
                           type="file"
                           {...form.register('datasetFile')}
+                          onChange={(e) => {
+                            if (!e.target.files || e.target.files.length === 0) {
+                                toast({
+                                    title: "Not Uploaded",
+                                    description: 'No file was selected for dataset upload',
+                                });
+                                return
+                            }
+
+                            const fileCnt = e.target.files.length
+
+                            for (let i = 0; i < fileCnt; i++) {
+                                const file = e.target.files[i]
+                                console.log(file)
+
+                                uploadDataset(file).then((newDataset) => {
+                                    form.setValue('datasetId', newDataset.id);
+                                    toast({
+                                        title: "File Uploaded Successfully",
+                                        description: `Created new dataset '${newDataset.id.substring(0, 16)}...'`,
+                                    });
+                                });
+                            }
+                          }}
                         />
                       </div>
                     </div>

@@ -16,7 +16,7 @@ export const useDatasets = create<{
   uploadDataset: async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    const res = await fetch('/api/datasets', {
+    const res = await fetch('/api/datasets/upload', {
       method: 'POST',
       body: formData,
     });
