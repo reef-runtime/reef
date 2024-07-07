@@ -231,7 +231,7 @@ export default function Page() {
                                 onValueChange={(newLang) => {
                                   console.dir(newLang);
                                   field.onChange(newLang);
-                                  setLanguage(newLang as any)
+                                  setLanguage(newLang as any);
                                 }}
                                 defaultValue={'c'}
                               >
@@ -299,27 +299,31 @@ export default function Page() {
                           type="file"
                           {...form.register('datasetFile')}
                           onChange={(e) => {
-                            if (!e.target.files || e.target.files.length === 0) {
-                                toast({
-                                    title: "Not Uploaded",
-                                    description: 'No file was selected for dataset upload',
-                                });
-                                return
+                            if (
+                              !e.target.files ||
+                              e.target.files.length === 0
+                            ) {
+                              toast({
+                                title: 'Not Uploaded',
+                                description:
+                                  'No file was selected for dataset upload',
+                              });
+                              return;
                             }
 
-                            const fileCnt = e.target.files.length
+                            const fileCnt = e.target.files.length;
 
                             for (let i = 0; i < fileCnt; i++) {
-                                const file = e.target.files[i]
-                                console.log(file)
+                              const file = e.target.files[i];
+                              console.log(file);
 
-                                uploadDataset(file).then((newDataset) => {
-                                    form.setValue('datasetId', newDataset.id);
-                                    toast({
-                                        title: "File Uploaded Successfully",
-                                        description: `Created new dataset '${newDataset.id.substring(0, 16)}...'`,
-                                    });
+                              uploadDataset(file).then((newDataset) => {
+                                form.setValue('datasetId', newDataset.id);
+                                toast({
+                                  title: 'File Uploaded Successfully',
+                                  description: `Created new dataset '${newDataset.id.substring(0, 16)}...'`,
                                 });
+                              });
                             }
                           }}
                         />
@@ -333,37 +337,41 @@ export default function Page() {
                   </Button>
                 </Card>
 
-                  <Card className="h-full w-full flex flex-col">
-                    <div
-                      className="h-full w-full px-4 py-3 bg-blue-50 dark:bg-transparent overflow-auto h-full"
-                      style={{
-                        // backgroundColor: 'beige',
-                        fontFamily: 'monospace',
-                        fontSize: '0.9rem',
-                        boxSizing: 'border-box',
-                      }}
-                    >
+                <Card className="h-full w-full flex flex-col">
+                  <div
+                    className="h-full w-full px-4 py-3 bg-blue-50 dark:bg-transparent overflow-auto h-full"
+                    style={{
+                      // backgroundColor: 'beige',
+                      fontFamily: 'monospace',
+                      fontSize: '0.9rem',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    <span className="font-bold">
+                      {response.message
+                        ? response.message.toUpperCase()
+                        : 'JOB OUTPUT'}
+                    </span>
 
-                        <span className='font-bold'>
-                        {response.message ? response.message.toUpperCase() : "JOB OUTPUT"}
-                        </span>
+                    <Separator className="my-5"></Separator>
 
-
-                      <Separator className='my-5'></Separator>
-
-                    {
-                        function() {
-                            if(response.message && response.message != '') {
-                                return <div dangerouslySetInnerHTML={{__html: response.error.replaceAll('\n', '<br>')
-                                    .replaceAll(' ', '&nbsp;')
-                                }}></div>
-                            } else {
-                                return <div>a</div>
-                            }
-                        }()
-                    }
-                    </div>
-                  </Card>
+                    {(function () {
+                      if (response.message && response.message != '') {
+                        return (
+                          <div
+                            dangerouslySetInnerHTML={{
+                              __html: response.error
+                                .replaceAll('\n', '<br>')
+                                .replaceAll(' ', '&nbsp;'),
+                            }}
+                          ></div>
+                        );
+                      } else {
+                        return <div>a</div>;
+                      }
+                    })()}
+                  </div>
+                </Card>
               </div>
             </div>
           )}

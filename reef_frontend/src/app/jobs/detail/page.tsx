@@ -33,25 +33,24 @@ export default function Page() {
     const queryParams = new URLSearchParams(window.location.search);
     const jobId = queryParams.get('id');
 
-    console.log(jobId)
+    console.log(jobId);
 
     if (!jobId) {
-        throw "bug"
-        // TODO: redirect to 404 page
-        return
+      throw 'bug';
+      // TODO: redirect to 404 page
+      return;
     }
-
 
     const sock = GetSocket();
     sock.unsubscribeAll();
 
     sock.subscribe(topicSingleJob(jobId), (res) => {
-        console.dir(res.data)
-        setJobs([res.data])
+      console.dir(res.data);
+      setJobs([res.data]);
 
-        setJob(res.data);
-        setInitialized(true);
-    })
+      setJob(res.data);
+      setInitialized(true);
+    });
   }, [window.location.search]);
 
   if (!initialized || !job) {
@@ -105,15 +104,17 @@ export default function Page() {
             <div className="space-y-4">
               <div>
                 <h4 className="font-bold">Job ID</h4>
-                <p className='overflow-hidden text-ellipsis'>{job.id}</p>
+                <p className="overflow-hidden text-ellipsis">{job.id}</p>
               </div>
               <div>
                 <h4 className="font-bold">Job Name</h4>
-                <p className='overflow-hidden text-ellipsis'>{job.name}</p>
+                <p className="overflow-hidden text-ellipsis">{job.name}</p>
               </div>
               <div>
                 <h4 className="font-bold">Submitted</h4>
-                <p className='overflow-hidden text-ellipsis'>{new Date(job.submitted).toLocaleString()}</p>
+                <p className="overflow-hidden text-ellipsis">
+                  {new Date(job.submitted).toLocaleString()}
+                </p>
               </div>
               {job.result && (
                 <>

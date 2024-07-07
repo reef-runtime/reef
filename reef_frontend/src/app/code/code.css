@@ -9,14 +9,13 @@
   /* background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAFAQMAAABo7865AAAABlBMVEVHcEzMzMzyAv2sAAAAAXRSTlMAQObYZgAAABBJREFUeF5jOAMEEAIEEFwAn3kMwcB6I2AAAAAASUVORK5CYII='); */
   /* background-color: red; */
 
-
-            /* background: repeating-linear-gradient( */
-            /*     45deg, */
-            /*     gray 0px, */
-            /*     gray 2px, */
-            /*     light-gray 2px, */
-            /*     light-gray 0.4rem */
-            /* ); */
+  /* background: repeating-linear-gradient( */
+  /*     45deg, */
+  /*     gray 0px, */
+  /*     gray 2px, */
+  /*     light-gray 2px, */
+  /*     light-gray 0.4rem */
+  /* ); */
 }
 
 .split-grid {

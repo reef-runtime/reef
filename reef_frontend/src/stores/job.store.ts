@@ -7,13 +7,13 @@ export const useJobs = create<{
   jobs: IJob[];
   setJobs: (jobs: IJob[]) => void;
 }>((set) => {
-    // backendConn.subscribe(allJobs(), (data) => {
-    //     console.dir(`Updated JOBS: ${data.data}`)
-    //     set({jobs: data.data})
-    // })
+  // backendConn.subscribe(allJobs(), (data) => {
+  //     console.dir(`Updated JOBS: ${data.data}`)
+  //     set({jobs: data.data})
+  // })
 
-    return {
-        jobs: [],
-        setJobs: (jobs) => set({ jobs }),
-    };
+  return {
+    jobs: [],
+    setJobs: (jobs) => set({ jobs }),
+  };
 });

@@ -7,13 +7,13 @@ export const useNodes = create<{
   nodes: INode[];
   setNodes: (nodes: INode[]) => void;
 }>((set) => {
-    // backendConn.subscribe(nodes(), (data) => {
-    //     console.dir(`Updated Nodes: ${data.data}`)
-    //     set({nodes: data.data})
-    // })
+  // backendConn.subscribe(nodes(), (data) => {
+  //     console.dir(`Updated Nodes: ${data.data}`)
+  //     set({nodes: data.data})
+  // })
 
-    return {
-        nodes: [],
-        setNodes: (nodes) => set({ nodes }),
-    }
+  return {
+    nodes: [],
+    setNodes: (nodes) => set({ nodes }),
+  };
 });

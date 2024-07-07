@@ -15,7 +15,7 @@ const WorkerListItem: React.FC<WorkerListItemProps> = ({
 }) => {
   function handleClick() {
     if (!job) {
-        return
+      return;
     }
     window.location.href = '/jobs/detail/?id=' + encodeURIComponent(job.id);
   }
