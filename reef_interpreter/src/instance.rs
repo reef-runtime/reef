@@ -220,7 +220,7 @@ impl Instance {
             match (val, &import.kind) {
                 (Extern::Global { ty, val }, ImportKind::Global(import_ty)) => {
                     Imports::compare_types(import, &ty, import_ty)?;
-                    addrs.globals.push(self.globals.add(GlobalInstance::new(ty, val.into())) as u32);
+                    addrs.globals.push(self.globals.add(GlobalInstance::new(val.into())) as u32);
                 }
                 (Extern::Table { ty, .. }, ImportKind::Table(import_ty)) => {
                     Imports::compare_table_types(import, &ty, import_ty)?;
@@ -298,8 +298,7 @@ impl Instance {
         let mut global_addrs = imported_globals;
 
         for (i, global) in new_globals.iter().enumerate() {
-            self.globals
-                .push(GlobalInstance::new(global.ty, self.eval_const(&global.init, &global_addrs, func_addrs)?));
+            self.globals.push(GlobalInstance::new(self.eval_const(&global.init, &global_addrs, func_addrs)?));
             global_addrs.push((i + global_count) as Addr);
         }
 

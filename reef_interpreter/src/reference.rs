@@ -8,8 +8,7 @@ use alloc::{
 use core::ffi::CStr;
 
 use crate::error::{Error, Result};
-use crate::store::{global::GlobalInstance, memory::MemoryInstance};
-use crate::types::value::WasmValue;
+use crate::store::memory::MemoryInstance;
 
 // This module essentially contains the public APIs to interact with the data stored in the store
 
@@ -157,21 +156,3 @@ pub trait MemoryStringExt: MemoryRefLoad {
 
 impl MemoryStringExt for MemoryRef<'_> {}
 impl MemoryStringExt for MemoryRefMut<'_> {}
-
-/// A reference to a global instance
-#[derive(Debug)]
-pub struct GlobalRef<'i> {
-    pub(crate) instance: &'i mut GlobalInstance,
-}
-
-impl<'i> GlobalRef<'i> {
-    /// Get the value of the global
-    pub fn get(&self) -> WasmValue {
-        self.instance.get()
-    }
-
-    /// Set the value of the global
-    pub fn set(&mut self, val: WasmValue) -> Result<()> {
-        self.instance.set(val)
-    }
-}
