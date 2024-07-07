@@ -11,13 +11,12 @@ use std::time::{Duration, Instant};
 use anyhow::Context;
 use tungstenite::Message;
 
-use reef_interpreter::PAGE_SIZE;
 use reef_interpreter::{
     exec::CallResultTyped,
     imports::{Extern, Imports},
     parse_bytes,
     reference::MemoryStringExt,
-    Instance,
+    Instance, PAGE_SIZE,
 };
 use reef_protocol_node::message_capnp::{MessageFromNodeKind, ResultContentType};
 use reef_wasm_interface::*;

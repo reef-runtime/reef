@@ -1009,6 +1009,7 @@ dependencies = [
  "capnp",
  "console_error_panic_hook",
  "hex",
+ "js-sys",
  "reef_interpreter",
  "reef_protocol_node",
  "reef_wasm_interface",

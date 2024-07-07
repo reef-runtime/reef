@@ -63,7 +63,8 @@ async function run() {
   while (true) {
     let message = await readWsMessage(ws);
     if (message.kind === NodeMessageKind.AssignId) {
-      nodeId = message.assign_id_data ?? 'ERROR';
+      if (!message.assign_id_data) throw 'message invariant violation';
+      nodeId = message.assign_id_data;
       break;
     }
   }
@@ -72,6 +73,53 @@ async function run() {
     `%c==> Handshake successful: node ${nodeId} is connected.`,
     'font-weight:bold;'
   );
+
+  // queue messages for reading if they come in while something else is running
+  let messageQueue: NodeMessage[] = [];
+  ws.addEventListener('message', (event: any) => {
+    let array = new Uint8Array(event.data);
+    try {
+      let message = parse_websocket_data(array);
+      messageQueue.push(message);
+    } catch (e: any) {
+      console.error('Error Reading WebSocket:', e);
+    }
+  });
+
+  // node event loop
+  while (true) {
+    // read message
+    let message = messageQueue.shift();
+    if (message) {
+      // we only care about start job commands
+      if (message.kind === NodeMessageKind.StartJob) {
+        if (!message.start_job_data) throw 'message invariant violation';
+      }
+
+      if (!message.start_job_data) throw 'message invariant violation';
+
+      // fetch dataset
+      let res = await fetch(
+        `/api/dataset/${message.start_job_data.dataset_id}`
+      );
+      let data = new Uint8Array(await res.arrayBuffer());
+
+      init_node(
+        message.start_job_data.program_byte_code,
+        message.start_job_data.interpreter_state,
+        data,
+        (log_message: string) => {
+          console.log(`Reef log: ${log_message}`);
+        },
+        (done: number) => {
+          console.log(`Reef progress: ${done}`);
+        }
+      );
+    }
+
+    // yield to js event loop
+    await sleep(1);
+  }
 }
 
 const waitWsOpen = async (ws: WebSocket): Promise<void> => {
@@ -98,5 +146,11 @@ const readWsMessage = async (ws: WebSocket): Promise<NodeMessage> => {
       }
     };
     ws.addEventListener('message', messageHandler);
+  });
+};
+
+const sleep = async (ms: number): Promise<void> => {
+  return new Promise((res) => {
+    setTimeout(res, ms);
   });
 };
