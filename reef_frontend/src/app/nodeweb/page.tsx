@@ -148,9 +148,9 @@ async function run(setNodeState: Dispatch<SetStateAction<NodeState>>) {
 
   let interalState = {
     nodeId,
-    jobId: undefined,
+    jobId: undefined as string | undefined,
     progress: 0,
-    logs: [],
+    logs: [] as string[],
   };
 
   const updateUi = () => {
@@ -184,25 +184,59 @@ async function run(setNodeState: Dispatch<SetStateAction<NodeState>>) {
       );
       let dataset = new Uint8Array(await res.arrayBuffer());
 
-      console.log(message.start_job_data.program_byte_code);
-
-      init_node(
-        message.start_job_data.program_byte_code,
-        message.start_job_data.interpreter_state,
-        dataset,
-        (log_message: string) => {
-          console.log(`Reef log: ${log_message}`);
-        },
-        (done: number) => {
-          console.log(`Reef progress: ${done}`);
-        }
+      console.log(
+        `%c==> Starting job ${message.start_job_data.job_id}.`,
+        'font-weight:bold;'
       );
+
+      try {
+        init_node(
+          message.start_job_data.program_byte_code,
+          message.start_job_data.interpreter_state,
+          dataset,
+          (log_message: string) => {
+            console.log(`Reef log: ${log_message}`);
+            interalState.logs.push(log_message);
+          },
+          (done: number) => {
+            console.log(`Reef progress: ${done}`);
+            interalState.progress = done;
+          }
+        );
+      } catch (e: any) {
+        console.error('Error starting:', e);
+        break;
+      }
+
+      interalState.jobId = message.start_job_data.job_id;
 
       updateUi();
     }
 
+    let sleepDuration = 0;
+    if (interalState.jobId) {
+      console.log('Running 1000 cycles');
+
+      let result;
+      try {
+        result = run_node(1000);
+      } catch (e: any) {
+        console.error('Error executing:', e);
+        break;
+      }
+
+      if (result.done) {
+        console.log('DONE');
+
+        reset_node();
+        interalState.jobId = undefined;
+      } else {
+        sleepDuration = result.sleep_for ?? 0;
+      }
+    }
+
     // yield to js event loop
-    await sleep(0);
+    await sleep(sleepDuration);
   }
 }
 

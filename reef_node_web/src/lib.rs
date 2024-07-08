@@ -5,10 +5,10 @@ use std::{
     rc::Rc,
 };
 
-use reef_protocol_node::message_capnp::ResultContentType;
 use wasm_bindgen::prelude::*;
 
 use reef_interpreter::{
+    exec::CallResultTyped,
     imports::{Extern, Imports},
     parse_bytes,
     reference::MemoryStringExt,
@@ -39,17 +39,24 @@ pub fn get_connect_path() -> String {
 struct NodeState {
     handle: ReefMainHandle,
     sleep_for: Rc<Cell<f32>>,
-    job_output: Rc<RefCell<(ResultContentType, Vec<u8>)>>,
+    job_output: Rc<RefCell<JobOutput>>,
+}
+
+#[derive(Debug, Clone)]
+#[wasm_bindgen(getter_with_clone)]
+pub struct JobOutput {
+    pub content_type: u16,
+    pub data: Vec<u8>,
 }
 
 // SAFETY: this code is only ever expected to run in a single threaded environment
 unsafe impl Sync for NodeState {}
 
-static NODE_STATE: SyncUnsafeCell<Option<NodeState>> = SyncUnsafeCell::new(None);
+static NODE_STATE: SyncUnsafeCell<Option<Box<NodeState>>> = SyncUnsafeCell::new(None);
 
 #[wasm_bindgen]
 pub fn reset_node() {
-    // SAFETY: we should be the only one having this ref right now
+    // SAFETY: no other call can be running at the same time
     unsafe { *NODE_STATE.get() = None };
 }
 
@@ -75,7 +82,7 @@ fn init_node_inner(
 
     let sleep_for = Rc::new(Cell::new(0.0));
     let dataset = Rc::new(dataset);
-    let job_output = Rc::new(RefCell::new((ResultContentType::Bytes, Vec::new())));
+    let job_output = Rc::new(RefCell::new(JobOutput { content_type: 0, data: Vec::new() }));
 
     let imports =
         reef_imports(log_callback, progress_callback, sleep_for.clone(), dataset.clone(), job_output.clone())?;
@@ -92,15 +99,15 @@ fn init_node_inner(
         drop(dataset);
     }
 
-    job_output.borrow_mut().1 = extra_data;
+    job_output.borrow_mut().data = extra_data;
 
     let entry_fn_handle = instance.exported_func::<ReefMainArgs, ReefMainReturn>(REEF_MAIN_NAME)?;
     let exec_handle = entry_fn_handle.call((), stack)?;
 
     let node_state = NodeState { handle: exec_handle, sleep_for, job_output };
 
-    // SAFETY: we should be the only one having this ref right now
-    unsafe { *NODE_STATE.get() = Some(node_state) }
+    // SAFETY: no other call can be running at the same time
+    unsafe { *NODE_STATE.get() = Some(Box::new(node_state)) }
 
     Ok(())
 }
@@ -110,7 +117,7 @@ fn reef_imports(
     progress_callback: js_sys::Function,
     sleep_for: Rc<Cell<f32>>,
     dataset: Rc<Vec<u8>>,
-    job_output: Rc<RefCell<(ResultContentType, Vec<u8>)>>,
+    job_output: Rc<RefCell<JobOutput>>,
 ) -> Result<Imports, reef_interpreter::Error> {
     let mut imports = Imports::new();
 
@@ -193,14 +200,11 @@ fn reef_imports(
             let data = mem.load_vec(ptr as usize, len as usize)?;
 
             let content_type = match result_type {
-                0 => ResultContentType::I32,
-                1 => ResultContentType::Bytes,
-                2 => ResultContentType::StringPlain,
-                3 => ResultContentType::StringJSON,
+                0..3 => result_type as u16,
                 _ => return Err(reef_interpreter::Error::Other("invalid ResultContentType".into())),
             };
 
-            *job_output.borrow_mut() = (content_type, data);
+            *job_output.borrow_mut() = JobOutput { content_type, data };
 
             Ok(())
         }),
@@ -209,9 +213,32 @@ fn reef_imports(
     Ok(imports)
 }
 
-// max_cycles
-// returns time to sleep
+#[derive(Debug, Clone, Default)]
+#[wasm_bindgen(getter_with_clone)]
+pub struct RunResult {
+    pub done: bool,
+    pub sleep_for: Option<f32>,
+    pub job_output: Option<JobOutput>,
+}
+
 #[wasm_bindgen]
-pub fn run_node() -> u32 {
-    todo!()
+pub fn run_node(max_cycles: usize) -> Result<RunResult, String> {
+    // SAFETY: no other call can be running at the same time
+    let mut node_state = unsafe { (*NODE_STATE.get()).take().unwrap() };
+
+    let run_res = node_state.handle.run(max_cycles);
+    match run_res {
+        Ok(CallResultTyped::Done(_)) => {
+            drop(node_state.handle);
+            let job_output = Rc::try_unwrap(node_state.job_output).unwrap().into_inner();
+            Ok(RunResult { done: true, sleep_for: None, job_output: Some(job_output) })
+        }
+        Ok(CallResultTyped::Incomplete) => {
+            let sleep_for = node_state.sleep_for.replace(0.0);
+            unsafe { *NODE_STATE.get() = Some(node_state) }
+
+            Ok(RunResult { done: false, sleep_for: Some(sleep_for), job_output: None })
+        }
+        Err(err) => Err(err.to_string()),
+    }
 }
