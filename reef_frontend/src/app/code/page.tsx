@@ -10,6 +10,15 @@ import { IJob, IJobResultContentType, IJobStatus } from '@/types/job';
 import { BanIcon, CogIcon } from 'lucide-react';
 import JobStatusIcon from '@/components/job-status';
 import JobListItem from '@/components/job-list-item';
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 // import { useLogs } from '@/stores/log.store';
 import React, { useEffect, useState } from 'react';
 import { useDatasets } from '@/stores/datasets.store';
@@ -53,6 +62,12 @@ import { vscodeDark, vscodeLight } from '@uiw/codemirror-theme-vscode';
 import { VariantProps } from 'class-variance-authority';
 import { register } from 'module';
 
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card';
+
 import Split from 'react-split-grid';
 
 import { useTheme } from 'next-themes';
@@ -92,8 +107,6 @@ export default function Page() {
     message: '',
     error: '',
   });
-
-  const [language, setLanguage] = useState<'rust' | 'c'>('c');
 
   const { datasets, fetchDatasets, uploadDataset } = useDatasets();
 
@@ -151,9 +164,98 @@ export default function Page() {
 
   let [columns, setColumns] = useState(`2fr 10px 1fr`);
 
-  const handleDrag = (direction: any, track: any, gridTemplateStyle: any) => {
+  const handleDrag = (_direction: any, _track: any, gridTemplateStyle: any) => {
     setColumns(gridTemplateStyle);
   };
+
+  type JobLanguage = 'c' | 'rust';
+
+  interface Template {
+    id: string;
+    name: string;
+    code: string;
+    dataset: string;
+    language: JobLanguage;
+  }
+
+  const [templates, setTemplates] = useState<Template[]>([
+    {
+      id: 'c-hello',
+      name: '[C] Hello World',
+      code: 'void run(byte * ds, int dsl) {\n\treef_puts("Hello World");\n}',
+      dataset:
+        '8b4985d2f8011f74fdf8566611b8cc8cae398ad350bc33f8b5db5bc840f92cbb',
+      language: 'c',
+    },
+    {
+      id: 'rust-hello',
+      name: '[Rust] Hello World',
+      code: 'pub fn run(dataset: &[u8]) -> impl Into<ReefResult> {\n\tlet msg = "Hello World!";\n\treef::reef_log(msg);\n\t/*reef::reef_log(&format!("dataset[43]: {:?}", dataset[43]));*/ println!("Println log 1."); /*if dataset[0] == 13 { panic!("Bad dataset!"); }*/ let mut sum = std::num::Wrapping(0); for val in dataset { sum += val; } println!("sum: {sum}"); "Test Result".to_string() }',
+      dataset:
+        '8b4985d2f8011f74fdf8566611b8cc8cae398ad350bc33f8b5db5bc840f92cbb',
+      language: 'rust',
+    },
+  ]);
+
+  const [template, setTemplate] = useState<Template>(templates[0]);
+
+  const [templateFresh, setTemplateFresh] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (!templateFresh) {
+      console.log('template not fresh');
+      return;
+    }
+
+    console.log('USED EFFECT');
+    setLanguage(template.language);
+    form.setValue('language', template.language);
+    setDataset(template.dataset);
+    form.setValue('datasetId', template.dataset);
+    setSourceCode(template.code);
+    form.setValue('sourceCode', template.code);
+    form.setValue('name', template.name);
+    setTemplateFresh(false);
+  }, [template, templateFresh]);
+
+  const [language, setLanguage] = useState<JobLanguage>(template.language);
+  const [dataset, setDataset] = useState<string>(template.dataset);
+  const [sourceCode, setSourceCode] = useState<string>(template.code);
+
+  //
+  // File Size handling
+  //
+
+  const UNITS = [
+    'byte',
+    'kilobyte',
+    'megabyte',
+    'gigabyte',
+    'terabyte',
+    'petabyte',
+  ];
+  const BYTES_PER_KB = 1000;
+
+  function humanFileSize(sizeBytes: number | bigint): string {
+    let size = Math.abs(Number(sizeBytes));
+
+    let u = 0;
+    while (size >= BYTES_PER_KB && u < UNITS.length - 1) {
+      size /= BYTES_PER_KB;
+      ++u;
+    }
+
+    return new Intl.NumberFormat([], {
+      style: 'unit',
+      unit: UNITS[u],
+      unitDisplay: 'short',
+      maximumFractionDigits: 1,
+    }).format(size);
+  }
+
+  //
+  // File sizes
+  //
 
   return (
     <Form {...form}>
@@ -169,31 +271,148 @@ export default function Page() {
           // @ts-ignore
           render={({ getGridProps, getGutterProps }) => (
             <div className="h-full split-grid" {...getGridProps()}>
-              <div className="split-column h-full w-full rounded-lg border bg-card text-card-foreground shadow-sm flex flex-col">
-                <FormField
-                  control={form.control}
-                  name="sourceCode"
-                  render={({ field }) => (
-                    <FormItem style={{ height: '100%' }}>
+              <Card className="split-column h-full w-full rounded-lg border bg-card text-card-foreground shadow-sm flex flex-col">
+                <CardHeader className="w-full flex items-center justify-between flex-hor -flex-col px-5 py-0">
+                  <div className="flex gap-2 items-end">
+                    <FormItem className="">
+                      <FormLabel>Select Template</FormLabel>
                       <FormControl>
-                        <CodeMirror
-                          {...field}
-                          style={{ height: '100%' }}
-                          className={'codeEditor'}
-                          value={'TEST'}
-                          lang={language}
-                          height="100%"
-                          theme={theme === 'dark' ? vscodeDark : vscodeLight}
-                          extensions={language === 'c' ? [cpp()] : [rust()]}
-                          onChange={(value, _) => {
-                            field.onChange(value);
+                        <Select
+                          onValueChange={(newTemplateID) => {
+                            console.dir(newTemplateID);
+                            const newT = templates.find(
+                              (t) => t.id == newTemplateID
+                            );
+                            if (!newT) {
+                              throw `Illegal item: ${newT}`;
+                            }
+                            setTemplateFresh(true);
+                            setTemplate(newT);
                           }}
-                        />
+                          defaultValue={template.id}
+                        >
+                          <SelectTrigger className="w-[20rem]">
+                            <SelectValue placeholder="Select a Template" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              {templates.map((t, _) => {
+                                return (
+                                  <SelectItem value={t.id} key={t.id}>
+                                    {t.id}
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
                       </FormControl>
+                      <FormMessage />
                     </FormItem>
-                  )}
-                />
-              </div>
+
+                    <Button
+                      onClick={() => {
+                        setTemplateFresh(true);
+                      }}
+                      type="button"
+                      variant="outline"
+                    >
+                      Apply Template
+                    </Button>
+                  </div>
+
+                  <ul className="w-[300px]">
+                    <li className="flex justify-between w-full">
+                      <span className="font-medium">Lines Of Code</span>
+                      <span>{sourceCode.split('\n').length}</span>
+                    </li>
+                    <li className="flex justify-between w-full">
+                      <span className="font-medium">Dataset Size</span>
+                      {(function () {
+                        const sz = datasets.find(
+                          (d) => d.id === form.getValues('datasetId')
+                        )?.size;
+
+                        if (!sz) {
+                          return 'N/A';
+                        }
+
+                        return (
+                          <div className="flex gap-3 items-center">
+                            <span>{humanFileSize(sz)}</span>
+                            {(sz > 1024) ?
+                            <span className="text-sm text-muted-foreground">{sz} B</span> : ""}
+                          </div>
+                        );
+                      })()}
+                    </li>
+                  </ul>
+
+                  <Table className="w-[100px] -w-full">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[10px]">LoC</TableHead>
+                        <TableHead className="text-right">DS_LEN</TableHead>
+                        <TableHead className="text-right">DS_SIZE</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell className="font-medium">
+                          {sourceCode.split('\n').length}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {
+                            datasets.find(
+                              (d) => d.id === form.getValues('datasetId')
+                            )?.size
+                          }
+                        </TableCell>
+                        <TableCell className="font-medium text-right">
+                          {(function () {
+                            const sz = datasets.find(
+                              (d) => d.id === form.getValues('datasetId')
+                            )?.size;
+
+                            if (!sz) {
+                              return 0;
+                            }
+
+                            return humanFileSize(sz);
+                          })()}
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </CardHeader>
+                <Separator></Separator>
+                <CardContent className="p-0">
+                  <FormField
+                    control={form.control}
+                    name="sourceCode"
+                    render={({ field }) => (
+                      <FormItem style={{ height: '100%' }}>
+                        <FormControl>
+                          <CodeMirror
+                            {...field}
+                            style={{ height: '100%' }}
+                            className={'codeEditor'}
+                            value={sourceCode}
+                            lang={language}
+                            height="100%"
+                            theme={theme === 'dark' ? vscodeDark : vscodeLight}
+                            extensions={language === 'c' ? [cpp()] : [rust()]}
+                            onChange={(value, _) => {
+                              setSourceCode(value);
+                              field.onChange(value);
+                            }}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
 
               <div
                 {...getGutterProps('column', 1)}
@@ -231,9 +450,10 @@ export default function Page() {
                                 onValueChange={(newLang) => {
                                   console.dir(newLang);
                                   field.onChange(newLang);
-                                  setLanguage(newLang as any);
+                                  setLanguage(newLang as JobLanguage);
                                 }}
-                                defaultValue={'c'}
+                                defaultValue={language}
+                                value={language}
                               >
                                 <SelectTrigger className="w-full">
                                   <SelectValue placeholder="Select a language" />
@@ -263,8 +483,10 @@ export default function Page() {
                                 onValueChange={(newDataset) => {
                                   console.dir(newDataset);
                                   field.onChange(newDataset);
+                                  setDataset(newDataset);
                                 }}
-                                defaultValue={datasets[0]?.id}
+                                defaultValue={dataset}
+                                value={dataset}
                               >
                                 <SelectTrigger className="w-full">
                                   <SelectValue placeholder="Select an Existing Dataset" />
