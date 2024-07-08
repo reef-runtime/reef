@@ -48,6 +48,12 @@ unsafe impl Sync for NodeState {}
 static NODE_STATE: SyncUnsafeCell<Option<NodeState>> = SyncUnsafeCell::new(None);
 
 #[wasm_bindgen]
+pub fn reset_node() {
+    // SAFETY: we should be the only one having this ref right now
+    unsafe { *NODE_STATE.get() = None };
+}
+
+#[wasm_bindgen]
 pub fn init_node(
     program: &[u8],
     state: &[u8],

@@ -101,7 +101,6 @@
         };
         # Configure crane
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
-        # cf. https://crane.dev/API.html#libcleancargosource
 
         # Note: this triggers rebuilds when any files are changed, but none Rust files can't be ignored
         # because *.capnp files need to be included (otherwise craneLib.cleanCargoSource ./.;)
