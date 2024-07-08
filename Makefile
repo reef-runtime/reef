@@ -1,4 +1,4 @@
-SHELL:=/usr/bin/env bash
+SHELL:=/usr/bin/env bash -o pipefail
 
 include .env
 export $(shell sed 's/=.*//' .env)
@@ -7,22 +7,24 @@ DOCKER_REGISTRY:=docker.io/mikmuellerdev
 
 REEF_CADDY_IMAGE_TAG:=reef_caddy
 REEF_MANAGER_IMAGE_TAG:=reef_manager
-REEF_COMPILER_IMAGE:=reef_caddy
+REEF_COMPILER_IMAGE:=reef_compiler
 CONTAINER_TAGS:="$(REEF_CADDY_IMAGE_TAG) $(REEF_MANAGER_IMAGE_TAG) $(REEF_COMPILER_IMAGE)"
 
 .PHONY: build_containers push_containers
 build-containers:
+	echo "$(CONTAINER_TAGS)"
 	for image in "$(CONTAINER_TAGS)"; do \
-		echo "Building '$$image'"; \
-		nix build ".#$${image}_image" && ./result | docker load ; \
-		echo "Renaming '$$image' to $(DOCKER_REGISTRY)/$${image}"; \
-		docker tag "$${image}" "$(DOCKER_REGISTRY)/$${image}" ; \
+		echo "Building '$$image'" && \
+		nix build ".#$${image}_image" && ./result | docker load && \
+		echo "Renaming '$$image' to $(DOCKER_REGISTRY)/$${image}"&& \
+		docker tag "$${image}" "$(DOCKER_REGISTRY)/$${image}" || exit 1; \
 	done
 
 push-containers:
+	echo "$(CONTAINER_TAGS)"
 	for image in "$(CONTAINER_TAGS)"; do \
-		echo "Pushing image: '$(DOCKER_REGISTRY)/$$image'"; \
-		docker push "$(DOCKER_REGISTRY)/$$image"; \
+		echo "Pushing image: '$(DOCKER_REGISTRY)/$$image'" && \
+		docker push "$(DOCKER_REGISTRY)/$$image" || exit 1; \
 	done
 
 PORT=3000
