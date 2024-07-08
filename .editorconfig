@@ -16,5 +16,5 @@ indent_size = 4
 [Makefile]
 indent_style = tab
 
-[*.wat, *.nix, *.ts, *.tsx]
+[*.{wat,nix,ts,tsx}]
 indent_size = 2

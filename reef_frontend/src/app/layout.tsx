@@ -73,7 +73,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <TooltipProvider>
-            <div className="flex flex-col min-h-screen h-screen w-full bg-background min-h-svh">
+            <div className="flex flex-col h-screen w-full bg-background min-h-svh">
               <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-card sm:flex">
                 <nav className="flex flex-col items-center gap-4 px-2 sm:py-5">
                   <img src="/logo-no-text.svg" />
