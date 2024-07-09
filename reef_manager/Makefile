@@ -2,8 +2,13 @@
 SHELL:=/usr/bin/env bash
 
 ENV_FILE=../.env
+ENV_FILE2=../.env
+
 include $(ENV_FILE)
+include $(ENV_FILE2)
+
 export $(shell sed 's/=.*//' $(ENV_FILE))
+export $(shell sed 's/=.*//' $(ENV_FILE2))
 
 ################################### VARS / SETUP ####################################
 
@@ -102,7 +107,7 @@ test: $(GO_SRC)
 run: $(GO_SRC)
 	$(CADDY_BIN) run &
 	$(GO_BIN) mod tidy
-	REEF_TEMPLATES_PATH=./example_job_templates $(GO_BIN) run $(GO_FLAGS) .
+	$(GO_BIN) run $(GO_FLAGS) .
 
 
 #
