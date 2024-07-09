@@ -393,6 +393,7 @@ export default function Page() {
                             height="100%"
                             theme={theme === 'dark' ? vscodeDark : vscodeLight}
                             extensions={language === 'c' ? [cpp()] : [rust()]}
+                            basicSetup={{ tabSize: language === 'c' ? 2 : 4 }}
                             onChange={(value, _) => {
                               setSourceCode(value);
                               field.onChange(value);
