@@ -251,7 +251,7 @@ pub fn serialize_state() -> Vec<u8> {
     // SAFETY: no other call can be running at the same time
     let mut node_state = unsafe { (*NODE_STATE.get()).take().unwrap() };
 
-    node_state.handle.serialize(&mut writer, &node_state.job_output.borrow().data).unwrap();
+    node_state.handle.serialize_raw(&mut writer, &node_state.job_output.borrow().data).unwrap();
 
     unsafe { *NODE_STATE.get() = Some(node_state) }
 

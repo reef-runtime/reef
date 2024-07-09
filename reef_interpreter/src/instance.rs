@@ -71,7 +71,7 @@ impl Instance {
 
         match state {
             Some(state) => {
-                let decoder = flate2::read::ZlibDecoder::new(std::io::Cursor::new(state));
+                let decoder = flate2::read::GzDecoder::new(std::io::Cursor::new(state));
                 let mut state: DeserializationState = bincode::deserialize_from(decoder)?;
                 state.stack.call_stack.0.reserve_exact(CALL_STACK_SIZE);
 

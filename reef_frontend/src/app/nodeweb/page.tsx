@@ -238,17 +238,28 @@ async function run(setNodeState: Dispatch<SetStateAction<NodeState>>) {
     if (internalState.jobId) {
       // State sync
       if (internalState.lastSync + STATE_SYNC_MILLIS < Date.now()) {
-        console.log('Doing state sync');
-
         let interpreterState = serialize_state();
+
+        const stream = new Blob([interpreterState])
+          .stream()
+          .pipeThrough(new CompressionStream('gzip'));
+        const chunks = [];
+        // @ts-ignore
+        for await (const chunk of stream) {
+          chunks.push(chunk);
+        }
+        const compressedState = new Uint8Array(
+          await new Blob(chunks).arrayBuffer()
+        );
+
         console.log(
-          `Serialized ${interpreterState.length} bytes for state sync.`
+          `Serialized ${compressedState.length} bytes for state sync.`
         );
 
         ws.send(
           serialize_job_state_sync(
             internalState.progress,
-            interpreterState,
+            compressedState,
             internalState.logsFlush
           )
         );

@@ -50,12 +50,18 @@ impl ExecHandle {
 
     /// Take the current execution state and serialize it
     pub fn serialize<W: Write>(&mut self, writer: W, extra_data: &[u8]) -> Result<()> {
+        let encoder = flate2::write::GzEncoder::new(writer, flate2::Compression::none());
+        self.serialize_raw(encoder, extra_data)?;
+        Ok(())
+    }
+
+    /// Take the current execution state and serialize it without compression
+    pub fn serialize_raw<W: Write>(&mut self, writer: W, extra_data: &[u8]) -> Result<()> {
         let memory = &self.func_handle.instance.memories[0];
         let globals = self.func_handle.instance.globals.iter().map(|g| g.value).collect();
         let data = SerializationState { stack: &self.stack, memory, globals, extra_data };
 
-        let encoder = flate2::write::ZlibEncoder::new(writer, flate2::Compression::best());
-        bincode::serialize_into(encoder, &data)?;
+        bincode::serialize_into(writer, &data)?;
 
         Ok(())
     }
@@ -92,6 +98,11 @@ impl<R: FromWasmValueTuple> ExecHandleTyped<R> {
     /// See [`ExecHandle::serialize`]
     pub fn serialize<W: Write>(&mut self, writer: W, extra_data: &[u8]) -> Result<()> {
         self.exec_handle.serialize(writer, extra_data)
+    }
+
+    /// See [`ExecHandle::serialize`]
+    pub fn serialize_raw<W: Write>(&mut self, writer: W, extra_data: &[u8]) -> Result<()> {
+        self.exec_handle.serialize_raw(writer, extra_data)
     }
 }
 
