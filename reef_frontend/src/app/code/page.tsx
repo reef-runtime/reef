@@ -144,7 +144,7 @@ export default function Page() {
 
   const { theme } = useTheme();
 
-  let [columns, setColumns] = useState(`2fr 10px 1fr`);
+  let [columns, setColumns] = useState(`2fr 1rem 1fr`);
 
   const handleDrag = (_direction: any, _track: any, gridTemplateStyle: any) => {
     setColumns(gridTemplateStyle);
@@ -199,18 +199,8 @@ export default function Page() {
   const [dataset, setDataset] = useState<string>(template.dataset);
   const [sourceCode, setSourceCode] = useState<string>(template.code);
 
-  //
   // File Size handling
-  //
-
-  const UNITS = [
-    'byte',
-    'kilobyte',
-    'megabyte',
-    'gigabyte',
-    'terabyte',
-    'petabyte',
-  ];
+  const UNITS = ['byte', 'kilobyte', 'megabyte', 'gigabyte'];
   const BYTES_PER_KB = 1000;
 
   function humanFileSize(sizeBytes: number | bigint): string {
@@ -230,10 +220,6 @@ export default function Page() {
     }).format(size);
   }
 
-  //
-  // File sizes
-  //
-
   return (
     <Form {...form}>
       <form
@@ -249,10 +235,9 @@ export default function Page() {
           render={({ getGridProps, getGutterProps }) => (
             <div className="h-full grid" {...getGridProps()}>
               <Card className="h-full w-full overflow-auto rounded-lg border bg-card text-card-foreground shadow-sm flex flex-col">
-                <CardHeader className="w-full flex items-center justify-between flex-hor -flex-col px-5 py-2">
-                  <div className="flex gap-2 items-end align-top">
+                <CardHeader className="w-full flex flex-row justify-between p-3 space-y-0 bg-background">
+                  <div className="flex flex-row items-center gap-2">
                     <FormItem>
-                      <FormLabel>Select Template</FormLabel>
                       <FormControl>
                         <Select
                           onValueChange={(newTemplateID) => {
@@ -294,20 +279,20 @@ export default function Page() {
                       type="button"
                       variant="outline"
                     >
-                      Apply Template
+                      Load Template
                     </Button>
                   </div>
 
-                  <div className="flex justify-between align-center">
+                  <div className="flex flex-row items-center gap-2">
                     <span className="text-4xl text-muted-foreground self-center mx-[1rem]">
-                      {language === 'rust' ? (
-                        <IconRustLanguage />
-                      ) : (
+                      {language === 'c' ? (
                         <IconCLanguage />
+                      ) : (
+                        <IconRustLanguage />
                       )}
                     </span>
 
-                    <ul className="w-[12rem]">
+                    <ul className="w-36">
                       <li className="flex justify-between w-full">
                         <span className="text-sm text-muted-foreground">
                           Lines Of Code
@@ -338,45 +323,6 @@ export default function Page() {
                       </li>
                     </ul>
                   </div>
-
-                  {/*
-                  <Table className="w-[100px] -w-full">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[10px]">LoC</TableHead>
-                        <TableHead className="text-right">DS_LEN</TableHead>
-                        <TableHead className="text-right">DS_SIZE</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      <TableRow>
-                        <TableCell className="font-medium">
-                          {sourceCode.split('\n').length}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {
-                            datasets.find(
-                              (d) => d.id === form.getValues('datasetId')
-                            )?.size
-                          }
-                        </TableCell>
-                        <TableCell className="font-medium text-right">
-                          {(function () {
-                            const sz = datasets.find(
-                              (d) => d.id === form.getValues('datasetId')
-                            )?.size;
-
-                            if (!sz) {
-                              return 0;
-                            }
-
-                            return humanFileSize(sz);
-                          })()}
-                        </TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-*/}
                 </CardHeader>
                 <Separator></Separator>
                 <CardContent className="p-0">
@@ -414,17 +360,17 @@ export default function Page() {
               ></div>
 
               <div className="h-full overflow-auto flex flex-col space-y-4">
-                <Card className="w-full flex flex-col">
-                  <CardHeader>
+                <Card className="w-full flex flex-col bg-background">
+                  <CardHeader className="px-3 pb-0">
                     <CardTitle>Job Submission</CardTitle>
                   </CardHeader>
-                  <CardContent className="flex flex-col space-y-2">
-                    <div className="flex justify-stretch flex-wrap space-x-2">
+                  <CardContent className="flex flex-col p-3">
+                    <div className="flex justify-stretch flex-wrap gap-x-2">
                       <FormField
                         control={form.control}
                         name="name"
                         render={({ field }) => (
-                          <FormItem className="grow">
+                          <FormItem className="grow mt-2">
                             <FormLabel>Job Name</FormLabel>
                             <FormControl>
                               <Input placeholder="Job Name" {...field} />
@@ -437,12 +383,11 @@ export default function Page() {
                         control={form.control}
                         name="language"
                         render={({ field }) => (
-                          <FormItem className="grow min-w-[30%]">
+                          <FormItem className="w-full xl:w-[30%] mt-2">
                             <FormLabel>Language</FormLabel>
                             <FormControl>
                               <Select
                                 onValueChange={(newLang) => {
-                                  console.dir(newLang);
                                   field.onChange(newLang);
                                   setLanguage(newLang as JobLanguage);
                                 }}
@@ -464,13 +409,13 @@ export default function Page() {
                         )}
                       />
                     </div>
-                    <div className="flex flex-col space-y-2 pt-7 pb-4">
+                    <div className="flex justify-stretch flex-wrap gap-x-2">
                       <FormField
                         control={form.control}
                         name="datasetId"
                         render={({ field }) => (
-                          <FormItem className="grow min-w-[30%]">
-                            <FormLabel>Select Existing</FormLabel>
+                          <FormItem className="grow mt-2">
+                            <FormLabel>Select Dataset</FormLabel>
                             <FormControl>
                               <Select
                                 onValueChange={(newDataset) => {
@@ -498,50 +443,47 @@ export default function Page() {
                           </FormItem>
                         )}
                       />
-                      <div className="flex items-center space-x-5 text-xl py-1">
-                        <hr className="w-full grow border-gray-300 " />
-                        <span>OR</span>
-                        <hr className="w-full grow border-gray-300" />
-                      </div>
 
-                      <div className="grid w-full items-center gap-1.5">
-                        <Label htmlFor="datasetFile">Upload New Dataset</Label>
-
-                        <Input
-                          className="w-full"
-                          id="datasetFile"
-                          type="file"
-                          {...form.register('datasetFile')}
-                          onChange={(e) => {
-                            if (
-                              !e.target.files ||
-                              e.target.files.length === 0
-                            ) {
-                              toast({
-                                title: 'Not Uploaded',
-                                description:
-                                  'No file was selected for dataset upload',
-                              });
-                              return;
-                            }
-
-                            const fileCnt = e.target.files.length;
-
-                            for (let i = 0; i < fileCnt; i++) {
-                              const file = e.target.files[i];
-                              console.log(file);
-
-                              uploadDataset(file).then((newDataset) => {
-                                form.setValue('datasetId', newDataset.id);
+                      <FormItem className="w-full xl:w-[30%] mt-2">
+                        <FormLabel className="w-full inline-block text-nowrap text-ellipsis overflow-hidden">
+                          Upload New Dataset
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            className=""
+                            id="datasetFile"
+                            type="file"
+                            onChange={(e) => {
+                              if (
+                                !e.target.files ||
+                                e.target.files.length === 0
+                              ) {
                                 toast({
-                                  title: 'File Uploaded Successfully',
-                                  description: `Created new dataset '${newDataset.id.substring(0, 16)}...'`,
+                                  title: 'Not Uploaded',
+                                  description:
+                                    'No file was selected for dataset upload',
                                 });
-                              });
-                            }
-                          }}
-                        />
-                      </div>
+                                return;
+                              }
+
+                              const fileCnt = e.target.files.length;
+
+                              for (let i = 0; i < fileCnt; i++) {
+                                const file = e.target.files[i];
+                                console.log(file);
+
+                                uploadDataset(file).then((newDataset) => {
+                                  form.setValue('datasetId', newDataset.id);
+                                  toast({
+                                    title: 'File Uploaded Successfully',
+                                    description: `Created new dataset '${newDataset.id.substring(0, 16)}...'`,
+                                  });
+                                });
+                              }
+                            }}
+                          />
+                        </FormControl>
+                      </FormItem>
                     </div>
                   </CardContent>
 
@@ -551,7 +493,7 @@ export default function Page() {
                   </Button>
                 </Card>
 
-                <Card className="h-full w-full flex flex-col">
+                <Card className="h-full w-full flex flex-col bg-background">
                   <div
                     className="h-full w-full px-4 py-3 bg-blue-50 dark:bg-transparent overflow-auto"
                     style={{
