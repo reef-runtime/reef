@@ -242,3 +242,18 @@ pub fn run_node(max_cycles: usize) -> Result<RunResult, String> {
         Err(err) => Err(err.to_string()),
     }
 }
+
+#[wasm_bindgen]
+pub fn serialize_state() -> Vec<u8> {
+    let mut buffer = Vec::new();
+    let mut writer = std::io::Cursor::new(&mut buffer);
+
+    // SAFETY: no other call can be running at the same time
+    let mut node_state = unsafe { (*NODE_STATE.get()).take().unwrap() };
+
+    node_state.handle.serialize(&mut writer, &node_state.job_output.borrow().data).unwrap();
+
+    unsafe { *NODE_STATE.get() = Some(node_state) }
+
+    buffer
+}

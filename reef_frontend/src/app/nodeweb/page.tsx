@@ -9,6 +9,7 @@ import init, {
   reset_node,
   init_node,
   run_node,
+  serialize_state,
   parse_websocket_data,
   serialize_handshake_response,
   serialize_job_state_sync,
@@ -16,6 +17,8 @@ import init, {
   NodeMessageKind,
   NodeMessage,
 } from '@/lib/node_web_generated/reef_node_web';
+
+const STATE_SYNC_MILLIS = 5000;
 
 interface NodeState {
   nodeId?: string;
@@ -234,11 +237,14 @@ async function run(setNodeState: Dispatch<SetStateAction<NodeState>>) {
     // Only perform if job is running
     if (internalState.jobId) {
       // State sync
-      if (internalState.lastSync + 1000 < Date.now()) {
+      if (internalState.lastSync + STATE_SYNC_MILLIS < Date.now()) {
         console.log('Doing state sync');
 
-        // TODO: actually get state
-        let interpreterState = new Uint8Array();
+        let interpreterState = serialize_state();
+        console.log(
+          `Serialized ${interpreterState.length} bytes for state sync.`
+        );
+
         ws.send(
           serialize_job_state_sync(
             internalState.progress,
@@ -258,9 +264,15 @@ async function run(setNodeState: Dispatch<SetStateAction<NodeState>>) {
         result = run_node(0x10000);
 
         if (result.done) {
-          // TODO success result
+          if (!result.job_output) throw 'message invariant violation';
+
+          // TODO verify content type
           ws.send(
-            serialize_job_result(true, enc.encode('VERY COOL SUCCESS'), 2)
+            serialize_job_result(
+              true,
+              result.job_output.data,
+              result.job_output.content_type
+            )
           );
 
           console.log(
