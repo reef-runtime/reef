@@ -32,6 +32,7 @@ export default function Page() {
 
   // Hack to get around React mount+unmount behaviour
   let mountTimeout: NodeJS.Timeout | undefined;
+  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     mountTimeout = setTimeout(() => {
       run(setNodeState);
@@ -51,6 +52,7 @@ export default function Page() {
       if (wasmInit) reset_node();
     };
   }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   return (
     <main className="p-4 h-full w-full">
@@ -235,8 +237,10 @@ async function run(setNodeState: Dispatch<SetStateAction<NodeState>>) {
       }
     }
 
+    updateUi();
+
     // yield to js event loop
-    await sleep(sleepDuration);
+    await sleep(sleepDuration * 1000);
   }
 }
 

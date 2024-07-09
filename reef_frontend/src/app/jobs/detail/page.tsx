@@ -29,6 +29,7 @@ export default function Page() {
     document.title = `${job?.name} - Reef`;
   }, [job?.name]);
 
+  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search);
     const jobId = queryParams.get('id');
@@ -51,7 +52,8 @@ export default function Page() {
       setJob(res.data);
       setInitialized(true);
     });
-  }, [window.location.search]);
+  }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   if (!initialized || !job) {
     return null;

@@ -31,6 +31,7 @@ const GROUPS = [
 export default function Page() {
   const { jobs, setJobs } = useJobs();
 
+  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     const sock = GetSocket();
     sock.unsubscribeAll();
@@ -39,6 +40,7 @@ export default function Page() {
       setJobs(res.data);
     });
   }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   return (
     <main className="flex flex-col md:flex-row p-4 md:space-x-4 xl:max-h-dvh h-full">

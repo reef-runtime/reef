@@ -80,10 +80,12 @@ export default function Page() {
   const [templateFresh, setTemplateFresh] = useState<boolean>(true);
 
   // Load datasets and templates on load.
+  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     fetchDatasets();
     fetchTemplates();
-  }, [window.location]);
+  }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   useEffect(() => {
     if (templates.length === 0) {
@@ -191,7 +193,7 @@ export default function Page() {
     form.setValue('name', template.name);
 
     setTemplateFresh(false);
-  }, [template, templateFresh]);
+  }, [template, templateFresh, form]);
 
   const [language, setLanguage] = useState<JobLanguage>(template.language);
   const [dataset, setDataset] = useState<string>(template.dataset);

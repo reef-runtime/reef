@@ -1,8 +1,9 @@
 'use client';
 
-import localFont from 'next/font/local';
-import './globals.css';
+import Image from 'next/image';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+
 import {
   Code,
   FileCog,
@@ -20,11 +21,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { usePathname } from 'next/navigation';
 import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/components/ui/theme-provider';
 import { ModeToggle } from '@/components/ui/mode-toggle';
 
+import './globals.css';
+
+import localFont from 'next/font/local';
 const inter = localFont({ src: './../fonts/Inter-VariableFont_slnt,wght.ttf' });
 
 const NAV_ITEMS = [
@@ -76,7 +79,12 @@ export default function RootLayout({
             <div className="flex flex-col h-screen w-full bg-background min-h-svh">
               <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-card sm:flex">
                 <nav className="flex flex-col items-center gap-4 px-2 sm:py-5">
-                  <img src="/logo-no-text.svg" />
+                  <Image
+                    src="/logo-no-text.svg"
+                    alt="Reef logo"
+                    width={36}
+                    height={36}
+                  />
                   {NAV_ITEMS.map((item) => (
                     <Tooltip key={item.title}>
                       <TooltipTrigger asChild>

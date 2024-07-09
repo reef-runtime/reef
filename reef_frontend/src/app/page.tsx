@@ -27,6 +27,7 @@ export default function Home() {
   const { nodes, setNodes } = useNodes();
   const { jobs, setJobs } = useJobs();
 
+  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     const sock = GetSocket();
     sock.unsubscribeAll();
@@ -46,6 +47,7 @@ export default function Home() {
       setJobs(res.data);
     });
   }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   return (
     <main className="flex flex-col xl:flex-row p-4 space-y-4 xl:space-y-0 xl:space-x-4">
