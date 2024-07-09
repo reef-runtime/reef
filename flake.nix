@@ -203,7 +203,7 @@
             fileset = ./reef_frontend;
           };
 
-          npmDepsHash = "sha256-tmkUageihVswtWXL7VH710s+vfYhg4SCEI1gxO+gz7A=";
+          npmDepsHash = "sha256-DkziG2UZ7nM3zQQNN1xAy3BaLHL9CSE2DObVMq+23Ls=";
           # npmDepsHash = lib.fakeHash;
 
           npmPackFlags = ["--ignore-scripts"];
@@ -282,10 +282,22 @@
           };
         };
 
+        job_templates =
+          pkgs.stdenv.mkDerivation
+          {
+            name = "reef_job_templates";
+            src = ./reef_manager/example_job_templates;
+            buildPhase = " ";
+            installPhase = ''
+              mkdir -p $out/job_templates
+              cp -R . $out/job_templates
+            '';
+          };
+
         reef_manager_image = pkgs.dockerTools.streamLayeredImage {
           name = "reef_manager";
           tag = "latest";
-          contents = [reef_manager container_tmp];
+          contents = [reef_manager job_templates container_tmp];
           config = {
             Cmd = ["bin/reef_manager"];
           };

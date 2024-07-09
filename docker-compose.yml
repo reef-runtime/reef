@@ -40,6 +40,9 @@ services:
         environment:
             - "REEF_MANAGER_PORT=${REEF_MANAGER_PORT}"
             - "REEF_LOG_LEVEL=${REEF_LOG_LEVEL}"
+
+            - "REEF_TEMPLATES_PATH=${REEF_TEMPLATES_PATH}"
+            - "REEF_DATASETS_PATH=${REEF_DATASETS_PATH}"
             - "REEF_COMPILER_ARTIFACT_PATH=${REEF_COMPILER_ARTIFACT_PATH}"
 
             - "REEF_COMPILER_IP=reef-compiler"
