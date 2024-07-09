@@ -169,7 +169,7 @@ macro_rules! impl_from_wasm_value_tuple_single {
     };
 }
 
-/// Types that can be construted from a tuple
+/// Types that can be constructed from a tuple
 pub trait ValTypesFromTuple {
     /// Do the conversion
     fn val_types() -> Box<[ValType]>;

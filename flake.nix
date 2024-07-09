@@ -243,11 +243,11 @@
         };
 
         # ================
-        # Conatiner images
+        # Container images
         # ================
 
         container_tmp =
-          # Creating /tmp in the container
+          # Creating /tmp in the container.
           pkgs.stdenv.mkDerivation
           {
             name = "container_tmp";
@@ -405,14 +405,14 @@
         formatter = nixpkgs.legacyPackages.${system}.alejandra;
 
         packages = {
-          # Binary outputs
+          # Binary outputs.
           inherit reef_manager reef_compiler reef_node_native;
-          # Other outputs
+          # Other outputs.
           inherit reef_frontend reef_node_web_bin reef_node_web;
 
-          # Conatiner images for central system
+          # Container images for central system.
           inherit reef_caddy_image reef_manager_image reef_compiler_image;
-          # Container images for node
+          # Container images for node.
           inherit reef_node_native_image;
         };
 

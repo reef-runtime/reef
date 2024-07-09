@@ -30,7 +30,7 @@ export default function Page() {
     logs: [],
   });
 
-  // retarted react hack to not have dev mount+unmount fuck up our logic
+  // Hack to get around React mount+unmount behaviour
   let mountTimeout: NodeJS.Timeout | undefined;
   useEffect(() => {
     mountTimeout = setTimeout(() => {
@@ -146,7 +146,7 @@ async function run(setNodeState: Dispatch<SetStateAction<NodeState>>) {
     }
   });
 
-  let interalState = {
+  let internalState = {
     nodeId,
     jobId: undefined as string | undefined,
     progress: 0,
@@ -155,10 +155,10 @@ async function run(setNodeState: Dispatch<SetStateAction<NodeState>>) {
 
   const updateUi = () => {
     setNodeState({
-      nodeId: interalState.nodeId,
-      jobId: interalState.jobId,
-      progress: interalState.progress,
-      logs: interalState.logs,
+      nodeId: internalState.nodeId,
+      jobId: internalState.jobId,
+      progress: internalState.progress,
+      logs: internalState.logs,
     });
   };
   updateUi();
@@ -196,11 +196,11 @@ async function run(setNodeState: Dispatch<SetStateAction<NodeState>>) {
           dataset,
           (log_message: string) => {
             console.log(`Reef log: ${log_message}`);
-            interalState.logs.push(log_message);
+            internalState.logs.push(log_message);
           },
           (done: number) => {
             console.log(`Reef progress: ${done}`);
-            interalState.progress = done;
+            internalState.progress = done;
           }
         );
       } catch (e: any) {
@@ -208,13 +208,13 @@ async function run(setNodeState: Dispatch<SetStateAction<NodeState>>) {
         break;
       }
 
-      interalState.jobId = message.start_job_data.job_id;
+      internalState.jobId = message.start_job_data.job_id;
 
       updateUi();
     }
 
     let sleepDuration = 0;
-    if (interalState.jobId) {
+    if (internalState.jobId) {
       console.log('Running 1000 cycles');
 
       let result;
@@ -229,7 +229,7 @@ async function run(setNodeState: Dispatch<SetStateAction<NodeState>>) {
         console.log('DONE');
 
         reset_node();
-        interalState.jobId = undefined;
+        internalState.jobId = undefined;
       } else {
         sleepDuration = result.sleep_for ?? 0;
       }

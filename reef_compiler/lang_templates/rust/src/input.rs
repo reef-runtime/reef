@@ -4,16 +4,4 @@ use crate::reef::{
     prelude::{dbg, print, println, *},
 };
 
-// User input will be palced below
-
-// pub fn run(dataset: &[u8]) -> impl Into<ReefResult> {
-//     let msg = "Hello World!";
-//     reef::reef_log(msg);
-
-//     reef::reef_log(&format!("dataset[42]: {:?}", dataset[42]));
-
-//     println!("Print log!");
-//     if dataset[0] == 13 {
-//         panic!("Bad dataset!");
-//     }
-// }
+// User input will be placed below.

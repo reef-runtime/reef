@@ -48,7 +48,7 @@ export interface IJob {
   // Primary key of each job. Server guarantees that this is unique.
   // SHA256 hash, always 64 characters long.
   id: string;
-  // Arbitrary name of the job, should be displayed with an elipsis
+  // Arbitrary name of the job, should be displayed with an ellipsis
   // effect so that long names dont destroy the UI.
   name: string;
   // RFC 3339 time format with sub-second precision.

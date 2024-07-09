@@ -321,7 +321,7 @@ func handleGenericIncoming(nodeData logic.Node, message []byte) error {
 
 	switch kind {
 	case node.MessageFromNodeKind_handshakeResponse:
-		log.Tracef("Received late handshakeResponse fron node `%s` (%s)", logic.IdToString(nodeData.Id), nodeData.Info.EndpointIP)
+		log.Tracef("Received late handshakeResponse from node `%s` (%s)", logic.IdToString(nodeData.Id), nodeData.Info.EndpointIP)
 		return nil
 	case node.MessageFromNodeKind_jobStateSync:
 		return processStateSyncFromNode(nodeData.Id, decodedEnclosingMsg)

@@ -35,7 +35,7 @@ func GetJobs(ctx *gin.Context) {
 }
 
 // Returns a job, including logs.
-// NOTE: this is special fo this get-job function.
+// NOTE: this is special for this get-job function.
 func GetJob(ctx *gin.Context) {
 	jobID := ctx.Param(jobIDUrlParam)
 

@@ -7,7 +7,7 @@
 // Break to a block at the given index (relative to the current frame)
 // If there is no block at the given index, return or call the parent function
 //
-// This is a bit hard to see from the spec, but it's vaild to use breaks to return
+// This is a bit hard to see from the spec, but it's valid to use breaks to return
 // from a function, so we need to check if the label stack is empty
 macro_rules! break_to {
     ($cf:ident, $stack:ident, $module:ident, $store:ident, $break_to_relative:expr) => {{

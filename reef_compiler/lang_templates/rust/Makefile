@@ -1,5 +1,5 @@
 SED:=sed
-SED_PACKAGE_PLACEHOLER:=placeholder
+SED_PACKAGE_PLACEHOLDER:=placeholder
 
 CARGO:=cargo
 TARGET_TRIPLE:=wasm32-unknown-unknown
@@ -14,7 +14,7 @@ HASH:=placeholder
 CRATE:=reef_$(HASH)
 
 prepare:
-	$(SED) -i "s/$(SED_PACKAGE_PLACEHOLER)/$(CRATE)/g" Cargo.toml
+	$(SED) -i "s/$(SED_PACKAGE_PLACEHOLDER)/$(CRATE)/g" Cargo.toml
 
 target:
 	# Add to file with prelude

@@ -62,7 +62,7 @@ pub(crate) fn unlikely(b: bool) -> bool {
 }
 
 pub(crate) trait VecExt<T> {
-    fn add(&mut self, elemnt: T) -> usize;
+    fn add(&mut self, element: T) -> usize;
 
     fn get_or<E, F>(&self, index: usize, err: F) -> Result<&T, E>
     where

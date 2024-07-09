@@ -15,7 +15,7 @@ const jobDaemonFreq = time.Second * 2
 const minUIUpdateDelay = time.Second
 
 type JobManagerT struct {
-	// Predifined job definitions which can be tweaked / submitted by the user.
+	// Predefined job definitions which can be tweaked / submitted by the user.
 	Templates       []Template
 	Compiler        *CompilerManager
 	Nodes           LockedMap[NodeId, LockedValue[Node]]

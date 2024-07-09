@@ -9,7 +9,7 @@ use crate::runtime::{RawWasmValue, Stack};
 use crate::store::memory::MemoryInstance;
 use crate::types::value::WasmValue;
 
-/// Retuened by [`run`](ExecHandle::run) to indicate if the function finsihed execution with the given max_cycles
+/// Retuened by [`run`](ExecHandle::run) to indicate if the function finished execution with the given max_cycles
 #[derive(Debug)]
 pub enum CallResult {
     /// Execution finished and the resulting function return is included
