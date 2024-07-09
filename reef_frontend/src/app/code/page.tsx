@@ -1,30 +1,20 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useNodes } from '@/stores/nodes.store';
-import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { useJobs } from '@/stores/job.store';
-import classNames from 'classnames';
-import { IJob, IJobResultContentType, IJobStatus } from '@/types/job';
-import { BanIcon, CogIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import Split from 'react-split-grid';
+import { useTheme } from 'next-themes';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
 import JobStatusIcon from '@/components/job-status';
-import JobListItem from '@/components/job-list-item';
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-// import { useLogs } from '@/stores/log.store';
-import React, { useEffect, useState } from 'react';
-import { useDatasets } from '@/stores/datasets.store';
-import { ILogEntry, ILogKind } from '@/types/log';
+import { BanIcon, CogIcon } from 'lucide-react';
+import IconRustLanguage from '@/components/rust-logo';
+import IconCLanguage from '@/components/c-logo';
+
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectTrigger,
@@ -34,61 +24,26 @@ import {
   SelectLabel,
   SelectItem,
 } from '@/components/ui/select';
-import { set, useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import {
   Form,
   FormField,
   FormItem,
   FormLabel,
   FormControl,
-  FormDescription,
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { ToastAction } from '@/components/ui/toast';
 import { useToast } from '@/components/ui/use-toast';
-// import { Editor } from './editor';
-import { FormEvent } from 'react';
+import { Label } from '@/components/ui/label';
 
+import CodeMirror from '@uiw/react-codemirror';
 import { rust } from '@codemirror/lang-rust';
 import { cpp } from '@codemirror/lang-cpp';
-
-// import { cpp } from '@codemirror/lang-cpp';
-import { useMemo, useRef } from 'react';
-import CodeMirror, { Extension } from '@uiw/react-codemirror';
 import { vscodeDark, vscodeLight } from '@uiw/codemirror-theme-vscode';
-import { VariantProps } from 'class-variance-authority';
-import { register } from 'module';
 
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from '@/components/ui/hover-card';
-
-import Split from 'react-split-grid';
-
-import { useTheme } from 'next-themes';
-import './code.css';
-import { IDataset } from '@/types/dataset';
-import { Label } from '@/components/ui/label';
 import { JobLanguage, ITemplate } from '@/types/template';
 import { useTemplates } from '@/stores/templates.store';
-import IconRustLanguage from '@/components/rust-logo';
-import IconCLanguage from '@/components/c-logo';
-
-//
-//
-//
-
-const extensions = [rust()];
-
-//
-//
-//
-//
+import { useDatasets } from '@/stores/datasets.store';
 
 interface CompileRes {
   success: boolean;
@@ -290,8 +245,8 @@ export default function Page() {
           minSize={100}
           // @ts-ignore
           render={({ getGridProps, getGutterProps }) => (
-            <div className="h-full split-grid" {...getGridProps()}>
-              <Card className="split-column h-full w-full rounded-lg border bg-card text-card-foreground shadow-sm flex flex-col">
+            <div className="h-full grid" {...getGridProps()}>
+              <Card className="h-full w-full overflow-auto rounded-lg border bg-card text-card-foreground shadow-sm flex flex-col">
                 <CardHeader className="w-full flex items-center justify-between flex-hor -flex-col px-5 py-2">
                   <div className="flex gap-2 items-end align-top">
                     <FormItem>
@@ -452,10 +407,10 @@ export default function Page() {
 
               <div
                 {...getGutterProps('column', 1)}
-                className="gutter gutter-vertical"
+                className="cursor-col-resize"
               ></div>
 
-              <div className="split-column h-full flex flex-col space-y-4">
+              <div className="h-full overflow-auto flex flex-col space-y-4">
                 <Card className="w-full flex flex-col">
                   <CardHeader>
                     <CardTitle>Job Submission</CardTitle>
@@ -595,7 +550,7 @@ export default function Page() {
 
                 <Card className="h-full w-full flex flex-col">
                   <div
-                    className="h-full w-full px-4 py-3 bg-blue-50 dark:bg-transparent overflow-auto h-full"
+                    className="h-full w-full px-4 py-3 bg-blue-50 dark:bg-transparent overflow-auto"
                     style={{
                       // backgroundColor: 'beige',
                       fontFamily: 'monospace',
