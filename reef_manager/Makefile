@@ -102,7 +102,7 @@ test: $(GO_SRC)
 run: $(GO_SRC)
 	$(CADDY_BIN) run &
 	$(GO_BIN) mod tidy
-	$(GO_BIN) run $(GO_FLAGS) .
+	REEF_TEMPLATES_PATH=./example_job_templates $(GO_BIN) run $(GO_FLAGS) .
 
 
 #

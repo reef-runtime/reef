@@ -56,17 +56,14 @@ func (m *DatasetManagerT) DeleteDataset(id string) (found bool, err error) {
 	if found, err := database.DeleteDataset(id); err != nil || !found {
 		return found, err
 	}
-	if err := os.Remove(m.DatasetPath + id + ".bin"); err != nil {
+	if err := os.Remove(m.getDatasetPath(id)); err != nil {
 		return found, err
 	}
 	return true, nil
 }
 
 func (m *DatasetManagerT) DoesDatasetExist(id string) (bool, error) {
-	filename := path.Join(m.DatasetPath, fmt.Sprintf("%s%s", id, dataSetFileEnding))
-	fmt.Println(filename)
-
-	if _, err := os.Stat(filename); err != nil {
+	if _, err := os.Stat(m.getDatasetPath(id)); err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
@@ -79,7 +76,7 @@ func (m *DatasetManagerT) DoesDatasetExist(id string) (bool, error) {
 }
 
 func (m *DatasetManagerT) LoadDataset(id string) (data []byte, found bool, err error) {
-	if data, err = os.ReadFile(m.DatasetPath + id + ".bin"); err != nil {
+	if data, err = os.ReadFile(m.getDatasetPath(id)); err != nil {
 		if os.IsNotExist(err) {
 			return nil, false, nil
 		}
@@ -97,6 +94,10 @@ func (m *DatasetManagerT) addEmptyDataset() error {
 	log.Tracef("Added Empty dataset with ID `%s`", id)
 	m.EmptyDatasetID = &id
 	return nil
+}
+
+func (m *DatasetManagerT) getDatasetPath(id string) (dspath string) {
+	return path.Join(m.DatasetPath, fmt.Sprintf("%s%s", id, dataSetFileEnding))
 }
 
 func newDatasetManager(datasetPath string) (DatasetManagerT, error) {
