@@ -9,12 +9,12 @@ import (
 	"github.com/reef-runtime/reef/reef_manager/logic"
 )
 
-const jobIdUrlParam = "job_id"
+const jobIDUrlParam = "job_id"
 
 type JobSubmission struct {
 	Name string `json:"name"`
 	// Attaching a dataset to a job submission is non-optional.
-	DatasetId  string                       `json:"datasetId"`
+	DatasetID  string                       `json:"datasetId"`
 	SourceCode string                       `json:"sourceCode"`
 	Language   logic.JobProgrammingLanguage `json:"language"`
 }
@@ -35,10 +35,11 @@ func GetJobs(ctx *gin.Context) {
 }
 
 // Returns a job, including logs.
+// NOTE: this is special fo this get-job function.
 func GetJob(ctx *gin.Context) {
-	jobId := ctx.Param(jobIdUrlParam)
+	jobID := ctx.Param(jobIDUrlParam)
 
-	job, found, err := logic.JobManager.GetJob(jobId, true)
+	job, found, err := logic.JobManager.GetJob(jobID, true)
 	if err != nil {
 		serverErr(ctx, err.Error())
 		return
@@ -48,13 +49,18 @@ func GetJob(ctx *gin.Context) {
 		respondErr(
 			ctx,
 			"illegal job",
-			fmt.Sprintf("job with id `%s` not found", jobId),
+			fmt.Sprintf("job with id `%s` not found", jobID),
 			http.StatusUnprocessableEntity,
 		)
 		return
 	}
 
 	ctx.JSON(http.StatusOK, job)
+}
+
+func GetTemplates(ctx *gin.Context) {
+	templates := logic.JobManager.ListTemplates()
+	ctx.JSON(http.StatusOK, templates)
 }
 
 //
@@ -69,16 +75,18 @@ func SubmitJob(ctx *gin.Context) {
 		return
 	}
 
+	//
 	// Validate additional constraints, like validity of the dataset and language.
+	//
 
-	found, err := logic.DatasetManager.DoesDatasetExist(submission.DatasetId)
+	found, err := logic.DatasetManager.DoesDatasetExist(submission.DatasetID)
 	if err != nil {
 		serverErr(ctx, err.Error())
 		return
 	}
 
 	if !found {
-		badRequest(ctx, fmt.Sprintf("dataset with id `%s` not found", submission.DatasetId))
+		badRequest(ctx, fmt.Sprintf("dataset with id `%s` not found", submission.DatasetID))
 		return
 	}
 
@@ -87,12 +95,15 @@ func SubmitJob(ctx *gin.Context) {
 		return
 	}
 
+	//
 	// Submit job internally.
+	//
+
 	id, compileErr, systemErr := logic.JobManager.SubmitJob(
 		submission.Language,
 		submission.SourceCode,
 		submission.Name,
-		submission.DatasetId,
+		submission.DatasetID,
 	)
 
 	if systemErr != nil {

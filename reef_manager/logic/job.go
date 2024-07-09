@@ -15,6 +15,8 @@ const jobDaemonFreq = time.Second * 2
 const minUIUpdateDelay = time.Second
 
 type JobManagerT struct {
+	// Predifined job definitions which can be tweaked / submitted by the user.
+	Templates       []Template
 	Compiler        *CompilerManager
 	Nodes           LockedMap[NodeId, LockedValue[Node]]
 	NonFinishedJobs LockedMap[JobId, LockedValue[Job]]
@@ -202,6 +204,10 @@ func (m *JobManagerT) ListenToRefreshRequests() {
 			panic("A new topic kind was introduced without updating this code")
 		}
 	}
+}
+
+func (m *JobManagerT) ListTemplates() []Template {
+	return m.Templates
 }
 
 func (m *JobManagerT) Init() error {

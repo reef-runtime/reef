@@ -14,7 +14,8 @@ const dataSetFileEnding = ".bin"
 const defaultFilePermissions = 0700
 
 type DatasetManagerT struct {
-	DatasetPath string
+	DatasetPath    string
+	EmptyDatasetID *string
 }
 
 var DatasetManager DatasetManagerT
@@ -85,22 +86,30 @@ func (m *DatasetManagerT) LoadDataset(id string) (data []byte, found bool, err e
 	return data, true, nil
 }
 
+func (m *DatasetManagerT) addEmptyDataset() error {
+	id, err := m.AddDataset("Empty Dataset", []byte{})
+	if err != nil {
+		log.Errorf("Failed to add empty dataset: %s", err.Error())
+		return err
+	}
+	log.Tracef("Added Empty dataset with ID `%s`", id)
+	m.EmptyDatasetID = &id
+	return nil
+}
+
 func newDatasetManager(datasetPath string) (DatasetManagerT, error) {
 	if err := os.MkdirAll(datasetPath, defaultFilePermissions); err != nil {
 		return DatasetManager, fmt.Errorf("could not create dataset dir: %s", err.Error())
 	}
 
 	m := DatasetManagerT{
-		DatasetPath: datasetPath,
+		DatasetPath:    datasetPath,
+		EmptyDatasetID: nil,
 	}
 
-	// Add empty dataset.
-	id, err := m.AddDataset("Empty Dataset", []byte{})
-	if err != nil {
-		log.Fatalf("Failed to add empty dataset: %s", err.Error())
-		return DatasetManagerT{}, err
+	if err := m.addEmptyDataset(); err != nil {
+		return DatasetManagerT{}, fmt.Errorf("add empty dataset: %s", err.Error())
 	}
-	log.Tracef("Added Empty dataset with ID `%s`", id)
 
 	return m, nil
 }

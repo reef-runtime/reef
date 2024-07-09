@@ -320,11 +320,13 @@ func (m *JobManagerT) RegisterPing(id NodeId) bool {
 }
 
 func newJobManager(
+	templates []Template,
 	compiler *CompilerManager,
 	triggerUIUpdates chan DataCollectionMsg,
 	refreshData chan WebSocketTopic,
 ) JobManagerT {
 	return JobManagerT{
+		Templates:            templates,
 		Compiler:             compiler,
 		Nodes:                newLockedMap[NodeId, LockedValue[Node]](),
 		NonFinishedJobs:      newLockedMap[JobId, LockedValue[Job]](),

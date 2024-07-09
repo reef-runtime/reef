@@ -15,13 +15,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// TODO: read these from env.
-const webPort = 3001
-const datasetPath = "./datasets/"
-
 type Config struct {
-	Database       database.DatabaseConfig
-	CompilerConfig logic.CompilerConfig
+	DatasetPath      string `env:"REEF_DATASETS_PATH"   env-required:"true"`
+	Port             uint16 `env:"REEF_MANAGER_PORT"    env-required:"true"`
+	TemplatesDirPath string `env:"REEF_TEMPLATES_PATH"  env-required:"true"`
+	Database         database.DatabaseConfig
+	CompilerConfig   logic.CompilerConfig
 }
 
 //go:embed db/migrations/*.sql
@@ -47,7 +46,7 @@ func ship(logger *logrus.Logger) error {
 		return errors.New("database error")
 	}
 
-	if err := logic.Init(logger, config.CompilerConfig, datasetPath); err != nil {
+	if err := logic.Init(logger, config.CompilerConfig, config.DatasetPath, config.TemplatesDirPath); err != nil {
 		logger.Fatalf("Initializing logic package failed: %s", err.Error())
 		return errors.New("system error")
 	}
@@ -66,6 +65,7 @@ func ship(logger *logrus.Logger) error {
 	//
 	// Jobs.
 	//
+	r.GET("/api/templates", api.GetTemplates)
 	r.GET("/api/jobs", api.GetJobs)
 	r.GET("/api/job/:job_id", api.GetJob)
 	r.GET("/api/result/:job_id", api.GetResult)
@@ -96,10 +96,10 @@ func ship(logger *logrus.Logger) error {
 	//
 	r.GET("/api/updates", logic.UIManager.InitConn)
 
-	logger.Debugf("Starting web server on port %d...", webPort)
+	logger.Debugf("Starting web server on port %d...", config.Port)
 
 	api.Init(logger)
-	if err := r.Run(":" + fmt.Sprint(webPort)); err != nil {
+	if err := r.Run(":" + fmt.Sprint(config.Port)); err != nil {
 		return fmt.Errorf("failed to run webserver: %s", err.Error())
 	}
 
@@ -109,7 +109,7 @@ func ship(logger *logrus.Logger) error {
 func main() {
 	logger := newLogger()
 	// Suppress noise.
-	logger.SetLevel(logrus.ErrorLevel)
+	logger.SetLevel(logrus.DebugLevel)
 
 	if err := ship(logger); err != nil {
 		logger.Errorf("Failed to start sailing: %s", err.Error())
