@@ -57,11 +57,11 @@ impl NodeMessage {
     }
 
     fn start_job(start_job_data: StartJobRequest) -> Self {
-        Self { kind: NodeMessageKind::AssignId, start_job_data: Some(start_job_data), ..Default::default() }
+        Self { kind: NodeMessageKind::StartJob, start_job_data: Some(start_job_data), ..Default::default() }
     }
 
     fn abort_job(abort_job_data: String) -> Self {
-        Self { kind: NodeMessageKind::AssignId, abort_job_data: Some(abort_job_data), ..Default::default() }
+        Self { kind: NodeMessageKind::AbortJob, abort_job_data: Some(abort_job_data), ..Default::default() }
     }
 }
 

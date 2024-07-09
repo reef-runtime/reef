@@ -11,6 +11,8 @@ import init, {
   run_node,
   parse_websocket_data,
   serialize_handshake_response,
+  serialize_job_state_sync,
+  serialize_job_result,
   NodeMessageKind,
   NodeMessage,
 } from '@/lib/node_web_generated/reef_node_web';
@@ -153,6 +155,8 @@ async function run(setNodeState: Dispatch<SetStateAction<NodeState>>) {
     jobId: undefined as string | undefined,
     progress: 0,
     logs: [] as string[],
+    logsFlush: [] as string[],
+    lastSync: 0,
   };
 
   const updateUi = () => {
@@ -164,76 +168,124 @@ async function run(setNodeState: Dispatch<SetStateAction<NodeState>>) {
     });
   };
   updateUi();
+  const reset = () => {
+    reset_node();
+    internalState.jobId = undefined;
+    internalState.progress = 0;
+    internalState.logs = [];
+    internalState.logsFlush = [];
+    internalState.lastSync = 0;
+  };
+  const enc = new TextEncoder();
 
   // node event loop
   while (true) {
-    // if the websocket is no longer set we should exit
+    // if the WebSocket is no longer set we should exit
     if (!ws) break;
 
-    // read message
+    let errorMessage: string | undefined;
+
+    // read message from WebSocket
     let message = messageQueue.shift();
     if (message) {
       // we only care about start job commands
       if (message.kind === NodeMessageKind.StartJob) {
         if (!message.start_job_data) throw 'message invariant violation';
-      }
+        if (internalState.jobId)
+          throw 'attempted to start job while another one is still running';
 
-      if (!message.start_job_data) throw 'message invariant violation';
-
-      // fetch dataset
-      let res = await fetch(
-        `/api/dataset/${message.start_job_data.dataset_id}`
-      );
-      let dataset = new Uint8Array(await res.arrayBuffer());
-
-      console.log(
-        `%c==> Starting job ${message.start_job_data.job_id}.`,
-        'font-weight:bold;'
-      );
-
-      try {
-        init_node(
-          message.start_job_data.program_byte_code,
-          message.start_job_data.interpreter_state,
-          dataset,
-          (log_message: string) => {
-            console.log(`Reef log: ${log_message}`);
-            internalState.logs.push(log_message);
-          },
-          (done: number) => {
-            console.log(`Reef progress: ${done}`);
-            internalState.progress = done;
-          }
+        console.log(
+          `%c==> Starting job ${message.start_job_data.job_id}.`,
+          'font-weight:bold;'
         );
-      } catch (e: any) {
-        console.error('Error starting:', e);
-        break;
+
+        // fetch dataset
+        let res = await fetch(
+          `/api/dataset/${message.start_job_data.dataset_id}`
+        );
+        let dataset = new Uint8Array(await res.arrayBuffer());
+
+        try {
+          init_node(
+            message.start_job_data.program_byte_code,
+            message.start_job_data.interpreter_state,
+            dataset,
+            (log_message: string) => {
+              internalState.logs.push(log_message);
+              internalState.logsFlush.push(log_message);
+            },
+            (done: number) => {
+              internalState.progress = done;
+            }
+          );
+
+          internalState.jobId = message.start_job_data.job_id;
+        } catch (e: any) {
+          console.log('Error starting:', e);
+          errorMessage = e;
+        }
+
+        updateUi();
       }
-
-      internalState.jobId = message.start_job_data.job_id;
-
-      updateUi();
     }
 
-    let sleepDuration = 0;
+    let sleepDuration = 0.01;
+
+    // Only perform if job is running
     if (internalState.jobId) {
-      console.log('Running 1000 cycles');
+      // State sync
+      if (internalState.lastSync + 1000 < Date.now()) {
+        console.log('Doing state sync');
+
+        // TODO: actually get state
+        let interpreterState = new Uint8Array();
+        ws.send(
+          serialize_job_state_sync(
+            internalState.progress,
+            interpreterState,
+            internalState.logsFlush
+          )
+        );
+
+        internalState.logsFlush = [];
+
+        internalState.lastSync = Date.now();
+      }
 
       let result;
       try {
-        result = run_node(1000);
+        // TODO: benchmark what works best
+        result = run_node(0x10000);
+
+        if (result.done) {
+          // TODO success result
+          ws.send(
+            serialize_job_result(true, enc.encode('VERY COOL SUCCESS'), 2)
+          );
+
+          console.log(
+            `%c==> Job ${internalState.jobId} has has executed successfully.`,
+            'font-weight:bold;'
+          );
+
+          reset();
+        } else {
+          sleepDuration = result.sleep_for ?? 0;
+        }
       } catch (e: any) {
-        console.error('Error executing:', e);
-        break;
+        console.log('Error executing:', e);
+        errorMessage = e;
       }
 
-      if (result.done) {
-        console.log('DONE');
+      if (errorMessage) {
+        ws.send(serialize_job_result(false, enc.encode(errorMessage), 2));
 
-        reset_node();
-        internalState.jobId = undefined;
-      } else {
-        sleepDuration = result.sleep_for ?? 0;
+        console.log(
+          `%c==> Job ${internalState.jobId} has has failed.`,
+          'font-weight:bold;'
+        );
+
+        reset();
       }
     }
 
