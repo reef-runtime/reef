@@ -2,7 +2,7 @@ use capnp::{message::ReaderOptions, serialize};
 use reef_protocol_node::message_capnp::{
     assign_id_message,
     message_to_node::{self, body},
-    MessageFromNodeKind, MessageToNodeKind,
+    MessageFromNodeKind, MessageToNodeKind, ResultContentType,
 };
 use wasm_bindgen::prelude::*;
 
@@ -147,6 +147,55 @@ pub fn serialize_handshake_response(num_workers: u16, node_name: &str) -> Vec<u8
 
     handshake_response.set_num_workers(num_workers);
     handshake_response.set_node_name(node_name);
+
+    let mut buffer = vec![];
+    capnp::serialize::write_message(&mut buffer, &message).unwrap();
+    buffer
+}
+
+#[wasm_bindgen]
+pub fn serialize_job_state_sync(progress: f32, interpreter_state: &[u8], logs: Vec<String>) -> Vec<u8> {
+    let mut message = capnp::message::Builder::new_default();
+    let mut encapsulating_message: reef_protocol_node::message_capnp::message_from_node::Builder = message.init_root();
+    encapsulating_message.set_kind(MessageFromNodeKind::JobStateSync);
+
+    let mut state_sync = encapsulating_message.get_body().init_job_state_sync();
+
+    state_sync.set_worker_index(0);
+    state_sync.set_progress(progress);
+    state_sync.set_interpreter(interpreter_state);
+
+    let mut logs_builder = state_sync.init_logs(logs.len() as u32);
+
+    for (idx, log) in logs.into_iter().enumerate() {
+        let mut log_item = logs_builder.reborrow().get(idx as u32);
+        log_item.set_content(&log.into_bytes());
+        log_item.set_log_kind(0);
+    }
+
+    let mut buffer = vec![];
+    capnp::serialize::write_message(&mut buffer, &message).unwrap();
+    buffer
+}
+
+#[wasm_bindgen]
+pub fn serialize_job_result(success: bool, content: &[u8], content_type: u16) -> Vec<u8> {
+    let mut message = capnp::message::Builder::new_default();
+    let mut encapsulating_message: reef_protocol_node::message_capnp::message_from_node::Builder = message.init_root();
+    encapsulating_message.set_kind(MessageFromNodeKind::JobResult);
+
+    let mut job_result = encapsulating_message.get_body().init_job_result();
+
+    job_result.set_worker_index(0);
+    job_result.set_success(success);
+    job_result.set_contents(content);
+    job_result.set_content_type(match content_type {
+        0 => ResultContentType::I32,
+        1 => ResultContentType::Bytes,
+        2 => ResultContentType::StringPlain,
+        3 => ResultContentType::StringJSON,
+        _ => panic!("Invalid result content type"),
+    });
 
     let mut buffer = vec![];
     capnp::serialize::write_message(&mut buffer, &message).unwrap();
