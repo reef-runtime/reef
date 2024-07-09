@@ -74,6 +74,10 @@ import { useTheme } from 'next-themes';
 import './code.css';
 import { IDataset } from '@/types/dataset';
 import { Label } from '@/components/ui/label';
+import { JobLanguage, ITemplate } from '@/types/template';
+import { useTemplates } from '@/stores/templates.store';
+import IconRustLanguage from '@/components/rust-logo';
+import IconCLanguage from '@/components/c-logo';
 
 //
 //
@@ -110,14 +114,35 @@ export default function Page() {
 
   const { datasets, fetchDatasets, uploadDataset } = useDatasets();
 
+  const { templates, setTemplates, fetchTemplates } = useTemplates();
+  const [template, setTemplate] = useState<ITemplate>({
+    id: '',
+    name: '',
+    language: 'c',
+    code: '',
+    dataset: '',
+  });
+  const [templateFresh, setTemplateFresh] = useState<boolean>(true);
+
+  // Load datasets and templates on load.
   useEffect(() => {
     fetchDatasets();
-  }, []);
+    fetchTemplates();
+  }, [window.location]);
+
+  useEffect(() => {
+    if (templates.length === 0) {
+      return;
+    }
+
+    setTemplateFresh(true);
+    setTemplate(templates[0]);
+  }, [templates]);
 
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: {
-      name: 'test-job-name',
+      name: '',
       language: 'c',
       sourceCode: '',
     },
@@ -168,38 +193,24 @@ export default function Page() {
     setColumns(gridTemplateStyle);
   };
 
-  type JobLanguage = 'c' | 'rust';
-
-  interface Template {
-    id: string;
-    name: string;
-    code: string;
-    dataset: string;
-    language: JobLanguage;
-  }
-
-  const [templates, setTemplates] = useState<Template[]>([
-    {
-      id: 'c-hello',
-      name: '[C] Hello World',
-      code: 'void run(byte * ds, int dsl) {\n\treef_puts("Hello World");\n}',
-      dataset:
-        '8b4985d2f8011f74fdf8566611b8cc8cae398ad350bc33f8b5db5bc840f92cbb',
-      language: 'c',
-    },
-    {
-      id: 'rust-hello',
-      name: '[Rust] Hello World',
-      code: 'pub fn run(dataset: &[u8]) -> impl Into<ReefResult> {\n\tlet msg = "Hello World!";\n\treef::reef_log(msg);\n\t/*reef::reef_log(&format!("dataset[43]: {:?}", dataset[43]));*/ println!("Println log 1."); /*if dataset[0] == 13 { panic!("Bad dataset!"); }*/ let mut sum = std::num::Wrapping(0); for val in dataset { sum += val; } println!("sum: {sum}"); "Test Result".to_string() }',
-      dataset:
-        '8b4985d2f8011f74fdf8566611b8cc8cae398ad350bc33f8b5db5bc840f92cbb',
-      language: 'rust',
-    },
-  ]);
-
-  const [template, setTemplate] = useState<Template>(templates[0]);
-
-  const [templateFresh, setTemplateFresh] = useState<boolean>(true);
+  // const [templates, setTemplates] = useState<Template[]>([
+  //   {
+  //     id: 'c-hello',
+  //     name: '[C] Hello World',
+  //     code: 'void run(byte * ds, int dsl) {\n\treef_puts("Hello World");\n}',
+  //     dataset:
+  //       '8b4985d2f8011f74fdf8566611b8cc8cae398ad350bc33f8b5db5bc840f92cbb',
+  //     language: 'c',
+  //   },
+  //   {
+  //     id: 'rust-hello',
+  //     name: '[Rust] Hello World',
+  //     code: 'pub fn run(dataset: &[u8]) -> impl Into<ReefResult> {\n\tlet msg = "Hello World!";\n\treef::reef_log(msg);\n\t/*reef::reef_log(&format!("dataset[43]: {:?}", dataset[43]));*/ println!("Println log 1."); /*if dataset[0] == 13 { panic!("Bad dataset!"); }*/ let mut sum = std::num::Wrapping(0); for val in dataset { sum += val; } println!("sum: {sum}"); "Test Result".to_string() }',
+  //     dataset:
+  //       '8b4985d2f8011f74fdf8566611b8cc8cae398ad350bc33f8b5db5bc840f92cbb',
+  //     language: 'rust',
+  //   },
+  // ]);
 
   useEffect(() => {
     if (!templateFresh) {
@@ -207,14 +218,23 @@ export default function Page() {
       return;
     }
 
+    if (!template) {
+      console.log('illegal template selection');
+      return;
+    }
+
     console.log('USED EFFECT');
     setLanguage(template.language);
     form.setValue('language', template.language);
+
     setDataset(template.dataset);
     form.setValue('datasetId', template.dataset);
+
     setSourceCode(template.code);
     form.setValue('sourceCode', template.code);
+
     form.setValue('name', template.name);
+
     setTemplateFresh(false);
   }, [template, templateFresh]);
 
@@ -272,9 +292,9 @@ export default function Page() {
           render={({ getGridProps, getGutterProps }) => (
             <div className="h-full split-grid" {...getGridProps()}>
               <Card className="split-column h-full w-full rounded-lg border bg-card text-card-foreground shadow-sm flex flex-col">
-                <CardHeader className="w-full flex items-center justify-between flex-hor -flex-col px-5 py-0">
-                  <div className="flex gap-2 items-end">
-                    <FormItem className="">
+                <CardHeader className="w-full flex items-center justify-between flex-hor -flex-col px-5 py-2">
+                  <div className="flex gap-2 items-end align-top">
+                    <FormItem>
                       <FormLabel>Select Template</FormLabel>
                       <FormControl>
                         <Select
@@ -289,7 +309,7 @@ export default function Page() {
                             setTemplateFresh(true);
                             setTemplate(newT);
                           }}
-                          defaultValue={template.id}
+                          value={template.id}
                         >
                           <SelectTrigger className="w-[20rem]">
                             <SelectValue placeholder="Select a Template" />
@@ -299,7 +319,7 @@ export default function Page() {
                               {templates.map((t, _) => {
                                 return (
                                   <SelectItem value={t.id} key={t.id}>
-                                    {t.id}
+                                    {t.name}
                                   </SelectItem>
                                 );
                               })}
@@ -321,33 +341,48 @@ export default function Page() {
                     </Button>
                   </div>
 
-                  <ul className="w-[300px]">
-                    <li className="flex justify-between w-full">
-                      <span className="font-medium">Lines Of Code</span>
-                      <span>{sourceCode.split('\n').length}</span>
-                    </li>
-                    <li className="flex justify-between w-full">
-                      <span className="font-medium">Dataset Size</span>
-                      {(function () {
-                        const sz = datasets.find(
-                          (d) => d.id === form.getValues('datasetId')
-                        )?.size;
+                  <div className="flex justify-between align-center">
+                    <span className="text-4xl text-muted-foreground self-center mx-[1rem]">
+                      {language === 'rust' ? (
+                        <IconRustLanguage />
+                      ) : (
+                        <IconCLanguage />
+                      )}
+                    </span>
 
-                        if (!sz) {
-                          return 'N/A';
-                        }
+                    <ul className="w-[12rem]">
+                      <li className="flex justify-between w-full">
+                        <span className="text-sm text-muted-foreground">
+                          Lines Of Code
+                        </span>
+                        <span>{sourceCode.split('\n').length}</span>
+                      </li>
+                      <li className="flex justify-between w-full">
+                        <span className="text-sm text-muted-foreground">
+                          Dataset Size
+                        </span>
+                        {(function () {
+                          const sz = datasets.find(
+                            (d) => d.id === form.getValues('datasetId')
+                          )?.size;
 
-                        return (
-                          <div className="flex gap-3 items-center">
-                            <span>{humanFileSize(sz)}</span>
-                            {(sz > 1024) ?
-                            <span className="text-sm text-muted-foreground">{sz} B</span> : ""}
-                          </div>
-                        );
-                      })()}
-                    </li>
-                  </ul>
+                          if (!sz) {
+                            return (
+                              <span className="text-sm text-muted-foreground">
+                                N/A
+                              </span>
+                            );
+                          }
 
+                          return (
+                            <span className="text-sm">{humanFileSize(sz)}</span>
+                          );
+                        })()}
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/*
                   <Table className="w-[100px] -w-full">
                     <TableHeader>
                       <TableRow>
@@ -384,6 +419,7 @@ export default function Page() {
                       </TableRow>
                     </TableBody>
                   </Table>
+*/}
                 </CardHeader>
                 <Separator></Separator>
                 <CardContent className="p-0">
@@ -452,7 +488,6 @@ export default function Page() {
                                   field.onChange(newLang);
                                   setLanguage(newLang as JobLanguage);
                                 }}
-                                defaultValue={language}
                                 value={language}
                               >
                                 <SelectTrigger className="w-full">
@@ -485,7 +520,6 @@ export default function Page() {
                                   field.onChange(newDataset);
                                   setDataset(newDataset);
                                 }}
-                                defaultValue={dataset}
                                 value={dataset}
                               >
                                 <SelectTrigger className="w-full">
@@ -589,7 +623,7 @@ export default function Page() {
                           ></div>
                         );
                       } else {
-                        return <div>a</div>;
+                        return <div>SUCCESS, show job output here</div>;
                       }
                     })()}
                   </div>
