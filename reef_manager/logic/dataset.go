@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 
 	"github.com/reef-runtime/reef/reef_manager/database"
@@ -62,7 +63,8 @@ func (m *DatasetManagerT) DeleteDataset(id string) (found bool, err error) {
 }
 
 func (m *DatasetManagerT) DoesDatasetExist(id string) (bool, error) {
-	filename := m.DatasetPath + id + ".bin"
+	filename := path.Join(m.DatasetPath, fmt.Sprintf("%s%s", id, dataSetFileEnding))
+	fmt.Println(filename)
 
 	if _, err := os.Stat(filename); err != nil {
 		if os.IsNotExist(err) {
