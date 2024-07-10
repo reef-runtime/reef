@@ -287,7 +287,23 @@ async function run(setNodeState: Dispatch<SetStateAction<NodeState>>) {
         if (result.done) {
           if (!result.job_output) throw 'message invariant violation';
 
-          // TODO verify content type
+          // final state sync
+          ws.send(
+            serialize_job_state_sync(
+              internalState.progress,
+              new Uint8Array(),
+              internalState.logsFlush
+            )
+          );
+
+          // verify content type
+          if (
+            result.job_output.content_type < 0 ||
+            result.job_output.content_type > 3
+          ) {
+            errorMessage = 'Invalid job output content type';
+            throw 'invalid content type';
+          }
           ws.send(
             serialize_job_result(
               true,
