@@ -101,7 +101,17 @@ let wasmInit = false;
 
 async function run(setNodeState: Dispatch<SetStateAction<NodeState>>) {
   // Initialize Wasm
-  await init();
+  try {
+    await init();
+    new CompressionStream('gzip');
+  } catch (e: any) {
+    console.error(e);
+    alert(
+      'Your browser does not support the features required to run a Reef node!'
+    );
+    location.pathname = '/';
+    return;
+  }
   wasmInit = true;
 
   // Start WebSocket
