@@ -18,10 +18,37 @@ import { IJobStatus } from '@/types/job';
 // import JobStatusIcon from '@/components/job-status';
 import JobListItem from '@/components/job-list-item';
 import WorkerListItem from '@/components/worker-list-item';
-import { BanIcon } from 'lucide-react';
+import { BanIcon, Copy } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { GetSocket, topicNodes, topicAllJobs } from '@/lib/websocket';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { useReefSession } from '@/stores/session.store';
+import { useToast } from '@/components/ui/use-toast';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 
 export default function Home() {
   const { nodes, setNodes } = useNodes();
@@ -49,8 +76,116 @@ export default function Home() {
   }, []);
   /* eslint-enable react-hooks/exhaustive-deps */
 
+  // async function fetchAuth(token: string | null) {
+  //   const auth = await (
+  //     await fetch('/api/auth', {
+  //       method: 'POST',
+  //       body: JSON.stringify({
+  //         token,
+  //       }),
+  //     })
+  //   ).json();
+  //
+  //   console.log(auth);
+  // }
+
+  const { session, fetchSession } = useReefSession();
+
+  const { toast } = useToast();
+
+  async function loginHandler(token: string | null) {
+    try {
+      await fetchSession(token);
+    } catch (e: any) {
+      toast({
+        title: 'Login Failed',
+        description: e,
+      });
+    }
+  }
+
+  useEffect(() => {
+    loginHandler(null);
+  }, []);
+
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  useEffect(() => {
+    window.addEventListener('keypress', (event: KeyboardEvent) => {
+      const { key } = event;
+      if (key === 'q') {
+        event.preventDefault();
+        setIsDialogOpen(true);
+      }
+    });
+  }, []);
+
+  const schema = z.object({
+    token: z.string().min(1),
+  });
+
+  const form = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      token: '',
+    },
+  });
+
+  function onSubmit(values: z.infer<typeof schema>) {
+    setIsDialogOpen(false);
+    loginHandler(values.token);
+  }
+
   return (
     <main className="flex flex-col xl:flex-row p-4 space-y-4 xl:space-y-0 xl:space-x-4">
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enter Administrator Mode</DialogTitle>
+            <DialogDescription>
+              Once activated, all jobs can be aborted and killed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center space-x-2">
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-8"
+              >
+                <FormField
+                  control={form.control}
+                  name="token"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Admin Token</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Set by the <code>REEF_ADMIN_TOKEN</code> environment
+                        variable.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </form>
+            </Form>
+          </div>
+          <DialogFooter className="sm:justify-start">
+            <DialogClose>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => loginHandler(form.getValues().token)}
+              >
+                Login
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 min-[1660px]:grid-cols-4 gap-4 grid-flow-row-dense grid-rows auto-rows-[320px]">
         {nodes.map((node) => (
           <Card

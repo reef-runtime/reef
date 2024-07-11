@@ -28,6 +28,7 @@ import { ModeToggle } from '@/components/ui/mode-toggle';
 import './globals.css';
 
 import localFont from 'next/font/local';
+import { useEffect } from 'react';
 const inter = localFont({ src: './../fonts/Inter-VariableFont_slnt,wght.ttf' });
 
 const NAV_ITEMS = [
