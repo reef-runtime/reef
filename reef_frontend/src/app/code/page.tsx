@@ -51,6 +51,10 @@ import { Progress } from '@/components/ui/progress';
 import { displayLogKind, ILogKind } from '@/types/log';
 import JobOutput from '@/components/job-output';
 import JobProgress from '@/components/job-progress';
+import local from 'next/font/local';
+
+const SOURCE_CODE_KEY = 'source_code';
+const TEMPLATE_KEY = 'template_id';
 
 interface CompileRes {
   success: boolean;
@@ -81,7 +85,7 @@ export default function Page() {
   const { datasets, fetchDatasets, uploadDataset } = useDatasets();
 
   const { templates, setTemplates, fetchTemplates } = useTemplates();
-  const [template, setTemplate] = useState<ITemplate>({
+  const [template, setTemplateInternal] = useState<ITemplate>({
     id: '',
     name: '',
     language: 'c',
@@ -89,6 +93,16 @@ export default function Page() {
     dataset: '',
   });
   const [templateFresh, setTemplateFresh] = useState<boolean>(true);
+
+  function setTemplate(tmpl: ITemplate) {
+    localStorage.setItem(TEMPLATE_KEY, tmpl.id)
+    setTemplateInternal(tmpl)
+  }
+
+  function loadTemplate() {
+    localStorage.removeItem(SOURCE_CODE_KEY);
+    setTemplateFresh(true);
+  }
 
   // Load datasets and templates on load.
   /* eslint-disable react-hooks/exhaustive-deps */
@@ -104,7 +118,9 @@ export default function Page() {
     }
 
     setTemplateFresh(true);
-    setTemplate(templates[0]);
+
+    const tmpl = loadTemplateFromStorage();
+    if (!tmpl) setTemplate(templates[0]);
   }, [templates]);
 
   const form = useForm<z.infer<typeof schema>>({
@@ -167,26 +183,9 @@ export default function Page() {
     setColumns(gridTemplateStyle);
   };
 
-  // const [templates, setTemplates] = useState<Template[]>([
-  //   {
-  //     id: 'c-hello',
-  //     name: '[C] Hello World',
-  //     code: 'void run(byte * ds, int dsl) {\n\treef_puts("Hello World");\n}',
-  //     dataset:
-  //       '8b4985d2f8011f74fdf8566611b8cc8cae398ad350bc33f8b5db5bc840f92cbb',
-  //     language: 'c',
-  //   },
-  //   {
-  //     id: 'rust-hello',
-  //     name: '[Rust] Hello World',
-  //     code: 'pub fn run(dataset: &[u8]) -> impl Into<ReefResult> {\n\tlet msg = "Hello World!";\n\treef::reef_log(msg);\n\t/*reef::reef_log(&format!("dataset[43]: {:?}", dataset[43]));*/ println!("Println log 1."); /*if dataset[0] == 13 { panic!("Bad dataset!"); }*/ let mut sum = std::num::Wrapping(0); for val in dataset { sum += val; } println!("sum: {sum}"); "Test Result".to_string() }',
-  //     dataset:
-  //       '8b4985d2f8011f74fdf8566611b8cc8cae398ad350bc33f8b5db5bc840f92cbb',
-  //     language: 'rust',
-  //   },
-  // ]);
-
   useEffect(() => {
+    const loadedCode = loadSourceCode();
+
     if (!templateFresh) {
       console.log('template not fresh');
       return;
@@ -197,24 +196,54 @@ export default function Page() {
       return;
     }
 
+    let usedTemplate = template
+
+    const loadedTempl = loadTemplateFromStorage()
+    if (loadedTempl) {
+      const searched = templates.find(t => t.id === loadedTempl)
+      if (searched)
+        usedTemplate = searched
+    }
+
     console.log('USED EFFECT');
-    setLanguage(template.language);
-    form.setValue('language', template.language);
+    setLanguage(usedTemplate.language);
+    form.setValue('language', usedTemplate.language);
 
-    setDataset(template.dataset);
-    form.setValue('datasetId', template.dataset);
+    setDataset(usedTemplate.dataset);
+    form.setValue('datasetId', usedTemplate.dataset);
 
-    setSourceCode(template.code);
-    form.setValue('sourceCode', template.code);
+    if (loadedCode) {
+      setSourceCodeInternal(loadedCode);
+      form.setValue('sourceCode', loadedCode);
+    } else {
+      setSourceCode(usedTemplate.code);
+      form.setValue('sourceCode', usedTemplate.code);
+    }
 
-    form.setValue('name', template.name);
+    form.setValue('name', usedTemplate.name);
 
     setTemplateFresh(false);
   }, [template, templateFresh, form]);
 
   const [language, setLanguage] = useState<JobLanguage>(template.language);
   const [dataset, setDataset] = useState<string>(template.dataset);
-  const [sourceCode, setSourceCode] = useState<string>(template.code);
+  const [sourceCode, setSourceCodeInternal] = useState<string>(template.code);
+
+  function setSourceCode(newCode: string) {
+    console.log('SET', newCode);
+    localStorage.setItem(SOURCE_CODE_KEY, newCode);
+    setSourceCodeInternal(newCode);
+  }
+
+  function loadTemplateFromStorage(): string | null {
+    const tmlp = localStorage.getItem(TEMPLATE_KEY);
+    return tmlp;
+  }
+
+  function loadSourceCode(): string | null {
+    const code = localStorage.getItem(SOURCE_CODE_KEY);
+    return code;
+  }
 
   // File Size handling
   const UNITS = ['byte', 'kilobyte', 'megabyte', 'gigabyte'];
@@ -283,7 +312,6 @@ export default function Page() {
                             if (!newT) {
                               throw `Illegal item: ${newT}`;
                             }
-                            setTemplateFresh(true);
                             setTemplate(newT);
                           }}
                           value={template.id}
@@ -308,9 +336,7 @@ export default function Page() {
                     </FormItem>
 
                     <Button
-                      onClick={() => {
-                        setTemplateFresh(true);
-                      }}
+                      onClick={loadTemplate}
                       type="button"
                       variant="outline"
                     >
@@ -538,8 +564,8 @@ export default function Page() {
                       boxSizing: 'border-box',
                     }}
                   >
-                    <div className="flex justify-between gap-30">
-                      <span className="font-bold">
+                    <div className="flex flex-wrap justify-between gap-30">
+                      <span className="font-bold whitespace-nowrap">
                         {response.message
                           ? response.message.toUpperCase()
                           : 'JOB STATUS'}
