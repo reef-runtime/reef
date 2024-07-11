@@ -59,85 +59,74 @@ export default function Page() {
     return null;
   }
 
-  // return <span>{JSON.stringify(job)}</span>;
-
   return (
-    <main className="flex xl:flex-row p-4 xl:space-x-4 grow">
-      <div className="space-y-4 grow flex flex-col">
-        <Card className="grow flex flex-col">
-          <CardHeader>
-            <CardTitle className="flex space-x-1 items-center">
-              <span>Logs</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grow p-2 flex flex-col">
-            <div className="bg-black p-2 rounded-sm grow">
-              {job.logs
-                ?.sort(
-                  (a, b) =>
-                    new Date(a.created).getTime() -
-                    new Date(b.created).getTime()
-                )
-                .map((log, index) => (
-                  <div key={index} className="font-mono text-xs text-white">
-                    <span className="text-green-500">
-                      {new Date(log.created).toLocaleString()}
-                    </span>
-                    <span className="text-blue-500">
-                      {' '}
-                      [{ILogKind[log.kind]}]
-                    </span>
-                    <span> {log.content}</span>
-                  </div>
-                ))}
+    <main className="flex flex-col-reverse xl:flex-row p-4 gap-4 w-full">
+      <Card className="grow">
+        <CardHeader>
+          <CardTitle>Logs</CardTitle>
+        </CardHeader>
+        <CardContent className="grow p-2">
+          <div className="bg-black p-2 rounded-sm grow">
+            {job.logs
+              ?.sort(
+                (a, b) =>
+                  new Date(a.created).getTime() - new Date(b.created).getTime()
+              )
+              .map((log, index) => (
+                <div key={index} className="font-mono text-xs text-white">
+                  <span className="text-green-500">
+                    {new Date(log.created).toLocaleString()}
+                  </span>
+                  <span className="text-blue-500"> [{ILogKind[log.kind]}]</span>
+                  <span> {log.content}</span>
+                </div>
+              ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="w-full xl:w-[400px]">
+        <CardHeader>
+          <CardTitle className="flex space-x-2 items-center">
+            <span>Job Detail Overview</span>
+            <JobStatusIcon job={job} />
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grow">
+          <div className="space-y-4">
+            <div>
+              <h4 className="font-bold">Job ID</h4>
+              <p className="overflow-hidden text-ellipsis">{job.id}</p>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-      <div className="flex flex-col xl:grid gap-4 w-[400px]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex space-x-2 items-center">
-              <span>Job Detail Overview</span>
-              <JobStatusIcon job={job} />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grow">
-            <div className="space-y-4">
-              <div>
-                <h4 className="font-bold">Job ID</h4>
-                <p className="overflow-hidden text-ellipsis">{job.id}</p>
-              </div>
-              <div>
-                <h4 className="font-bold">Job Name</h4>
-                <p className="overflow-hidden text-ellipsis">{job.name}</p>
-              </div>
-              <div>
-                <h4 className="font-bold">Submitted</h4>
-                <p className="overflow-hidden text-ellipsis">
-                  {new Date(job.submitted).toLocaleString()}
-                </p>
-              </div>
-              {job.result && (
-                <>
-                  <div>
-                    <h4 className="font-bold">Result Success</h4>
-                    <p>{job.result.success ? 'Yes' : 'No'}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-bold">Result Content Type</h4>
-                    <p>{IJobResultContentType[job.result.contentType]}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-bold">Result Created</h4>
-                    <p>{new Date(job.result.created).toLocaleString()}</p>
-                  </div>
-                </>
-              )}
+            <div>
+              <h4 className="font-bold">Job Name</h4>
+              <p className="overflow-hidden text-ellipsis">{job.name}</p>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+            <div>
+              <h4 className="font-bold">Submitted</h4>
+              <p className="overflow-hidden text-ellipsis">
+                {new Date(job.submitted).toLocaleString()}
+              </p>
+            </div>
+            {job.result && (
+              <>
+                <div>
+                  <h4 className="font-bold">Result Success</h4>
+                  <p>{job.result.success ? 'Yes' : 'No'}</p>
+                </div>
+                <div>
+                  <h4 className="font-bold">Result Content Type</h4>
+                  <p>{IJobResultContentType[job.result.contentType]}</p>
+                </div>
+                <div>
+                  <h4 className="font-bold">Result Created</h4>
+                  <p>{new Date(job.result.created).toLocaleString()}</p>
+                </div>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </main>
   );
 }
