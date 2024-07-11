@@ -9,9 +9,13 @@ run:
 	npm install
 	PORT=$(REEF_NEXTJS_PORT) npm run dev
 
-.PHONY: build-wasm
-build-wasm:
+.PHONY: build-rust
+build-rust:
 	rm -rf ./src/lib/node_web_generated
 	nix build .#reef_node_web
 	cp -r ./result/pkg/ ./src/lib/node_web_generated
 	chmod -R +w ./src/lib/node_web_generated
+	rm -f ./public/reef_node_native
+	nix build .#reef_node_native
+	cp ./result/bin/reef_node_native ./public
+	chmod +w ./public/reef_node_native

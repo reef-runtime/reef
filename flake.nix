@@ -211,6 +211,7 @@
           postPatch = ''
             cd reef_frontend
             cp -r ${reef_node_web}/pkg/ ./src/lib/node_web_generated
+            cp -r ${reef_node_native}/bin/reef_node_native ./public
           '';
 
           installPhase = ''
