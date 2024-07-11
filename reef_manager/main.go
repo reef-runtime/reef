@@ -93,7 +93,7 @@ func ship(logger *logrus.Logger) error {
 	//
 	// Nodes.
 	//
-	apiGroup.GET("/node/connect", api.HandleNodeConnection)
+	r.GET("/api/node/connect", api.HandleNodeConnection)
 	apiGroup.GET("/nodes", api.GetNodes)
 
 	//
@@ -102,7 +102,7 @@ func ship(logger *logrus.Logger) error {
 	apiGroup.GET("/datasets", api.GetDatasets)
 	apiGroup.POST("/datasets/upload", api.UploadDataset)
 	apiGroup.DELETE("/datasets/delete", api.DeleteDataset)
-	apiGroup.GET("/dataset/:id", api.LoadDataset)
+	r.GET("/api/dataset/:id", api.LoadDataset)
 
 	//
 	// Logs.
