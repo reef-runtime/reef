@@ -1,0 +1,17 @@
+meta {
+  name: Register Session
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{url}}/auth
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "token": null
+  }
+}
