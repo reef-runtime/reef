@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/reef-runtime/reef/reef_manager/api"
@@ -19,6 +21,7 @@ type Config struct {
 	DatasetPath      string `env:"REEF_DATASETS_PATH"   env-required:"true"`
 	Port             uint16 `env:"REEF_MANAGER_PORT"    env-required:"true"`
 	TemplatesDirPath string `env:"REEF_TEMPLATES_PATH"  env-required:"true"`
+	AdminToken       string `env:"REEF_ADMIN_TOKEN"     env-required:"true"`
 	Database         database.DatabaseConfig
 	CompilerConfig   logic.CompilerConfig
 }
@@ -63,38 +66,53 @@ func ship(logger *logrus.Logger) error {
 	})
 
 	//
+	// Authentication.
+	//
+
+	store := cookie.NewStore([]byte("fooaabababab"))
+	r.Use(sessions.Sessions(api.SessionName, store))
+
+	api.InitAuthHandler(config.AdminToken)
+
+	r.POST("/api/auth", api.AuthHandler.HandleAuth)
+
+	// Require authentication for the entire API.
+	apiGroup := r.Group("/api")
+	apiGroup.Use(api.AuthHandler.ReefAuth())
+
+	//
 	// Jobs.
 	//
-	r.GET("/api/templates", api.GetTemplates)
-	r.GET("/api/jobs", api.GetJobs)
-	r.GET("/api/job/:job_id", api.GetJob)
-	r.GET("/api/result/:job_id", api.GetResult)
-	r.POST("/api/jobs/submit", api.SubmitJob)
-	r.DELETE("/api/jobs/abort", api.AbortOrCancelJob)
+	apiGroup.GET("/templates", api.GetTemplates)
+	apiGroup.GET("/jobs", api.GetJobs)
+	apiGroup.GET("/job/:job_id", api.GetJob)
+	apiGroup.GET("/result/:job_id", api.GetResult)
+	apiGroup.POST("/jobs/submit", api.SubmitJob)
+	apiGroup.DELETE("/jobs/abort", api.AbortOrCancelJob)
 
 	//
 	// Nodes.
 	//
-	r.GET("/api/node/connect", api.HandleNodeConnection)
-	r.GET("/api/nodes", api.GetNodes)
+	apiGroup.GET("/node/connect", api.HandleNodeConnection)
+	apiGroup.GET("/nodes", api.GetNodes)
 
 	//
 	// Datasets.
 	//
-	r.GET("/api/datasets", api.GetDatasets)
-	r.POST("/api/datasets/upload", api.UploadDataset)
-	r.DELETE("/api/datasets/delete", api.DeleteDataset)
-	r.GET("/api/dataset/:id", api.LoadDataset)
+	apiGroup.GET("/datasets", api.GetDatasets)
+	apiGroup.POST("/datasets/upload", api.UploadDataset)
+	apiGroup.DELETE("/datasets/delete", api.DeleteDataset)
+	apiGroup.GET("/dataset/:id", api.LoadDataset)
 
 	//
 	// Logs.
 	//
-	r.GET("/api/logs", api.GetLogs)
+	apiGroup.GET("/logs", api.GetLogs)
 
 	//
 	// UI websocket with notifications.
 	//
-	r.GET("/api/updates", logic.UIManager.InitConn)
+	apiGroup.GET("/updates", logic.UIManager.InitConn)
 
 	logger.Debugf("Starting web server on port %d...", config.Port)
 

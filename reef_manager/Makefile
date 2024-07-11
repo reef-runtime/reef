@@ -2,7 +2,7 @@
 SHELL:=/usr/bin/env bash
 
 ENV_FILE=../.env
-ENV_FILE2=../.env
+ENV_FILE2=.env
 
 include $(ENV_FILE)
 include $(ENV_FILE2)

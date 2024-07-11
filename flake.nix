@@ -82,7 +82,8 @@
           modRoot = "./reef_manager";
           doCheck = false;
 
-          vendorHash = "sha256-9Xf+fZpGsRkzYXqYZnUu8S0O8BbHZ/FRds9mOszBDY8=";
+          # vendorHash = "sha256-MQjrPMT+qnShS4WwdzfAlRtcFzcv9ohLHbTIxbV5Xfg=";
+          vendorHash = "sha256-BG3s9Koh5qZEgyRpWzpbZ4aG+a+8OZd8LpAAxc4auP4=";
           # vendorHash = lib.fakeHash;
 
           meta = {
