@@ -82,8 +82,7 @@
           modRoot = "./reef_manager";
           doCheck = false;
 
-          # vendorHash = "sha256-MQjrPMT+qnShS4WwdzfAlRtcFzcv9ohLHbTIxbV5Xfg=";
-          vendorHash = "sha256-BG3s9Koh5qZEgyRpWzpbZ4aG+a+8OZd8LpAAxc4auP4=";
+          vendorHash = "sha256-oBMy9XmST4id+z2RhzD8BsC6KyTJpauN07n3rWv34iw=";
           # vendorHash = lib.fakeHash;
 
           meta = {
@@ -234,7 +233,9 @@
             cp -r ${reef_node_web_bin}/lib .
           '';
           buildPhase = ''
+            echo "Running wasm-bindgen..."
             wasm-bindgen --out-dir pkg --target web ./lib/reef_node_web.wasm
+            echo "Running wasm-opt..."
             wasm-opt -o ./pkg/reef_node_web_bg.wasm -O4 --strip-debug ./pkg/reef_node_web_bg.wasm
           '';
           installPhase = ''
