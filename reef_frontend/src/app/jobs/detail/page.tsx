@@ -11,9 +11,12 @@ import JobStatusIcon from '@/components/job-status';
 import { useJobs } from '@/stores/job.store';
 import { IJob, IJobResultContentType } from '@/types/job';
 import { GetSocket, topicSingleJob } from '@/lib/websocket';
+import { useReefSession } from '@/stores/session.store';
+import { Button } from '@/components/ui/button';
 
 export default function Page() {
   const { jobs, setJobs } = useJobs();
+  const { session, fetchSession } = useReefSession();
 
   const [job, setJob] = useState<IJob | null>(null);
   const [initialized, setInitialized] = useState(false);
@@ -24,10 +27,10 @@ export default function Page() {
 
   /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
+    fetchSession(null);
+
     const queryParams = new URLSearchParams(window.location.search);
     const jobId = queryParams.get('id');
-
-    console.log(jobId);
 
     if (!jobId) {
       throw 'bug';
@@ -51,6 +54,18 @@ export default function Page() {
   if (!initialized || !job) {
     return null;
   }
+
+  const killJob = async () => {
+    let killResponse = await fetch('/api/jobs/abort', {
+      method: 'DELETE',
+      body: JSON.stringify({
+        id: job.id,
+      }),
+      credentials: 'include',
+    });
+
+    console.log(`Response ok: ${killResponse.ok}`);
+  };
 
   return (
     <main className="flex flex-col-reverse xl:flex-row p-4 gap-4 w-full">
@@ -112,6 +127,12 @@ export default function Page() {
               </div>
             </>
           )}
+
+          {job.owner === session.id || session.isAdmin ? (
+            <Button variant={'destructive'} onClick={killJob}>
+              Kill Job
+            </Button>
+          ) : null}
         </CardContent>
       </Card>
     </main>
