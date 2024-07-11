@@ -211,7 +211,9 @@ func messagePingHandler(conn *logic.WSConn, nodeId logic.NodeId) func(string) er
 			return err
 		}
 
-		err = conn.WriteMessage(websocket.BinaryMessage, msg)
+		log.Tracef("[node] received ping from `%s`", logic.IdToString(nodeId))
+
+		err = conn.WriteMessage(websocket.PongMessage, msg)
 
 		if err != nil {
 			log.Tracef("[node] sending pong failed: %s", err.Error())
@@ -293,6 +295,7 @@ func HandleNodeConnection(c *gin.Context) {
 			}
 		case websocket.PingMessage:
 			if err := pingHandler(string(message[1:])); err != nil {
+				log.Warnf("[node] Dropping due to illegal ping: %v", message)
 				dropNode(wsConn, websocket.CloseAbnormalClosure, node.Id)
 				return
 			}

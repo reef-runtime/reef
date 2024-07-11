@@ -48,12 +48,17 @@ struct Args {
     // How many milliseconds to wait before syncs.
     sync_delay_millis: Option<usize>,
 
+    #[arg(short = 'p', long)]
+    // How many milliseconds to wait before pings.
+    ping_delay_millis: Option<usize>,
+
     #[arg(short = 'w', long)]
     // How many concurrent workers to offer, default is the number of CPUs.
     num_workers: Option<usize>,
 }
 
 const SYNC_DELAY_MILLIS: usize = 5000;
+const PING_DELAY_MILLIS: usize = 10000;
 
 struct NodeState(Vec<Job>);
 
@@ -126,6 +131,9 @@ fn main() -> anyhow::Result<()> {
 
     let sync_wait_duration = Duration::from_millis(args.sync_delay_millis.unwrap_or(SYNC_DELAY_MILLIS) as u64);
 
+    let ping_wait_duration = Duration::from_millis(args.ping_delay_millis.unwrap_or(PING_DELAY_MILLIS) as u64);
+    let mut last_ping = Instant::now();
+
     let mut worked;
     loop {
         worked = false;
@@ -142,6 +150,13 @@ fn main() -> anyhow::Result<()> {
             Err(err) => {
                 return Err(err).with_context(|| "reading socket");
             }
+        }
+
+        let since_last_ping = Instant::now().duration_since(last_ping);
+        if since_last_ping >= ping_wait_duration {
+            last_ping = Instant::now();
+            socket.send(Message::Ping(vec![])).with_context(|| "sending WS ping")?;
+            println!("sent ping to manager")
         }
 
         //
@@ -264,9 +279,9 @@ impl NodeState {
                 if !data.is_empty() {
                     println!("[warning] ping data is not empty: {data:?}")
                 }
-                Action::Ping
+                Action::Pong
             }
-            Message::Pong(_) => Action::Ping,
+            Message::Pong(_) => Action::Pong,
             Message::Close(_) => Action::Disconnect,
             Message::Frame(_) => unreachable!("received a raw frame, this should never happen"),
         };
@@ -281,8 +296,9 @@ impl NodeState {
             Action::AbortJob(job_id) => {
                 self.abort_job(&job_id)?;
             }
-            Action::Ping => {
+            Action::Pong => {
                 // ignore any Ping/Pong
+                println!("got pong from manager")
             }
             Action::Disconnect => bail!("disconnected: connection lost"),
         }
@@ -365,7 +381,7 @@ struct StartJobRequest {
 }
 
 enum Action {
-    Ping,
+    Pong,
     StartJob(StartJobRequest),
     AbortJob(String),
     Disconnect,
@@ -410,7 +426,7 @@ fn handle_binary(bin_slice: &[u8]) -> Result<Action> {
             let job_id = String::from_utf8(body.get_job_id()?.0.to_vec()).with_context(|| "illegal job ID encoding")?;
             Ok(Action::AbortJob(job_id))
         }
-        (MessageToNodeKind::Ping, body::Which::Empty(_)) => Ok(Action::Ping),
+        (MessageToNodeKind::Ping, body::Which::Empty(_)) => Ok(Action::Pong),
         (_, _) => bail!("Illegal message received instead of Job control."),
     }
 }
