@@ -1,7 +1,9 @@
 SHELL:=/usr/bin/env bash -o pipefail
 
-include .env
-export $(shell sed 's/=.*//' .env)
+ENV_FILE=.env
+
+include $(ENV_FILE)
+export $(shell sed 's/=.*//' $(ENV_FILE))
 
 NIX_ARGS:=
 
@@ -28,7 +30,7 @@ CONTAINER_TAGS:="$(REEF_CADDY_IMAGE_TAG) $(REEF_MANAGER_IMAGE_TAG) $(REEF_COMPIL
 # Builds all predefined containers.
 #
 
-build-containers:
+build-containers: env
 	echo "$(CONTAINER_TAGS)"
 	for image in "$(CONTAINER_TAGS)"; do \
 		echo "Building '$$image'" && \
@@ -41,7 +43,7 @@ build-containers:
 # Pushes all previously built containers to `$DOCKER_REGISTRY`
 #
 
-push-containers:
+push-containers: env
 	echo "$(CONTAINER_TAGS)"
 	for image in "$(CONTAINER_TAGS)"; do \
 		echo "Pushing image: '$(DOCKER_REGISTRY)/$$image'" && \
@@ -65,3 +67,6 @@ test:
 	cd ./reef_manager/ && make test && make lint
 	cd ./reef_protocol/ && make test
 	typos .
+
+env: $(ENV_FILE)
+	env | grep REEF
