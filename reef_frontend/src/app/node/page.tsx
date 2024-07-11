@@ -18,6 +18,7 @@ import init, {
   NodeMessageKind,
   NodeMessage,
 } from '@/lib/node_web_generated/reef_node_web';
+import { CopyIcon } from 'lucide-react';
 
 const STATE_SYNC_MILLIS = 5000;
 
@@ -52,6 +53,16 @@ export default function Page() {
     return closeNode;
   }, []);
   /* eslint-enable react-hooks/exhaustive-deps */
+
+  function copyPostInstallInstructions() {
+    const binary = 'reef_node_native';
+    const command = ` chmod +x ${binary} && ./${binary}`;
+    navigator.clipboard.writeText(command);
+    toast({
+      title: 'Copied',
+      description: 'Paste command into terminal to connect.',
+    });
+  }
 
   if (!nodeState) {
     return (
@@ -98,10 +109,21 @@ export default function Page() {
               Navigate to where you downloaded the binary and run these commands
               to execute it.
             </p>
-            <div className="font-mono bg-stone-950 text-slate-50 p-4 rounded">
-              chmod +x ./reef_node_native
-              <br />
-              ./reef_node_native &quot;{url}&quot;
+
+            <div className="flex justify-between font-mono bg-stone-950  p-4 rounded w-full">
+              <span className="text-background dark:text-foreground">
+                chmod +x ./reef_node_native
+                <br />
+                ./reef_node_native &quot;{url}&quot;
+              </span>
+
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={copyPostInstallInstructions}
+              >
+                <CopyIcon className="h-4 w-4" />
+              </Button>
             </div>
 
             <div className="h-4"></div>
@@ -172,7 +194,7 @@ async function runNode(
   } catch (e: any) {
     console.error(e);
     alert(
-      'Your browser does not support the features required to run a Reef node!'
+      'Your browser does not support the features required to run a Reef node'
     );
     location.pathname = '/';
     return;
