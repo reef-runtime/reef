@@ -95,8 +95,8 @@ export default function Page() {
   const [templateFresh, setTemplateFresh] = useState<boolean>(true);
 
   function setTemplate(tmpl: ITemplate) {
-    localStorage.setItem(TEMPLATE_KEY, tmpl.id)
-    setTemplateInternal(tmpl)
+    localStorage.setItem(TEMPLATE_KEY, tmpl.id);
+    setTemplateInternal(tmpl);
   }
 
   function loadTemplate() {
@@ -196,13 +196,12 @@ export default function Page() {
       return;
     }
 
-    let usedTemplate = template
+    let usedTemplate = template;
 
-    const loadedTempl = loadTemplateFromStorage()
+    const loadedTempl = loadTemplateFromStorage();
     if (loadedTempl) {
-      const searched = templates.find(t => t.id === loadedTempl)
-      if (searched)
-        usedTemplate = searched
+      const searched = templates.find((t) => t.id === loadedTempl);
+      if (searched) usedTemplate = searched;
     }
 
     console.log('USED EFFECT');
