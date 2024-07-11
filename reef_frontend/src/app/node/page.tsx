@@ -33,18 +33,20 @@ export default function Page() {
 
   const [nodeState, setNodeState] = useState<NodeState | undefined>(undefined);
 
+  const closeNode = () => {
+    setNodeState(undefined);
+
+    if (ws) {
+      ws.close();
+      ws = undefined;
+    }
+
+    if (wasmInit) reset_node();
+  };
+
   /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
-    return () => {
-      console.log('unmount');
-
-      if (ws) {
-        ws.close();
-        ws = undefined;
-      }
-
-      if (wasmInit) reset_node();
-    };
+    return closeNode;
   }, []);
   /* eslint-enable react-hooks/exhaustive-deps */
 
@@ -77,7 +79,37 @@ export default function Page() {
           <CardHeader>
             <CardTitle>Join with Node Native</CardTitle>
           </CardHeader>
-          <CardContent className="h-full overflow-hidden space-y-4"></CardContent>
+          <CardContent className="h-full overflow-hidden space-y-2">
+            <p>
+              Running the Native Reef Node locally allows you to unleash the
+              full potential of your hardware and therfore contribute more ot
+              the Reef network.
+            </p>
+            <p className="pb-4">
+              Note: The Node Native is only available for x86_64 Linux systems.
+            </p>
+
+            <p className="text-xl font-semibold">Setup</p>
+            <p>Start by downloading the binary for the Node Native.</p>
+            <p>
+              Navigate to where you downloaded the binary and run these commands
+              to execute it.
+            </p>
+            <div className="font-mono bg-background p-4 rounded">
+              chmod +x ./reef_node_native
+              <br />
+              ./reef_node_native {window.location.origin}
+            </div>
+
+            <div className="h-4"></div>
+            <a
+              href="/reef_node_native"
+              download="reef_node_native"
+              className="underline hover:text-gray-400"
+            >
+              <Button>Download Node Native</Button>
+            </a>
+          </CardContent>
         </Card>
       </main>
     );
@@ -114,6 +146,10 @@ export default function Page() {
               {nodeState.logs.length}
             </p>
           </div>
+
+          <Button variant={'destructive'} onClick={closeNode}>
+            Disconnect
+          </Button>
         </CardContent>
       </Card>
     </main>
@@ -207,6 +243,7 @@ async function runNode(
     });
   };
   updateUi();
+
   const reset = () => {
     reset_node();
     internalState.jobId = undefined;

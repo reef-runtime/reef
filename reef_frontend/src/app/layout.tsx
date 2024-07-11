@@ -43,7 +43,7 @@ const NAV_ITEMS = [
   {
     title: 'Node Web',
     Icon: AppWindowMac,
-    path: '/nodeweb',
+    path: '/node',
   },
 ];
 
