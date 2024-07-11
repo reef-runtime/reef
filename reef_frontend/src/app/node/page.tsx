@@ -267,7 +267,7 @@ async function runNode(
     // read message from WebSocket
     let message = messageQueue.shift();
     if (message) {
-      // we only care about start job commands
+      // we only care about start/abort job commands
       if (message.kind === NodeMessageKind.StartJob) {
         if (!message.start_job_data) throw 'message invariant violation';
         if (internalState.jobId)
@@ -305,6 +305,16 @@ async function runNode(
         }
 
         updateUi();
+      } else if (message.kind === NodeMessageKind.AbortJob) {
+        if (!message.abort_job_data) throw 'message invariant violation';
+        if (!internalState.jobId)
+          throw 'attempted to abort job while none is running';
+
+        if (internalState.jobId !== message.abort_job_data) {
+          throw 'attempted to abort job that is not running on this node';
+        }
+
+        errorMessage = 'Job aborted';
       }
     }
 
@@ -389,7 +399,7 @@ async function runNode(
         }
       } catch (e: any) {
         console.log('Error executing:', e);
-        errorMessage = e;
+        errorMessage = errorMessage ?? e;
       }
 
       if (errorMessage) {
