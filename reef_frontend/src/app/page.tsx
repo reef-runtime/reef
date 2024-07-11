@@ -134,6 +134,16 @@ export default function Home() {
     loginHandler(values.token);
   }
 
+  const [time, setTime] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setTime(Date.now()), 1000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
+
   return (
     <main className="flex flex-col xl:flex-row p-4 space-y-4 xl:space-y-0 xl:space-x-4">
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
