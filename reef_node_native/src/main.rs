@@ -33,13 +33,12 @@ const MAIN_THREAD_SLEEP: Duration = Duration::from_millis(10);
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
+    // Base url of the manager.
+    manager_url: Url,
+
     #[arg(short, long)]
     // Name to be sent to the manager (default is the hostname + extra infos)
     node_name: Option<String>,
-
-    #[arg(short = 'u', long)]
-    // Base url of the manager.
-    manager_url: Url,
 
     #[arg(short = 's', long)]
     // Whether to use https to connect to the manager.
@@ -47,12 +46,14 @@ struct Args {
 
     #[arg(short = 'm', long)]
     // How many milliseconds to wait before syncs.
-    sync_delay_millis: usize,
+    sync_delay_millis: Option<usize>,
 
     #[arg(short = 'w', long)]
     // How many concurrent workers to offer, default is the number of CPUs.
     num_workers: Option<usize>,
 }
+
+const SYNC_DELAY_MILLIS: usize = 5000;
 
 struct NodeState(Vec<Job>);
 
@@ -123,7 +124,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut state = NodeState::new(num_workers);
 
-    let sync_wait_duration = Duration::from_millis(args.sync_delay_millis as u64);
+    let sync_wait_duration = Duration::from_millis(args.sync_delay_millis.unwrap_or(SYNC_DELAY_MILLIS) as u64);
 
     let mut worked;
     loop {
