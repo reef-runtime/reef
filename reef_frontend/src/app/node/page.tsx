@@ -44,8 +44,11 @@ export default function Page() {
     if (wasmInit) reset_node();
   };
 
+  const [url, setUrl] = useState<string>('');
+
   /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
+    setUrl(window.location.origin);
     return closeNode;
   }, []);
   /* eslint-enable react-hooks/exhaustive-deps */
@@ -98,7 +101,7 @@ export default function Page() {
             <div className="font-mono bg-background p-4 rounded">
               chmod +x ./reef_node_native
               <br />
-              ./reef_node_native {window.location.origin}
+              ./reef_node_native {url}
             </div>
 
             <div className="h-4"></div>

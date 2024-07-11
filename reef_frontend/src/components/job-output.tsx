@@ -11,12 +11,12 @@ interface JobOutputProps {
 }
 
 const JobOutput: FC<JobOutputProps> = ({ job, compact }) => {
+  const { theme } = useTheme();
+  const darkTheme = theme === 'dark';
+
   if (!job || !job.logs) {
     return <span className="text-muted-foreground text-sm">No output</span>;
   }
-
-  const { theme } = useTheme();
-  const darkTheme = theme === 'dark';
 
   return job.logs
     ?.sort(
