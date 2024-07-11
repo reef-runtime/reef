@@ -330,7 +330,11 @@ async function runNode(
         );
 
         ws.send(
-          serialize_job_state_sync(1, compressedState, internalState.logsFlush)
+          serialize_job_state_sync(
+            internalState.progress,
+            compressedState,
+            internalState.logsFlush
+          )
         );
 
         internalState.logsFlush = [];
@@ -349,7 +353,7 @@ async function runNode(
           // final state sync
           ws.send(
             serialize_job_state_sync(
-              internalState.progress,
+              1,
               new Uint8Array(),
               internalState.logsFlush
             )
