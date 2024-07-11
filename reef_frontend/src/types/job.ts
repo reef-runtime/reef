@@ -70,3 +70,20 @@ export interface IJob {
   progress: number;
   wasmId: string;
 }
+
+export function displayJobStatus(job: IJob | null | undefined): string {
+  if (!job) {
+    return 'NO JOB AVAILABLE';
+  }
+
+  switch (job.status) {
+    case IJobStatus.StatusQueued:
+      return 'QUEUED';
+    case IJobStatus.StatusStarting:
+      return 'STARTING';
+    case IJobStatus.StatusRunning:
+      return `RUNNING ${Math.floor(job.progress * 100)}%`;
+    case IJobStatus.StatusDone:
+      return job.result?.success ? 'SUCCESS' : 'FAILURE';
+  }
+}

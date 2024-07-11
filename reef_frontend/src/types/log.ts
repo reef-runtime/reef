@@ -27,3 +27,14 @@ export interface ILogEntry {
   // The backend guarantees that this job-id always refers to an existent job.
   jobId: string;
 }
+
+export function displayLogKind(kind: ILogKind): string {
+  switch (kind) {
+    case ILogKind.LogKindProgram:
+      return 'PGM';
+    case ILogKind.LogKindNode:
+      return 'NOD';
+    case ILogKind.LogKindSystem:
+      return 'SYS';
+  }
+}

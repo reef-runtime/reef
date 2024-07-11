@@ -45,10 +45,21 @@ import { JobLanguage, ITemplate } from '@/types/template';
 import { useTemplates } from '@/stores/templates.store';
 import { useDatasets } from '@/stores/datasets.store';
 
+import { GetSocket, topicSingleJob } from '@/lib/websocket';
+import { displayJobStatus, IJob, IJobStatus } from '@/types/job';
+import { Progress } from '@/components/ui/progress';
+import { displayLogKind, ILogKind } from '@/types/log';
+import JobOutput from '@/components/job-output';
+import JobProgress from '@/components/job-progress';
+
 interface CompileRes {
   success: boolean;
   message: string;
   error: string;
+}
+
+interface SubmitRes {
+  id: string;
 }
 
 const schema = z.object({
@@ -134,17 +145,23 @@ export default function Page() {
       body: JSON.stringify(values),
     });
 
-    toast({
-      title: res.status == 200 ? 'Success' : 'Error',
-      description: 'Check console for more information',
-    });
+    if (res.status != 200) {
+      const compileRes = (await res.json()) as CompileRes;
+      setResponse(compileRes);
 
-    setResponse((await res.json()) as CompileRes);
+      toast({
+        title: 'Error',
+        description: 'Check console for more information',
+      });
+    }
+
+    const submitRes = (await res.json()) as SubmitRes;
+    setJobId(submitRes.id);
   };
 
   const { theme } = useTheme();
 
-  let [columns, setColumns] = useState(`2fr 1rem 1fr`);
+  let [columns, setColumns] = useState(`2fr 16px 1fr`);
 
   const handleDrag = (_direction: any, _track: any, gridTemplateStyle: any) => {
     setColumns(gridTemplateStyle);
@@ -220,6 +237,24 @@ export default function Page() {
     }).format(size);
   }
 
+  const [jobId, setJobId] = useState<string | null>(null);
+
+  const [job, setJob] = useState<IJob | null>(null);
+
+  useEffect(() => {
+    if (!jobId) {
+      return;
+    }
+
+    const sock = GetSocket();
+    sock.unsubscribeAll();
+
+    sock.subscribe(topicSingleJob(jobId), (res) => {
+      console.dir(res.data);
+      setJob(res.data);
+    });
+  }, [jobId]);
+
   return (
     <Form {...form}>
       <form
@@ -233,8 +268,8 @@ export default function Page() {
           minSize={100}
           // @ts-ignore
           render={({ getGridProps, getGutterProps }) => (
-            <div className="h-full grid" {...getGridProps()}>
-              <Card className="h-full w-full overflow-auto rounded-lg border bg-card text-card-foreground shadow-sm flex flex-col">
+            <div className="h-full grid split-grid" {...getGridProps()}>
+              <Card className="split-column h-full w-full overflow-auto rounded-lg border bg-card text-card-foreground shadow-sm flex flex-col">
                 <CardHeader className="w-full flex flex-row justify-between p-3 space-y-0 bg-background">
                   <div className="flex flex-row items-center gap-2">
                     <FormItem>
@@ -356,10 +391,10 @@ export default function Page() {
 
               <div
                 {...getGutterProps('column', 1)}
-                className="cursor-col-resize"
+                className="gutter gutter-vertical"
               ></div>
 
-              <div className="h-full overflow-auto flex flex-col space-y-4">
+              <div className="split-column h-full overflow-auto flex flex-col space-y-4">
                 <Card className="w-full flex flex-col bg-background">
                   <CardHeader className="px-3 pb-0">
                     <CardTitle>Job Submission</CardTitle>
@@ -495,7 +530,7 @@ export default function Page() {
 
                 <Card className="h-full w-full flex flex-col bg-background">
                   <div
-                    className="h-full w-full px-4 py-3 bg-blue-50 dark:bg-transparent overflow-auto"
+                    className="h-full w-full px-4 py-3 overflow-auto"
                     style={{
                       // backgroundColor: 'beige',
                       fontFamily: 'monospace',
@@ -503,11 +538,21 @@ export default function Page() {
                       boxSizing: 'border-box',
                     }}
                   >
-                    <span className="font-bold">
-                      {response.message
-                        ? response.message.toUpperCase()
-                        : 'JOB OUTPUT'}
-                    </span>
+                    <div className="flex justify-between gap-30">
+                      <span className="font-bold">
+                        {response.message
+                          ? response.message.toUpperCase()
+                          : 'JOB STATUS'}
+                      </span>
+                      {job ? (
+                        <a
+                          className="text-ellipsis overflow-hidden text-nowrap text-xs underline"
+                          href={`/jobs/detail/?id=${job?.id}`}
+                        >
+                          ID: {job.id}
+                        </a>
+                      ) : null}
+                    </div>
 
                     <Separator className="my-5"></Separator>
 
@@ -523,7 +568,19 @@ export default function Page() {
                           ></div>
                         );
                       } else {
-                        return <div>SUCCESS, show job output here</div>;
+                        return (
+                          <div>
+                            <div className="h-[3rem] flex flex-col justify-center gap-3 mb-3">
+                              <div className="flex justify-between align-center w-full">
+                                <JobStatusIcon job={job}></JobStatusIcon>
+                                {displayJobStatus(job)}
+                              </div>
+                              <JobProgress job={job}></JobProgress>
+                            </div>
+
+                            <JobOutput job={job} compact={true}></JobOutput>
+                          </div>
+                        );
                       }
                     })()}
                   </div>

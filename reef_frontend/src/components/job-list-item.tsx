@@ -1,8 +1,9 @@
 import { Separator } from '@/components/ui/separator';
 import JobStatusIcon from '@/components/job-status';
-import { IJob, IJobStatus } from '@/types/job';
+import { displayJobStatus, IJob, IJobStatus } from '@/types/job';
 import { Progress } from '@/components/ui/progress';
 import classNames from 'classnames';
+import JobProgress from './job-progress';
 
 interface JobListItemProps {
   job: IJob;
@@ -30,37 +31,12 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
               'text-primary': job.status === IJobStatus.StatusRunning,
             })}
           >
-            {(function () {
-              switch (job.status) {
-                case IJobStatus.StatusQueued:
-                  return 'QUEUED';
-                case IJobStatus.StatusStarting:
-                  return 'STARTING';
-                case IJobStatus.StatusRunning:
-                  return `${Math.floor(job.progress * 100)}%`;
-                case IJobStatus.StatusDone:
-                  return job.result?.success ? 'SUCCESS' : 'FAILURE';
-              }
-            })()}
+            {displayJobStatus(job)}
           </span>
         </li>
 
         <li>
-          {(function () {
-            if (
-              job.status !== IJobStatus.StatusRunning ||
-              job.progress < 0.01
-            ) {
-              return null;
-            }
-            const percentage = Math.floor(job.progress * 100);
-            return (
-              <Progress
-                value={percentage}
-                className="h-1.5 w-full bg-muted/90"
-              />
-            );
-          })()}
+          <JobProgress job={job}></JobProgress>
         </li>
 
         <li className="text-xs font-medium leading-none overflow-hidden">

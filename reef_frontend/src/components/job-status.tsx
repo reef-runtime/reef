@@ -4,10 +4,18 @@ import classNames from 'classnames';
 import { IJob, IJobStatus } from '@/types/job';
 
 interface JobStatusIconProps {
-  job?: IJob;
+  job?: IJob | null;
 }
 
 const JobStatusIcon: FC<JobStatusIconProps> = ({ job }) => {
+  if (!job) {
+    return (
+      <div className="flex justify-center w-5">
+        <BanIcon className="h-4 w-4 text-gray-300" />
+      </div>
+    );
+  }
+
   if (job?.status === IJobStatus.StatusStarting) {
     return (
       <div className="flex justify-center w-5">
@@ -23,14 +31,6 @@ const JobStatusIcon: FC<JobStatusIconProps> = ({ job }) => {
     return (
       <div className="flex justify-center w-5">
         <CogIcon className="h-5 w-5 text-orange-400 animate-spin-slow" />
-      </div>
-    );
-  }
-
-  if (job === undefined) {
-    return (
-      <div className="flex justify-center w-5">
-        <BanIcon className="h-4 w-4 text-gray-300" />
       </div>
     );
   }

@@ -3,6 +3,7 @@ import JobStatusIcon from '@/components/job-status';
 import { IJob } from '@/types/job';
 import classNames from 'classnames';
 import { Progress } from '@/components/ui/progress';
+import JobProgress from './job-progress';
 
 interface WorkerListItemProps {
   workerIndex: number;
@@ -52,9 +53,7 @@ const WorkerListItem: React.FC<WorkerListItemProps> = ({
           </span>
         </li>
 
-        {percentage < 1 ? null : (
-          <Progress value={percentage} className="h-1.5 w-full bg-muted/90" />
-        )}
+        <JobProgress job={job}></JobProgress>
       </ul>
     </div>
   );
