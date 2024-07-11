@@ -98,10 +98,10 @@ export default function Page() {
               Navigate to where you downloaded the binary and run these commands
               to execute it.
             </p>
-            <div className="font-mono bg-background p-4 rounded">
+            <div className="font-mono bg-stone-950 text-slate-50 p-4 rounded">
               chmod +x ./reef_node_native
               <br />
-              ./reef_node_native {url}
+              ./reef_node_native "{url}"
             </div>
 
             <div className="h-4"></div>
