@@ -133,13 +133,26 @@ func (h *AuthHandlerT) ReefAuth() gin.HandlerFunc {
 				token = &tokenStr
 			}
 
-			if h.processAuth(ctx, token) == nil {
+			newSess := h.processAuth(ctx, token)
+
+			if newSess == nil {
 				ctx.AbortWithStatus(http.StatusUnauthorized)
 			}
+
+			ctx.Set(SessionName, *newSess)
 		} else {
 			ctx.Set(SessionName, *s)
 		}
 
 		ctx.Next()
 	}
+}
+
+func extractSession(ctx *gin.Context) AuthResponse {
+	sessionRaw, found := ctx.Get(SessionName)
+	if !found || sessionRaw == nil {
+		panic("This should never happen")
+	}
+
+	return sessionRaw.(AuthResponse)
 }

@@ -68,6 +68,7 @@ func GetTemplates(ctx *gin.Context) {
 //
 
 func SubmitJob(ctx *gin.Context) {
+	session := extractSession(ctx)
 	var submission JobSubmission
 
 	if err := ctx.ShouldBindJSON(&submission); err != nil {
@@ -104,6 +105,7 @@ func SubmitJob(ctx *gin.Context) {
 		submission.SourceCode,
 		submission.Name,
 		submission.DatasetID,
+		session.Id,
 	)
 
 	if systemErr != nil {
@@ -129,11 +131,36 @@ func SubmitJob(ctx *gin.Context) {
 // Job cancellation and abortion.
 //
 
+func userHasJobAccess(jobID string, user AuthResponse) (bool, error) {
+	if user.IsAdmin {
+		return true, nil
+	}
+
+	hasAccess, err := database.JobHasOwner(jobID, user.Id)
+	if err != nil {
+		return false, err
+	}
+
+	return hasAccess, nil
+}
+
 func AbortOrCancelJob(ctx *gin.Context) {
+	session := extractSession(ctx)
 	var job IdBody
 
 	if err := ctx.ShouldBindJSON(&job); err != nil {
 		badRequest(ctx, err.Error())
+		return
+	}
+
+	hasAccess, err := userHasJobAccess(job.Id, session)
+	if err != nil {
+		ctx.Status(http.StatusInternalServerError)
+		return
+	}
+
+	if !hasAccess {
+		respondErr(ctx, "could not abort job", "forbidden", http.StatusForbidden)
 		return
 	}
 

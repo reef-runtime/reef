@@ -29,6 +29,8 @@ type JobTableData struct {
 	WasmId string `json:"wasmId"`
 	// Dataset Id of the job.
 	DatasetId string `json:"datasetId"`
+	// Owner session ID of the job.
+	Owner string `json:"owner"`
 }
 
 type JobWithResult struct {
@@ -57,6 +59,7 @@ func AddJob(
 		data.Submitted,
 		data.WasmId,
 		data.DatasetId,
+		data.Owner,
 	).Exec(); err != nil {
 		log.Errorf("Could not add job to database: executing query failed: %s", err.Error())
 		return err
@@ -99,6 +102,7 @@ func ListJobs(idFilter *string) ([]JobWithResult, error) {
 			"submitted",
 			"wasm_id",
 			"dataset_id",
+			"owner",
 			// Job result.
 			"success",
 			// nolint:goconst
@@ -153,6 +157,7 @@ func ListJobs(idFilter *string) ([]JobWithResult, error) {
 			&jobWithResult.Job.Submitted,
 			&jobWithResult.Job.WasmId,
 			&jobWithResult.Job.DatasetId,
+			&jobWithResult.Job.Owner,
 			// Result.
 			&resultSuccess,
 			&resultContent,
@@ -177,6 +182,25 @@ func ListJobs(idFilter *string) ([]JobWithResult, error) {
 	}
 
 	return jobs, nil
+}
+
+func JobHasOwner(jobID string, owner string) (true bool, err error) {
+	db.builder.
+		Select("1").
+		From(JobTableName).
+		Where("job.id=? AND job.owner=?", jobID, owner).
+		QueryRow()
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+
+		log.Errorf("job has owner: query failed: %s", err.Error())
+		return false, err
+	}
+
+	return true, nil
 }
 
 func GetJob(jobId string) (job JobWithResult, found bool, err error) {
