@@ -101,7 +101,7 @@ export default function Page() {
             <div className="font-mono bg-stone-950 text-slate-50 p-4 rounded">
               chmod +x ./reef_node_native
               <br />
-              ./reef_node_native "{url}"
+              ./reef_node_native &quot;{url}&quot;
             </div>
 
             <div className="h-4"></div>
