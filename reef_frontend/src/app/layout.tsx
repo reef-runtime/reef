@@ -4,14 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-import {
-  Code,
-  FileCog,
-  PanelLeft,
-  Settings,
-  Workflow,
-  AppWindowMac,
-} from 'lucide-react';
+import { Code, FileCog, PanelLeft, Workflow, AppWindowMac } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
