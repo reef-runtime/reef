@@ -3,6 +3,8 @@ SHELL:=/usr/bin/env bash -o pipefail
 include .env
 export $(shell sed 's/=.*//' .env)
 
+NIX_ARGS:=
+
 PORT=3000
 .PHONY: up down build-containers push-containers test run
 
@@ -30,7 +32,7 @@ build-containers:
 	echo "$(CONTAINER_TAGS)"
 	for image in "$(CONTAINER_TAGS)"; do \
 		echo "Building '$$image'" && \
-		nix build ".#$${image}_image" && ./result | docker load && \
+		nix $(NIX_ARGS) build ".#$${image}_image" && ./result | docker load && \
 		echo "Renaming '$$image' to $(DOCKER_REGISTRY)/$${image}"&& \
 		docker tag "$${image}" "$(DOCKER_REGISTRY)/$${image}" || exit 1; \
 	done
