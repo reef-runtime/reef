@@ -7,7 +7,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useJobs } from '@/stores/job.store';
 import { IJob, IJobStatus } from '@/types/job';
 import { BanIcon, CogIcon } from 'lucide-react';
-import JobListItem from '@/components/job-list-item';
+import JobListItem, {
+  JobListItemPlaceholder,
+} from '@/components/job-list-item';
 import { useEffect } from 'react';
 import { GetSocket, topicAllJobs } from '@/lib/websocket';
 
@@ -43,31 +45,33 @@ export default function Page() {
   /* eslint-enable react-hooks/exhaustive-deps */
 
   return (
-    <main className="flex flex-col md:flex-row p-4 md:space-x-4 xl:max-h-dvh h-full">
-      <div
-        className="flex flex-col xl:grid gap-4 w-full h-full"
-        style={{
-          gridTemplateColumns: `repeat(${GROUPS.length}, 1fr)`,
-        }}
-      >
-        {GROUPS.map((group) => (
-          <Card
-            key={group.title}
-            className="flex flex-col w-full h-full xl:overflow-hidden"
-          >
-            <CardHeader key={group.title}>
-              <CardTitle>{group.title}</CardTitle>
-            </CardHeader>
-            <CardContent className="h-full overflow-hidden">
-              <ScrollArea className="rounded-md h-full">
-                {jobs.filter(group.filter).map((job) => (
-                  <JobListItem key={job.id} job={job} />
-                ))}
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+    <main className="flex flex-col xl:flex-row p-4 gap-4 xl:max-h-dvh h-full">
+      {GROUPS.map((group) => (
+        <Card
+          key={group.title}
+          className="flex flex-col w-full h-full xl:overflow-hidden"
+        >
+          <CardHeader key={group.title}>
+            <CardTitle>{group.title}</CardTitle>
+          </CardHeader>
+          <CardContent className="h-full overflow-hidden">
+            {(() => {
+              const groupJobs = jobs.filter(group.filter);
+              if (groupJobs.length > 0) {
+                return (
+                  <ScrollArea className="rounded-md h-full">
+                    {groupJobs.map((job) => (
+                      <JobListItem key={job.id} job={job} />
+                    ))}
+                  </ScrollArea>
+                );
+              } else {
+                return <JobListItemPlaceholder />;
+              }
+            })()}
+          </CardContent>
+        </Card>
+      ))}
     </main>
   );
 }

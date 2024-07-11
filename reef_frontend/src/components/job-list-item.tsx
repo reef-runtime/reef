@@ -71,5 +71,12 @@ const JobListItem: React.FC<JobListItemProps> = ({ job }) => {
     </div>
   );
 };
-
 export default JobListItem;
+
+export const JobListItemPlaceholder = () => {
+  return (
+    <div className="h-full flex flex-col place-items-center justify-center min-w-[300px]">
+      <div className="text-xl text-muted-foreground">No Jobs to show</div>
+    </div>
+  );
+};

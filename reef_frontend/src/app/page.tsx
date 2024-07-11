@@ -1,5 +1,10 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
 import {
   Card,
   CardContent,
@@ -7,21 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useNodes } from '@/stores/nodes.store';
-// import { useReefStore } from '@/stores/app.store';
-// import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { useJobs } from '@/stores/job.store';
-// import classNames from 'classnames';
-import { IJobStatus } from '@/types/job';
-// import { BanIcon, CogIcon } from 'lucide-react';
-// import JobStatusIcon from '@/components/job-status';
-import JobListItem from '@/components/job-list-item';
-import WorkerListItem from '@/components/worker-list-item';
-import { BanIcon, Copy } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
-import { useEffect, useState } from 'react';
-import { GetSocket, topicNodes, topicAllJobs } from '@/lib/websocket';
 import {
   Dialog,
   DialogClose,
@@ -30,12 +20,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { useReefSession } from '@/stores/session.store';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/components/ui/use-toast';
 import {
   Form,
@@ -46,9 +35,17 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+
+import JobListItem, {
+  JobListItemPlaceholder,
+} from '@/components/job-list-item';
+import WorkerListItem from '@/components/worker-list-item';
+
+import { useNodes } from '@/stores/nodes.store';
+import { useJobs } from '@/stores/job.store';
+import { IJobStatus } from '@/types/job';
+import { GetSocket, topicNodes, topicAllJobs } from '@/lib/websocket';
+import { useReefSession } from '@/stores/session.store';
 
 export default function Home() {
   const { nodes, setNodes } = useNodes();
@@ -186,7 +183,7 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      <div className="grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 min-[1660px]:grid-cols-4 gap-4 grid-flow-row-dense grid-rows auto-rows-[320px]">
+      <div className="grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 min-[1700px]:grid-cols-4 gap-4 grid-flow-row-dense grid-rows auto-rows-[320px]">
         {nodes.map((node) => (
           <Card
             key={node.id}
@@ -277,18 +274,27 @@ export default function Home() {
           </Card>
         ))}
       </div>
-      <Card className="w-full xl:w-[400px] xl:h-full-pad flex flex-col xl:sticky xl:top-4">
+      <Card className="min-h-[300px] xl:w-[400px] xl:h-full-pad flex flex-col xl:sticky xl:top-4">
         <CardHeader>
           <CardTitle>Completed Jobs</CardTitle>
         </CardHeader>
         <CardContent className="h-full overflow-hidden">
-          <ScrollArea className="rounded-md h-full">
-            {jobs
-              .filter((job) => job.status === IJobStatus.StatusDone)
-              .map((job) => (
-                <JobListItem key={job.id} job={job} />
-              ))}
-          </ScrollArea>
+          {(() => {
+            const groupJobs = jobs.filter(
+              (job) => job.status === IJobStatus.StatusDone
+            );
+            if (groupJobs.length > 0) {
+              return (
+                <ScrollArea className="rounded-md h-full">
+                  {groupJobs.map((job) => (
+                    <JobListItem key={job.id} job={job} />
+                  ))}
+                </ScrollArea>
+              );
+            } else {
+              return <JobListItemPlaceholder />;
+            }
+          })()}
         </CardContent>
       </Card>
     </main>
