@@ -171,15 +171,16 @@ export default function Home() {
             </Form>
           </div>
           <DialogFooter className="sm:justify-start">
-            <DialogClose>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => loginHandler(form.getValues().token)}
-              >
-                Login
-              </Button>
-            </DialogClose>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setIsDialogOpen(false);
+                loginHandler(form.getValues().token);
+              }}
+            >
+              Login
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
