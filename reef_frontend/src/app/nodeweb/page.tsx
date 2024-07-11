@@ -3,6 +3,7 @@
 import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 import init, {
   get_connect_path,
@@ -30,24 +31,12 @@ interface NodeState {
 export default function Page() {
   const { toast } = useToast();
 
-  const [nodeState, setNodeState] = useState<NodeState>({
-    progress: 0,
-    logs: [],
-  });
+  const [nodeState, setNodeState] = useState<NodeState | undefined>(undefined);
 
-  // Hack to get around React mount+unmount behaviour
-  let mountTimeout: NodeJS.Timeout | undefined;
   /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
-    mountTimeout = setTimeout(() => {
-      run(setNodeState);
-    }, 200);
-
     return () => {
-      if (mountTimeout) {
-        clearTimeout(mountTimeout);
-        mountTimeout = undefined;
-      }
+      console.log('unmount');
 
       if (ws) {
         ws.close();
@@ -59,9 +48,44 @@ export default function Page() {
   }, []);
   /* eslint-enable react-hooks/exhaustive-deps */
 
+  if (!nodeState) {
+    return (
+      <main className="h-full w-full flex flex-col xl:flex-row p-4 gap-4">
+        <Card className="h-full w-full">
+          <CardHeader>
+            <CardTitle>Join with Node Web</CardTitle>
+          </CardHeader>
+          <CardContent className="h-full overflow-hidden space-y-4">
+            Easily join the Reef Network from your browser with no further
+            setup.
+            <br />
+            <Button
+              onClick={() => {
+                setNodeState({
+                  progress: 0,
+                  logs: [],
+                });
+                runNode(setNodeState);
+              }}
+            >
+              Join now
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="h-full w-full">
+          <CardHeader>
+            <CardTitle>Join with Node Native</CardTitle>
+          </CardHeader>
+          <CardContent className="h-full overflow-hidden space-y-4"></CardContent>
+        </Card>
+      </main>
+    );
+  }
+
   return (
     <main className="p-4 h-full w-full">
-      <Card className="flex flex-col h-full w-full">
+      <Card className="h-full w-full">
         <CardHeader>
           <CardTitle>Node Web</CardTitle>
         </CardHeader>
@@ -99,7 +123,9 @@ export default function Page() {
 let ws: WebSocket | undefined;
 let wasmInit = false;
 
-async function run(setNodeState: Dispatch<SetStateAction<NodeState>>) {
+async function runNode(
+  setNodeState: Dispatch<SetStateAction<NodeState | undefined>>
+) {
   // Initialize Wasm
   try {
     await init();
