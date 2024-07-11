@@ -186,18 +186,19 @@ fn main() -> anyhow::Result<()> {
         }
 
         // Remove all finished jobs.
-        for worker_idx in finished_worker_indices {
-            let idx_in_vec = state.0.iter().position(|w| w.worker_index == worker_idx).unwrap();
+        for job_idx in finished_worker_indices {
+            let idx_in_vec = state.0.iter().position(|w| w.worker_index == job_idx).unwrap();
 
-            let mut worker = state.0.remove(idx_in_vec);
+            let mut job = state.0.remove(idx_in_vec);
+            job.progress = 1.0;
 
             // Transfer any logs and the final progress reading to the manager.
             // State can be empty since it is not required anymore.
-            worker.flush_state(&[], &mut socket)?;
+            job.flush_state(&[], &mut socket)?;
 
-            let worker_index = worker.worker_index as u16;
+            let worker_index = job.worker_index as u16;
 
-            let thread_res = worker.handle.join().expect("worker thread panic'ed, this is a bug");
+            let thread_res = job.handle.join().expect("worker thread panic'ed, this is a bug");
 
             let job_result = match thread_res {
                 Ok((content_type, contents)) => {
