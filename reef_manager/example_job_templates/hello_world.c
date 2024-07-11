@@ -4,6 +4,7 @@ void greet_n_times(int n) {
   for (int i = 0; i < n; i++) {
     reef_puts("Hello World!");
     reef_sleep(0.2);
+    reef_progress((float) i / (float) n);
   }
 }
 
