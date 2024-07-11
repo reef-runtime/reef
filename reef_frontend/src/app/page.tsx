@@ -186,7 +186,7 @@ export default function Home() {
       </Dialog>
 
       <div className="grow">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 min-[1700px]:grid-cols-4 gap-4 grid-flow-row-dense grid-rows auto-rows-[320px]">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 min-[1780px]:grid-cols-4 gap-4 grid-flow-row-dense grid-rows auto-rows-[320px]">
           {nodes.map((node) => (
             <Card
               key={node.id}
