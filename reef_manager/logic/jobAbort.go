@@ -74,7 +74,7 @@ func (m *JobManagerT) AbortJob(jobId string) (found bool, err error) {
 	case StatusStarting, StatusRunning:
 		// If there is no executing node, something bad happened.
 		job.Lock.RLock()
-		workerNodeId := job.Data.WorkerNodeId
+		workerNodeId := job.Data.WorkerNodeID
 		job.Lock.RUnlock()
 
 		if workerNodeId == nil {

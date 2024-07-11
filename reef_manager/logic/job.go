@@ -60,7 +60,7 @@ const (
 
 type Job struct {
 	Data             database.JobTableData
-	WorkerNodeId     *NodeId
+	WorkerNodeID     *NodeId
 	Progress         float32
 	Status           JobStatus `json:"status"`
 	Logs             []database.JobLog
@@ -71,7 +71,7 @@ func (m *JobManagerT) SubmitJob(
 	language JobProgrammingLanguage,
 	sourceCode string,
 	name string,
-	datasetId string,
+	datasetID string,
 	ownerID string,
 ) (idString string, compilerErr *string, backendErr error) {
 	now := time.Now()
@@ -82,13 +82,13 @@ func (m *JobManagerT) SubmitJob(
 		Language   JobProgrammingLanguage
 		SourceCode string
 		Name       string
-		DatasetId  string
+		DatasetID  string
 		OwnerID    string
 	}{
 		Language:   language,
 		SourceCode: sourceCode,
 		Name:       name,
-		DatasetId:  datasetId,
+		DatasetID:  datasetID,
 		OwnerID:    ownerID,
 	}); err != nil {
 		return "", nil, err
@@ -125,7 +125,8 @@ func (m *JobManagerT) SubmitJob(
 		Name:      name,
 		Submitted: now,
 		WasmId:    artifact.Hash,
-		DatasetId: datasetId,
+		DatasetId: datasetID,
+		Owner:     ownerID,
 	}
 
 	if backendErr = database.AddJob(jobTableData); backendErr != nil {
@@ -138,7 +139,7 @@ func (m *JobManagerT) SubmitJob(
 		Status:           StatusQueued,
 		Logs:             make([]database.JobLog, 0),
 		InterpreterState: nil,
-		WorkerNodeId:     nil,
+		WorkerNodeID:     nil,
 	}
 
 	m.NonFinishedJobs.Insert(idString, NewLockedValue(job))
@@ -176,7 +177,7 @@ func (m *JobManagerT) ParkJob(jobId string) error {
 	// Set worker node Id to `nil`.
 
 	job.Lock.Lock()
-	job.Data.WorkerNodeId = nil
+	job.Data.WorkerNodeID = nil
 	job.Lock.Unlock()
 
 	log.Debugf("[job] Parked Id `%s`", jobId)
@@ -244,7 +245,7 @@ func (m *JobManagerT) Init() error {
 			Status:           StatusQueued,
 			Logs:             make([]database.JobLog, 0),
 			InterpreterState: nil,
-			WorkerNodeId:     nil,
+			WorkerNodeID:     nil,
 		}
 
 		m.NonFinishedJobs.Insert(dbJob.Job.Id, NewLockedValue(job))

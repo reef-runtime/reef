@@ -194,7 +194,7 @@ func (m *JobManagerT) StartJobOnFreeNode(job LockedValue[Job]) (couldStart bool,
 	// Set the new status and worker node of this job.
 	job.Lock.Lock()
 	job.Data.Status = StatusStarting
-	job.Data.WorkerNodeId = &nodeId
+	job.Data.WorkerNodeID = &nodeId
 	job.Lock.Unlock()
 
 	m.updateSingleJobState(jobId)

@@ -61,7 +61,9 @@ export interface IJob {
   result?: IJobResult;
   // The ID of the attached dataset, always 64 characters long.
   // The backend guarantees that this is always valid.
-  datasetId?: string;
+  datasetId: string;
+  // Session ID / hash of the job's owner.
+  owner: string;
 
   // TODO: comment on these (nuz).
   logs: ILogEntry[];

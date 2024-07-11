@@ -24,6 +24,7 @@ func (j *APIJob) MarshalJSON() ([]byte, error) {
 		"submitted": j.Job.Job.Submitted,
 		"wasmId":    j.Job.Job.WasmId,
 		"datasetId": j.Job.Job.DatasetId,
+		"owner":     j.Job.Job.Owner,
 		"progress":  j.Progress,
 		"status":    j.Status,
 		"logs":      j.Logs,
@@ -61,6 +62,8 @@ func (m *JobManagerT) enrichJob(job database.JobWithResult, withLogs bool) APIJo
 	var progress float32 = 1.0
 	var logs []database.JobLog
 	status := StatusDone
+
+	// TODO: load logs from the database if the job is finished.
 
 	runningJob, found := m.NonFinishedJobs.Get(job.Job.Id)
 	if found {
