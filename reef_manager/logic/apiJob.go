@@ -43,7 +43,11 @@ func (m *JobManagerT) ListJobs() ([]APIJob, error) {
 	jobs := make([]APIJob, len(dbJobs))
 	for idx, data := range dbJobs {
 		// Do not include logs.
-		jobs[idx] = m.enrichJob(data, false)
+		enriched, err := m.enrichJob(data, false)
+		if err != nil {
+			return nil, err
+		}
+		jobs[idx] = enriched
 	}
 
 	return jobs, nil
@@ -55,17 +59,18 @@ func (m *JobManagerT) GetJob(id JobId, withLogs bool) (job APIJob, found bool, e
 		return job, found, err
 	}
 
-	return m.enrichJob(raw, withLogs), true, nil
+	enriched, err := m.enrichJob(raw, withLogs)
+
+	return enriched, true, err
 }
 
-func (m *JobManagerT) enrichJob(job database.JobWithResult, withLogs bool) APIJob {
+func (m *JobManagerT) enrichJob(job database.JobWithResult, withLogs bool) (APIJob, error) {
 	var progress float32 = 1.0
 	var logs []database.JobLog
 	status := StatusDone
 
-	// TODO: load logs from the database if the job is finished.
-
 	runningJob, found := m.NonFinishedJobs.Get(job.Job.Id)
+	//nolint:nestif
 	if found {
 		// If the job in the DB is running, add runtime information to the output.
 		runningJob.Lock.RLock()
@@ -78,6 +83,13 @@ func (m *JobManagerT) enrichJob(job database.JobWithResult, withLogs bool) APIJo
 		}
 
 		runningJob.Lock.RUnlock()
+	} else if withLogs {
+		// Load logs from database.
+		logsDB, err := database.GetLastLogs(nil, job.Job.Id)
+		if err != nil {
+			return APIJob{}, err
+		}
+		logs = logsDB
 	}
 
 	return APIJob{
@@ -85,5 +97,5 @@ func (m *JobManagerT) enrichJob(job database.JobWithResult, withLogs bool) APIJo
 		Progress: progress,
 		Status:   status,
 		Logs:     logs,
-	}
+	}, nil
 }
