@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
 import JobStatusIcon from '@/components/job-status';
-import { BanIcon, CogIcon } from 'lucide-react';
+import { BookOpenText } from 'lucide-react';
 import IconRustLanguage from '@/components/rust-logo';
 import IconCLanguage from '@/components/c-logo';
 
@@ -21,7 +21,6 @@ import {
   SelectValue,
   SelectContent,
   SelectGroup,
-  SelectLabel,
   SelectItem,
 } from '@/components/ui/select';
 import {
@@ -51,7 +50,6 @@ import { Progress } from '@/components/ui/progress';
 import { displayLogKind, ILogKind } from '@/types/log';
 import JobOutput from '@/components/job-output';
 import JobProgress from '@/components/job-progress';
-import local from 'next/font/local';
 
 const SOURCE_CODE_KEY = 'source_code';
 const TEMPLATE_KEY = 'template_id';
@@ -341,6 +339,21 @@ export default function Page() {
                     >
                       Load Template
                     </Button>
+                    <Button
+                      onClick={() => {
+                        console.log('cool docs');
+                      }}
+                      type="button"
+                      variant="outline"
+                      className="text-center"
+                    >
+                      <BookOpenText
+                        strokeWidth={1.5}
+                        size={20}
+                        className="mr-2 mt-[1px]"
+                      />
+                      Docs
+                    </Button>
                   </div>
 
                   <div className="flex flex-row items-center gap-2">
@@ -557,7 +570,6 @@ export default function Page() {
                   <div
                     className="h-full w-full px-4 py-3 overflow-auto"
                     style={{
-                      // backgroundColor: 'beige',
                       fontFamily: 'monospace',
                       fontSize: '0.9rem',
                       boxSizing: 'border-box',
