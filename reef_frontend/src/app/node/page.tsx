@@ -1,6 +1,6 @@
 'use client';
 
-import { Dispatch, SetStateAction, useEffect, useState } from 'react';
+import { Dispatch, Fragment, SetStateAction, useEffect, useState } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import init, {
   NodeMessage,
 } from '@/lib/node_web_generated/reef_node_web';
 import { CopyIcon } from 'lucide-react';
+import JobProgress from '@/components/job-progress';
 
 const STATE_SYNC_MILLIS = 5000;
 
@@ -142,7 +143,7 @@ export default function Page() {
 
   return (
     <main className="p-4 h-full w-full">
-      <Card className="h-full w-full">
+      <Card className="h-full w-full relative">
         <CardHeader>
           <CardTitle>Node Web</CardTitle>
         </CardHeader>
@@ -154,25 +155,33 @@ export default function Page() {
             </p>
           </div>
           <div>
-            <h4 className="font-bold">Job ID</h4>
+            <h4 className="font-bold">Status</h4>
             <p className="overflow-hidden text-ellipsis">
-              {nodeState.jobId ?? 'None'}
+              {nodeState.jobId ? `Running Job ${nodeState.jobId}` : 'Idle'}
             </p>
           </div>
-          <div>
-            <h4 className="font-bold">Progress</h4>
-            <p className="overflow-hidden text-ellipsis">
-              {nodeState.progress}
-            </p>
-          </div>
-          <div>
-            <h4 className="font-bold">Log count</h4>
-            <p className="overflow-hidden text-ellipsis">
-              {nodeState.logs.length}
-            </p>
-          </div>
-
-          <Button variant={'destructive'} onClick={closeNode}>
+          {nodeState.jobId ? (
+            <Fragment>
+              <div>
+                <h4 className="font-bold">Progress</h4>
+                <p className="overflow-hidden text-ellipsis">
+                  {Math.floor(nodeState.progress * 10000) / 100}%
+                  <JobProgress progress={nodeState.progress} className="mt-1" />
+                </p>
+              </div>
+              <div>
+                <h4 className="font-bold">Log count</h4>
+                <p className="overflow-hidden text-ellipsis">
+                  {nodeState.logs.length}
+                </p>
+              </div>
+            </Fragment>
+          ) : null}
+          <Button
+            variant={'destructive'}
+            onClick={closeNode}
+            className="absolute bottom-6"
+          >
             Disconnect
           </Button>
         </CardContent>
