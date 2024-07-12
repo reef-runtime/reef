@@ -11,6 +11,27 @@ const mainSection: DocSection = {
         'You can set the job output by returning any datastructure which can be converted to a supported output type. See `ReefOutput` for more information.',
       ],
     },
+    {
+      signature: 'pub fn reef_progress(done: f32) {}',
+      description: [
+        'Reports the current process to the system.',
+        'As an argument you have to pass the progress as a f32 value between 0 and 1.',
+      ],
+    },
+    {
+      signature: 'pub fn reef_sleep(seconds: f32) {}',
+      description: [
+        'Sleeps for the given duration.',
+        'As an argument you have to pass the time in seconds as a f32.',
+      ],
+    },
+    {
+      signature: 'pub fn reef_log(msg: &str) {}',
+      description: [
+        'Logs the given string.',
+        'As an argument you have to pass the message as a str.',
+      ],
+    },
   ],
 };
 
