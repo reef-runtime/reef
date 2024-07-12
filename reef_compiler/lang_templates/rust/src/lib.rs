@@ -1,4 +1,4 @@
-use reef::{ReefResult, _set_result};
+use reef::{ReefOutput, _set_result};
 
 #[deny(unsafe_op_in_unsafe_fn)]
 
@@ -52,21 +52,21 @@ pub mod reef {
         unsafe { result(result_type, data.as_ptr(), data.len()) }
     }
 
-    pub struct ReefResult {
+    pub struct ReefOutput {
         pub content_type: i32,
         pub data: Vec<u8>,
     }
 
-    impl From<()> for ReefResult {
+    impl From<()> for ReefOutput {
         fn from(_value: ()) -> Self {
-            ReefResult { content_type: 0, data: 0i64.to_le_bytes().to_vec() }
+            ReefOutput { content_type: 0, data: 0i64.to_le_bytes().to_vec() }
         }
     }
     macro_rules! impl_result_from_int {
         ($int: ty) => {
-            impl From<$int> for ReefResult {
+            impl From<$int> for ReefOutput {
                 fn from(value: $int) -> Self {
-                    ReefResult { content_type: 0, data: value.to_le_bytes().to_vec() }
+                    ReefOutput { content_type: 0, data: value.to_le_bytes().to_vec() }
                 }
             }
         };
@@ -77,20 +77,20 @@ pub mod reef {
     impl_result_from_int!(i32);
     impl_result_from_int!(u32);
 
-    impl From<Vec<u8>> for ReefResult {
+    impl From<Vec<u8>> for ReefOutput {
         fn from(value: Vec<u8>) -> Self {
-            ReefResult { content_type: 1, data: value }
+            ReefOutput { content_type: 1, data: value }
         }
     }
-    impl From<String> for ReefResult {
+    impl From<String> for ReefOutput {
         fn from(value: String) -> Self {
-            ReefResult { content_type: 2, data: value.into_bytes() }
+            ReefOutput { content_type: 2, data: value.into_bytes() }
         }
     }
 
     pub mod prelude {
         // Reef
-        pub use super::{reef_log, reef_progress, reef_sleep, ReefResult};
+        pub use super::{reef_log, reef_progress, reef_sleep, ReefOutput};
 
         // Dynamic borrow checking
         pub use std::cell::{Cell, RefCell};
@@ -144,7 +144,7 @@ pub extern "C" fn reef_main() {
     let dataset = unsafe { reef::_get_dataset() };
 
     // Run user code
-    let res: ReefResult = input::run(&dataset).into();
+    let res: ReefOutput = input::run(&dataset).into();
 
     // Return result
     unsafe { _set_result(res.content_type, &res.data) }

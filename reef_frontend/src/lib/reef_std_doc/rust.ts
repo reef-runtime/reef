@@ -4,11 +4,11 @@ const mainSection: DocSection = {
   name: 'User main function',
   entries: [
     {
-      signature: 'pub fn run(dataset: &[u8]) -> impl Into<ReefResult> {}',
+      signature: 'pub fn run(dataset: &[u8]) -> impl Into<ReefOutput> {}',
       description: [
         'The entry function for a job written by Reef users. This function must be provided in each job submission because it will be called by wrapper code during execution on a Reef Node.',
         'As argument you are passed slice (pointer) to the dataset which you can safely read from.',
-        'You can set the job output by returning any datastructure which can be converted to a supported output type. See `ReefResult` for more information.',
+        'You can set the job output by returning any datastructure which can be converted to a supported output type. See `ReefOutput` for more information.',
       ],
     },
   ],
