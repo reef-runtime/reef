@@ -15,3 +15,9 @@ void run(uint8_t *dataset, size_t len);
 void reef_result_int(int value);
 void reef_result_bytes(uint8_t *ptr, size_t len);
 void reef_result_string(char *ptr, size_t len);
+
+// Conversion functions
+uint32_t *from_little_endian(uint8_t *arr, size_t n_bytes);
+uint8_t *to_little_endian(uint32_t *arr, size_t n_bytes);
+uint32_t *from_big_endian(uint8_t *arr, size_t n_bytes);
+uint8_t *to_big_endian(uint32_t *arr, size_t n_bytes);
