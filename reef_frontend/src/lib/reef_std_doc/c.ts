@@ -82,6 +82,20 @@ const mainSection: DocSection = {
         'As the result you get the result buffer.',
       ],
     },
+    {
+      signature: 'void *malloc(size_t size);',
+      description: [
+        'Acts like the default malloc function.',
+        'Use this one instead of the one from malloc.h.',
+      ],
+    },
+    {
+      signature: 'void free(void *ptr);',
+      description: [
+        'Acts like the default free function.',
+        'Use this one instead of the one from malloc.h.',
+      ],
+    },
   ],
 };
 

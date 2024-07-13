@@ -32,6 +32,12 @@ const mainSection: DocSection = {
         'As an argument you have to pass the message as a str.',
       ],
     },
+    {
+      signature: 'macro_rules! println {}',
+      description: [
+        'Macro for logging the given string.',
+      ],
+    },
   ],
 };
 
