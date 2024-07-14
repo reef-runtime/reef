@@ -34,21 +34,21 @@ const reefSection: DocSection = {
     {
       signature: 'void reef_result_int(int value);',
       description: [
-        'Returns the given value as the result.',
+        'Sets the given value as the result.',
         'As an argument you have to pass the value as an integer.',
       ],
     },
     {
       signature: 'void reef_result_bytes(uint8_t *ptr, size_t len);',
       description: [
-        'Returns the given value as the result.',
+        'Sets the given value as the result.',
         'As an argument you have to pass a pointer to the byte array and the length of the array.',
       ],
     },
     {
       signature: 'void reef_result_string(char *ptr, size_t len);',
       description: [
-        'Returns the given value as the result.',
+        'Sets the given value as the result.',
         'As an argument you have to pass a pointer to the char array and the length of the array.',
       ],
     },
@@ -79,7 +79,7 @@ const reefSection: DocSection = {
 const librarySection: DocSection = {
   name: 'Library Functions',
   description: [
-    'Replacement funstions for typically found in the C standard library, whichis not available in the Reef environment.',
+    'Replacements for funstions typically found in the C standard library, which is not available in the Reef environment.',
   ],
   entries: [
     {
