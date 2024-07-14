@@ -11,6 +11,13 @@ const mainSection: DocSection = {
         'You can set the job output by returning any datastructure which can be converted to a supported output type. See `ReefOutput` for more information.',
       ],
     },
+  ],
+};
+
+const reefSection: DocSection = {
+  name: 'Reef Functions',
+  description: ['Functions for interacting with the Reef system from jobs.'],
+  entries: [
     {
       signature: 'pub fn reef_progress(done: f32) {}',
       description: [
@@ -34,16 +41,25 @@ const mainSection: DocSection = {
     },
     {
       signature: 'macro_rules! println {}',
-      description: [
-        'Macro for logging the given string.',
-      ],
+      description: ['Macro for logging the given format string.'],
+      example: 'println!("format {} arguments", "some");',
     },
   ],
+};
+
+const librarySection: DocSection = {
+  name: 'Library Functions',
+  description: [
+    "Thanks to Rust's great support for Wasm almost the entire Rust standard library is available to Reef jobs.",
+    'This includes many common data structures like arrays, vectors (`Vec`) and hashmaps.',
+    'The only mayor limitation is that all APIs related to interfacing with the operating system, like files and networking, are not available.',
+  ],
+  entries: [],
 };
 
 export const rustStdDoc: DocLang = {
   description: [
     'This is Documentation for the Reef Standard Library for Rust. It mainly documents all the functions exposed to user submitted code.',
   ],
-  sections: [mainSection],
+  sections: [mainSection, reefSection, librarySection],
 };

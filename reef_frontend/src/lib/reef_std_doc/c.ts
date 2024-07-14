@@ -1,7 +1,7 @@
 import { DocLang, DocSection } from '.';
 
 const mainSection: DocSection = {
-  name: 'User main function',
+  name: 'User Main Function',
   entries: [
     {
       signature: 'void run(uint8_t *dataset, size_t dataset_len);',
@@ -10,6 +10,13 @@ const mainSection: DocSection = {
         'As arguments you are passed a pointer to the specified dataset and the length of the dataset.',
       ],
     },
+  ],
+};
+
+const reefSection: DocSection = {
+  name: 'Reef Functions',
+  description: ['Functions for interacting with the Reef system from jobs.'],
+  entries: [
     {
       signature: 'void reef_progress(float done);',
       description: [
@@ -66,6 +73,15 @@ const mainSection: DocSection = {
         'As an argument you have to pass the integer value.',
       ],
     },
+  ],
+};
+
+const librarySection: DocSection = {
+  name: 'Library Functions',
+  description: [
+    'Replacement funstions for typically found in the C standard library, whichis not available in the Reef environment.',
+  ],
+  entries: [
     {
       signature: 'size_t reef_strlen(char *ptr);',
       description: [
@@ -85,14 +101,14 @@ const mainSection: DocSection = {
     {
       signature: 'void *malloc(size_t size);',
       description: [
-        'Acts like the default malloc function.',
+        'Allocate memory of the given size, like the `malloc` function from C standard library.',
         'Use this one instead of the one from malloc.h.',
       ],
     },
     {
       signature: 'void free(void *ptr);',
       description: [
-        'Acts like the default free function.',
+        'Free the memory refernced by the given pointer. Acts like the `free` function from the C standard library.',
         'Use this one instead of the one from malloc.h.',
       ],
     },
@@ -101,7 +117,8 @@ const mainSection: DocSection = {
 
 export const cStdDoc: DocLang = {
   description: [
-    'This is Documentation for the Reef Standard Library for C. It mainly documents all the functions exposed to user submitted code.',
+    'This is Documentation for the Reef Standard Library for C. It mainly describes all the functions exposed to user submitted code.',
+    'All the items for the C Reef std can be imported through `reef.h`.',
   ],
-  sections: [mainSection],
+  sections: [mainSection, reefSection, librarySection],
 };
