@@ -49,17 +49,17 @@ export default function Page() {
       {GROUPS.map((group) => (
         <Card
           key={group.title}
-          className="flex flex-col w-full h-full xl:overflow-hidden"
+          className="flex flex-col w-full xl:overflow-hidden"
         >
           <CardHeader key={group.title}>
             <CardTitle>{group.title}</CardTitle>
           </CardHeader>
-          <CardContent className="h-full overflow-hidden">
+          <CardContent className="overflow-hidden">
             {(() => {
               const groupJobs = jobs.filter(group.filter);
               if (groupJobs.length > 0) {
                 return (
-                  <ScrollArea className="rounded-md h-full">
+                  <ScrollArea className="rounded-md">
                     {groupJobs.map((job) => (
                       <JobListItem key={job.id} job={job} />
                     ))}
