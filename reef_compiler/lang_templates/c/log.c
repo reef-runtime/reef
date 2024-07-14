@@ -1,6 +1,6 @@
 #include "log.h"
 
-size_t reef_strlen(char *ptr) {
+size_t strlen(char *ptr) {
     int len = 0;
     while (ptr && ptr[len] != '\0') {
         len++;
@@ -10,7 +10,7 @@ size_t reef_strlen(char *ptr) {
 }
 
 void reef_puts(char *message) {
-    size_t len = reef_strlen(message);
+    size_t len = strlen(message);
     reef_log(message, len);
 }
 
@@ -20,7 +20,7 @@ void reef_log_int(int val) {
 
     itoa(val, buf, 10);
 
-    reef_log(buf, reef_strlen(buf));
+    reef_log(buf, strlen(buf));
 }
 
 // Taken from: http://www.strudel.org.uk/itoa/

@@ -83,7 +83,7 @@ const librarySection: DocSection = {
   ],
   entries: [
     {
-      signature: 'size_t reef_strlen(char *ptr);',
+      signature: 'size_t strlen(char *ptr);',
       description: [
         'Calculates the length of NULL-terminated string.',
         'As an argument you have to pass a pointer to the char array.',
