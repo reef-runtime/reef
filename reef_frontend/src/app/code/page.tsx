@@ -12,17 +12,16 @@ import { BookOpenText } from 'lucide-react';
 import IconRustLanguage from '@/components/rust-logo';
 import IconCLanguage from '@/components/c-logo';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-} from '@/components/ui/select';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Form,
   FormField,
@@ -31,9 +30,18 @@ import {
   FormControl,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
-import { Label } from '@/components/ui/label';
 
 import CodeMirror from '@uiw/react-codemirror';
 import { rust } from '@codemirror/lang-rust';
@@ -50,6 +58,9 @@ import { Progress } from '@/components/ui/progress';
 import { displayLogKind, ILogKind } from '@/types/log';
 import JobOutput from '@/components/job-output';
 import JobProgress from '@/components/job-progress';
+import DocsPage from '@/components/docs-page';
+import { cStdDoc } from '@/lib/reef_std_doc/c';
+import { rustStdDoc } from '@/lib/reef_std_doc/rust';
 
 const SOURCE_CODE_KEY = 'source_code';
 const TEMPLATE_KEY = 'template_id';
@@ -131,8 +142,6 @@ export default function Page() {
   });
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
-    console.log(values);
-
     let datasetId = values.datasetId;
     if (
       values.datasetFile &&
@@ -185,7 +194,6 @@ export default function Page() {
     const loadedCode = loadSourceCode();
 
     if (!templateFresh) {
-      console.log('template not fresh');
       return;
     }
 
@@ -202,7 +210,6 @@ export default function Page() {
       if (searched) usedTemplate = searched;
     }
 
-    console.log('USED EFFECT');
     setLanguage(usedTemplate.language);
     form.setValue('language', usedTemplate.language);
 
@@ -227,7 +234,6 @@ export default function Page() {
   const [sourceCode, setSourceCodeInternal] = useState<string>(template.code);
 
   function setSourceCode(newCode: string) {
-    console.log('SET', newCode);
     localStorage.setItem(SOURCE_CODE_KEY, newCode);
     setSourceCodeInternal(newCode);
   }
@@ -264,7 +270,6 @@ export default function Page() {
   }
 
   const [jobId, setJobId] = useState<string | null>(null);
-
   const [job, setJob] = useState<IJob | null>(null);
 
   useEffect(() => {
@@ -276,10 +281,12 @@ export default function Page() {
     sock.unsubscribeAll();
 
     sock.subscribe(topicSingleJob(jobId), (res) => {
-      console.dir(res.data);
+      // console.dir(res.data);
       setJob(res.data);
     });
   }, [jobId]);
+
+  const [isDocsDialogOpen, setIsDocsDialogOpen] = useState(false);
 
   return (
     <Form {...form}>
@@ -302,7 +309,6 @@ export default function Page() {
                       <FormControl>
                         <Select
                           onValueChange={(newTemplateID) => {
-                            console.dir(newTemplateID);
                             const newT = templates.find(
                               (t) => t.id == newTemplateID
                             );
@@ -341,7 +347,7 @@ export default function Page() {
                     </Button>
                     <Button
                       onClick={() => {
-                        console.log('cool docs');
+                        setIsDocsDialogOpen(true);
                       }}
                       type="button"
                       variant="outline"
@@ -492,7 +498,7 @@ export default function Page() {
                             <FormControl>
                               <Select
                                 onValueChange={(newDataset) => {
-                                  console.dir(newDataset);
+                                  // console.dir(newDataset);
                                   field.onChange(newDataset);
                                   setDataset(newDataset);
                                 }}
@@ -543,7 +549,7 @@ export default function Page() {
 
                               for (let i = 0; i < fileCnt; i++) {
                                 const file = e.target.files[i];
-                                console.log(file);
+                                // console.log(file);
 
                                 uploadDataset(file).then((newDataset) => {
                                   form.setValue('datasetId', newDataset.id);
@@ -627,6 +633,33 @@ export default function Page() {
           )}
         />
       </form>
+
+      <Dialog open={isDocsDialogOpen} onOpenChange={setIsDocsDialogOpen}>
+        <DialogContent className="h-[90svh] flex flex-col max-w-[1000px]">
+          <DialogHeader>
+            <DialogTitle>Reef Standard Library Documentation</DialogTitle>
+            <DialogDescription>
+              Here you can read about the variuos functions that you can use in
+              the programs you sumbit to Reef.
+            </DialogDescription>
+          </DialogHeader>
+          <Tabs defaultValue="c" className="grow overflow-hidden flex flex-col">
+            <TabsList className="mb-2 max-w-min">
+              <TabsTrigger value="c">C</TabsTrigger>
+              <TabsTrigger value="rust">Rust</TabsTrigger>
+            </TabsList>
+
+            <ScrollArea>
+              <TabsContent value="c">
+                <DocsPage docs={cStdDoc} />
+              </TabsContent>
+              <TabsContent value="rust">
+                <DocsPage docs={rustStdDoc} />
+              </TabsContent>
+            </ScrollArea>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
     </Form>
   );
 }

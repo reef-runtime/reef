@@ -1,7 +1,6 @@
 import { Separator } from '@/components/ui/separator';
 import JobStatusIcon from '@/components/job-status';
 import { displayJobStatus, IJob, IJobStatus } from '@/types/job';
-import { Progress } from '@/components/ui/progress';
 import classNames from 'classnames';
 import JobProgress from './job-progress';
 
