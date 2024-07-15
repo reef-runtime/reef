@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Split from 'react-split-grid';
 import { useTheme } from 'next-themes';
 import { useForm } from 'react-hook-form';
@@ -436,10 +436,10 @@ export default function Page() {
 
               <div
                 {...getGutterProps('column', 1)}
-                className="gutter gutter-vertical"
+                className="gutter gutter-vertical cursor-col-resize"
               ></div>
 
-              <div className="split-column h-full overflow-auto flex flex-col space-y-4">
+              <div className="split-column h-full flex flex-col space-y-4 overflow-hidden">
                 <Card className="w-full flex flex-col bg-background">
                   <CardHeader className="px-3 pb-0">
                     <CardTitle>Job Submission</CardTitle>
@@ -567,61 +567,45 @@ export default function Page() {
                     </div>
                   </CardContent>
 
-                  <div className="grow" />
                   <Button type="submit" className="rounded-t-none">
                     Submit Job
                   </Button>
                 </Card>
 
-                <Card className="h-full w-full flex flex-col bg-background">
-                  <div
-                    className="h-full w-full px-4 py-3 overflow-auto"
-                    style={{
-                      fontFamily: 'monospace',
-                      fontSize: '0.9rem',
-                      boxSizing: 'border-box',
-                    }}
-                  >
-                    <div className="flex flex-wrap justify-between gap-30">
-                      <span className="font-bold whitespace-nowrap">
-                        {response.message
-                          ? response.message.toUpperCase()
-                          : 'JOB STATUS'}
-                      </span>
-                      {job ? (
-                        <a
-                          className="text-ellipsis overflow-hidden text-nowrap text-xs underline"
-                          href={`/jobs/detail/?id=${job?.id}`}
-                        >
-                          ID: {job.id}
-                        </a>
-                      ) : null}
-                    </div>
-
-                    <Separator className="my-5"></Separator>
-
-                    {(function () {
-                      if (response.message && response.message != '') {
-                        return (
-                          <div className="whitespace-pre">{response.error}</div>
-                        );
-                      } else {
-                        return (
-                          <div>
-                            <div className="h-[3rem] flex flex-col justify-center gap-3 mb-3">
-                              <div className="flex justify-between align-center w-full">
-                                <JobStatusIcon job={job}></JobStatusIcon>
-                                {displayJobStatus(job)}
-                              </div>
-                              <JobProgress job={job}></JobProgress>
-                            </div>
-
-                            <JobOutput job={job} compact={true}></JobOutput>
-                          </div>
-                        );
-                      }
-                    })()}
+                <Card className="w-full grow flex flex-col bg-background px-4 py-3 font-mono text-[0.9rem] overflow-hidden">
+                  <div className="flex flex-wrap justify-between gap-30">
+                    <span className="font-bold whitespace-nowrap">
+                      {response.message
+                        ? response.message.toUpperCase()
+                        : 'JOB STATUS'}
+                    </span>
+                    {job ? (
+                      <a
+                        className="text-ellipsis overflow-hidden text-nowrap text-xs underline mb-1"
+                        href={`/jobs/detail/?id=${job?.id}`}
+                      >
+                        ID: {job.id}
+                      </a>
+                    ) : null}
                   </div>
+
+                  <Separator className="mt-2 mb-3"></Separator>
+
+                  {response.message && response.message != '' ? (
+                    <div className="grow overflow-auto whitespace-pre">
+                      {response.error}
+                    </div>
+                  ) : (
+                    <React.Fragment>
+                      <div className="flex flex-row justify-between align-center content-center w-full mb-2">
+                        <JobStatusIcon job={job}></JobStatusIcon>
+                        {displayJobStatus(job)}
+                      </div>
+                      <JobProgress job={job} className="mb-3"></JobProgress>
+
+                      <JobOutput job={job} compact={true}></JobOutput>
+                    </React.Fragment>
+                  )}
                 </Card>
               </div>
             </div>

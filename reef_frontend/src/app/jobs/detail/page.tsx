@@ -68,12 +68,12 @@ export default function Page() {
   };
 
   return (
-    <main className="flex flex-col-reverse xl:flex-row p-4 gap-4 w-full">
-      <Card className="grow">
+    <main className="flex flex-col-reverse xl:flex-row p-4 gap-4 w-full xl:h-full">
+      <Card className="grow flex flex-col">
         <CardHeader>
           <CardTitle>Logs</CardTitle>
         </CardHeader>
-        <CardContent className="grow m-6 mt-0 p-2 rounded">
+        <CardContent className="grow m-6 mt-0 p-2 dark:bg-stone-950 rounded overflow-hidden">
           <JobOutput job={job} compact={false}></JobOutput>
         </CardContent>
       </Card>

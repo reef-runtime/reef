@@ -1,9 +1,8 @@
 import { FC } from 'react';
-import { CogIcon, BanIcon } from 'lucide-react';
-import classNames from 'classnames';
-import { IJob, IJobStatus } from '@/types/job';
+
+import { IJob } from '@/types/job';
 import { displayLogKind } from '@/types/log';
-import { useTheme } from 'next-themes';
+import { ScrollArea } from './ui/scroll-area';
 
 interface JobOutputProps {
   job?: IJob | null;
@@ -11,62 +10,48 @@ interface JobOutputProps {
 }
 
 const JobOutput: FC<JobOutputProps> = ({ job, compact }) => {
-  const { theme } = useTheme();
-  const darkTheme = theme === 'dark';
+  return !job || (job.logs?.length ?? 0) === 0 ? (
+    <div className="h-full flex flex-col justify-center items-center">
+      <span className="text-muted-foreground text-sm text-nowrap max-w-min">
+        No output
+      </span>
+    </div>
+  ) : (
+    <ScrollArea>
+      {job.logs.map((log, index) => {
+        const date = new Date(log.created);
 
-  if (!job || !job.logs) {
-    return <span className="text-muted-foreground text-sm">No output</span>;
-  }
+        const day = String(date.getDay()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
 
-  return job.logs
-    ?.sort(
-      (a, b) => new Date(a.created).getTime() - new Date(b.created).getTime()
-    )
-    .map((log, index) => {
-      const date = new Date(log.created);
+        const hour = String(date.getHours()).padStart(2, '0');
+        const minute = String(date.getMinutes()).padStart(2, '0');
+        const second = String(date.getSeconds()).padStart(2, '0');
 
-      const day = String(date.getDay()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
+        let prefix = '';
+        if (!compact) {
+          prefix = `${month}/${day} `;
+        }
 
-      const hour = String(date.getHours()).padStart(2, '0');
-      const minute = String(date.getMinutes()).padStart(2, '0');
-      const second = String(date.getSeconds()).padStart(2, '0');
-
-      let prefix = '';
-      if (!compact) {
-        prefix = `${month}/${day} `;
-      }
-
-      return (
-        <div
-          key={index}
-          className={classNames('font-mono text-xs', {
-            'text-white': darkTheme,
-            'text-black': !darkTheme,
-          })}
-        >
-          <span
-            className={classNames({
-              'text-green-500': darkTheme,
-              'text-emerald-600': !darkTheme,
-            })}
+        return (
+          <div
+            key={index}
+            className="font-mono text-xs text-black dark:text-white"
           >
-            {prefix}
-            {hour}:{minute}:{second}
-          </span>
-          <span
-            className={classNames({
-              'text-blue-300': darkTheme,
-              'text-blue-800': !darkTheme,
-            })}
-          >
-            {' '}
-            [{displayLogKind(log.kind)}]
-          </span>
-          <span> {log.content}</span>
-        </div>
-      );
-    });
+            <span className="text-emerald-600 dark:text-green-500">
+              {prefix}
+              {hour}:{minute}:{second}
+            </span>
+            <span className="text-blue-800 dark:text-blue-300">
+              {' '}
+              [{displayLogKind(log.kind)}]
+            </span>
+            <span> {log.content}</span>
+          </div>
+        );
+      })}
+    </ScrollArea>
+  );
 };
 
 export default JobOutput;

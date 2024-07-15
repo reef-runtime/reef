@@ -258,7 +258,7 @@ export default function Home() {
                   </div>
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-1 pt-0 h-full overflow-hidden">
+              <CardContent className="p-1 pt-0 grow overflow-hidden">
                 <Separator></Separator>
                 <ScrollArea
                   className="px-4 py-2 rounded-md"
