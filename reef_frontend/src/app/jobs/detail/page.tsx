@@ -9,7 +9,7 @@ import JobOutput from '@/components/job-output';
 import JobStatusIcon from '@/components/job-status';
 
 import { useJobs } from '@/stores/job.store';
-import { IJob, IJobResultContentType } from '@/types/job';
+import { IJob, IJobResultContentType, IJobStatus } from '@/types/job';
 import { GetSocket, topicSingleJob } from '@/lib/websocket';
 import { useReefSession } from '@/stores/session.store';
 import { Button } from '@/components/ui/button';
@@ -128,7 +128,8 @@ export default function Page() {
             </>
           )}
 
-          {job.owner === session.id || session.isAdmin ? (
+          {(job.owner === session.id || session.isAdmin) &&
+          job.status !== IJobStatus.StatusDone ? (
             <Button variant={'destructive'} onClick={killJob}>
               Kill Job
             </Button>
