@@ -164,10 +164,10 @@ export default function Page() {
             <Fragment>
               <div>
                 <h4 className="font-bold">Progress</h4>
-                <p className="overflow-hidden text-ellipsis">
+                <div className="overflow-hidden text-ellipsis">
                   {Math.floor(nodeState.progress * 10000) / 100}%
                   <JobProgress progress={nodeState.progress} className="mt-1" />
-                </p>
+                </div>
               </div>
               <div>
                 <h4 className="font-bold">Log count</h4>

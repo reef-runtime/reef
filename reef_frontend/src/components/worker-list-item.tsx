@@ -37,17 +37,22 @@ const WorkerListItem: React.FC<WorkerListItemProps> = ({
         <li className="text-sm text-muted-foreground font-bold flex items-center space-x-1">
           <JobStatusIcon job={job} />
           <span
-            className={classNames('text-sm font-medium leading-none', {
-              'text-sm text-muted-foreground': job === undefined,
-            })}
+            className={classNames(
+              'text-sm font-medium text-ellipsis leading-none',
+              {
+                'text-sm text-muted-foreground': job === undefined,
+              }
+            )}
           >
             {job ? job.name : 'Worker Idle'}
           </span>
 
+          <div className="grow"></div>
+
           <span className="text-sm font-medium leading-none">
             {percentage < 1 ? null : (
               <span className="text-sm font-medium leading-none">
-                {percentage} %
+                {percentage}%
               </span>
             )}
           </span>
