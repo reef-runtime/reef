@@ -12,6 +12,6 @@ void reef_puts(char *message);
 void reef_log_int(int val);
 
 // Calculates the length of NULL-terminated string
-size_t strlen(char *ptr);
+unsigned long strlen(const char *ptr);
 // Converts an integer into a string
 char *itoa(int value, char *result, int base);

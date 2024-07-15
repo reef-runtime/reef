@@ -79,11 +79,11 @@ const reefSection: DocSection = {
 const librarySection: DocSection = {
   name: 'Library Functions',
   description: [
-    'Replacements for funstions typically found in the C standard library, which is not available in the Reef environment.',
+    'Replacements for functions typically found in the C standard library, which is not available in the Reef environment.',
   ],
   entries: [
     {
-      signature: 'size_t strlen(char *ptr);',
+      signature: 'unsigned long strlen(const char *ptr);',
       description: [
         'Calculates the length of NULL-terminated string.',
         'As an argument you have to pass a pointer to the char array.',

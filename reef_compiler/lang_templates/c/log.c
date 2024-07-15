@@ -1,11 +1,10 @@
 #include "log.h"
 
-size_t strlen(char *ptr) {
-    int len = 0;
+unsigned long strlen(const char *ptr) {
+    unsigned long len = 0;
     while (ptr && ptr[len] != '\0') {
         len++;
     }
-
     return len;
 }
 
