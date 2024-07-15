@@ -156,7 +156,6 @@ fn main() -> anyhow::Result<()> {
         if since_last_ping >= ping_wait_duration {
             last_ping = Instant::now();
             socket.send(Message::Ping(vec![])).with_context(|| "sending WS ping")?;
-            println!("sent ping to manager")
         }
 
         //
@@ -296,10 +295,7 @@ impl NodeState {
             Action::AbortJob(job_id) => {
                 self.abort_job(&job_id)?;
             }
-            Action::Pong => {
-                // ignore any Ping/Pong
-                println!("got pong from manager")
-            }
+            Action::Pong => {}
             Action::Disconnect => bail!("disconnected: connection lost"),
         }
 
