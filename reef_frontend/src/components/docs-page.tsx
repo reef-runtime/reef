@@ -14,7 +14,7 @@ const DocsPage: React.FC<DocsPageProps> = ({ docs }) => {
           {section.description ? mapDescription(section.description) : null}
           {section.entries.map((entry) => (
             <div key={entry.signature}>
-              <p className="font-mono mt-4 mb-1">{entry.signature}</p>
+              <p className="font-mono font-bold mt-4 mb-1">{entry.signature}</p>
               <div className="ml-2">{mapDescription(entry.description)}</div>
             </div>
           ))}

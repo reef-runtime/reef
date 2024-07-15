@@ -40,7 +40,7 @@ const reefSection: DocSection = {
       ],
     },
     {
-      signature: 'macro_rules! println {}',
+      signature: 'macro_rules! println { ($($arg:tt)*) => { ... }; }',
       description: ['Macro for logging the given format string.'],
       example: 'println!("format {} arguments", "some");',
     },
