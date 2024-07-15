@@ -37,6 +37,9 @@ services:
         container_name: reef-manager
         image: reef_manager:latest
         restart: unless-stopped
+        volumes:
+            - "reef-cache-data:/${REEF_COMPILER_CACHE_PATH}"
+            - "reef-dataset-data:/${REEF_DATASETS_PATH}"
         environment:
             - "REEF_MANAGER_PORT=${REEF_MANAGER_PORT}"
             - "REEF_LOG_LEVEL=${REEF_LOG_LEVEL}"
@@ -44,7 +47,7 @@ services:
 
             - "REEF_TEMPLATES_PATH=${REEF_TEMPLATES_PATH}"
             - "REEF_DATASETS_PATH=${REEF_DATASETS_PATH}"
-            - "REEF_COMPILER_ARTIFACT_PATH=${REEF_COMPILER_ARTIFACT_PATH}"
+            - "REEF_COMPILER_CACHE_PATH=${REEF_COMPILER_CACHE_PATH}"
 
             - "REEF_COMPILER_IP=reef-compiler"
             - "REEF_COMPILER_PORT=${REEF_COMPILER_PORT}"
@@ -60,3 +63,5 @@ services:
 
 volumes:
     reef-db-data:
+    reef-cache-data:
+    reef-dataset-data:

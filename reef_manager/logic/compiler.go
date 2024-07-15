@@ -20,7 +20,7 @@ const compilerServiceDialType = "tcp"
 type CompilerConfig struct {
 	IP           string `env:"REEF_COMPILER_IP"            env-required:"true"`
 	Port         uint16 `env:"REEF_COMPILER_PORT"          env-required:"true"`
-	ArtifactPath string `env:"REEF_COMPILER_ARTIFACT_PATH" env-required:"true"`
+	ArtifactPath string `env:"REEF_COMPILER_CACHE_PATH" env-required:"true"`
 }
 
 type CompilerManager struct {
