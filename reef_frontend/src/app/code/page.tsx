@@ -176,6 +176,7 @@ export default function Page() {
         title: 'Error',
         description: 'Check console for more information',
       });
+      return;
     }
 
     const submitRes = (await res.json()) as SubmitRes;
@@ -602,13 +603,7 @@ export default function Page() {
                     {(function () {
                       if (response.message && response.message != '') {
                         return (
-                          <div
-                            dangerouslySetInnerHTML={{
-                              __html: response.error
-                                .replaceAll('\n', '<br>')
-                                .replaceAll(' ', '&nbsp;'),
-                            }}
-                          ></div>
+                          <div className="whitespace-pre">{response.error}</div>
                         );
                       } else {
                         return (
