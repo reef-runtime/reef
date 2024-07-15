@@ -160,7 +160,8 @@ func AbortOrCancelJob(ctx *gin.Context) {
 	}
 
 	if !hasAccess {
-		respondErr(ctx, "could not abort job", "forbidden", http.StatusForbidden)
+		log.Debugf("denied: user `%s` does not have access to job `%s`", session.Id, job.Id)
+		respondErr(ctx, "could not abort job", "this job is not owned by the current user", http.StatusForbidden)
 		return
 	}
 

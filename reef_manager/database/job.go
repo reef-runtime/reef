@@ -93,7 +93,7 @@ func DeleteJob(jobId string) (found bool, err error) {
 	return affected != 0, nil
 }
 
-func ListJobs(idFilter *string) ([]JobWithResult, error) {
+func ListJobs(idFilter *string, usernameFilter *string) ([]JobWithResult, error) {
 	baseQuery := db.builder.
 		Select(
 			// Job.
@@ -122,6 +122,10 @@ func ListJobs(idFilter *string) ([]JobWithResult, error) {
 
 	if idFilter != nil {
 		baseQuery = baseQuery.Where("id=?", *idFilter)
+	}
+
+	if usernameFilter != nil {
+		baseQuery = baseQuery.Where("owner=?", *usernameFilter)
 	}
 
 	res, err := baseQuery.Query()
@@ -185,26 +189,17 @@ func ListJobs(idFilter *string) ([]JobWithResult, error) {
 }
 
 func JobHasOwner(jobID string, owner string) (true bool, err error) {
-	db.builder.
-		Select("1").
-		From(JobTableName).
-		Where("job.id=? AND job.owner=?", jobID, owner).
-		QueryRow()
-
+	_, found, err := GetJob(jobID, &owner)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return false, nil
-		}
-
 		log.Errorf("job has owner: query failed: %s", err.Error())
 		return false, err
 	}
 
-	return true, nil
+	return found, nil
 }
 
-func GetJob(jobId string) (job JobWithResult, found bool, err error) {
-	jobs, err := ListJobs(&jobId)
+func GetJob(jobId string, usernameFilter *string) (job JobWithResult, found bool, err error) {
+	jobs, err := ListJobs(&jobId, usernameFilter)
 	if err != nil {
 		return job, false, err
 	}

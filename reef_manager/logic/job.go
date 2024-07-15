@@ -114,7 +114,7 @@ func (m *JobManagerT) SubmitJob(
 
 	artifact, compileErr, err := m.Compiler.Compile(language, sourceCode)
 	if err != nil {
-		return "", nil, err
+		return "", nil, fmt.Errorf("compile error: %s", err.Error())
 	}
 	if compileErr != nil {
 		return "", compileErr, nil
@@ -217,7 +217,7 @@ func (m *JobManagerT) ListTemplates() []Template {
 func (m *JobManagerT) Init() error {
 	// Initialize 'priority queue', include all jobs at first, also the ones that have already finished.
 	// TODO: maybe optimize this so that finished jobs are not included.
-	queuedJobs, err := database.ListJobs(nil)
+	queuedJobs, err := database.ListJobs(nil, nil)
 	if err != nil {
 		return err
 	}

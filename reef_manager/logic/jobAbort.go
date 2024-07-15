@@ -74,22 +74,22 @@ func (m *JobManagerT) AbortJob(jobId string) (found bool, err error) {
 	case StatusStarting, StatusRunning:
 		// If there is no executing node, something bad happened.
 		job.Lock.RLock()
-		workerNodeId := job.Data.WorkerNodeID
+		workerNodeID := job.Data.WorkerNodeID
 		job.Lock.RUnlock()
 
-		if workerNodeId == nil {
+		if workerNodeID == nil {
 			log.Errorf("Possible internal state corruption: non-queued job `%s` has no worker node", jobId)
 			return false, nil
 		}
-		nodeId := *workerNodeId
+		nodeID := *workerNodeID
 
 		// Inform the node that the job is to be killed.
 		// Do not actually delete the job but retain the output.
-		node, found := m.Nodes.Get(nodeId)
+		node, found := m.Nodes.Get(nodeID)
 		if !found {
 			return false, fmt.Errorf(
 				"job says its running on node `%s`, which does not exist",
-				IdToString(nodeId),
+				IdToString(nodeID),
 			)
 		}
 
@@ -100,7 +100,6 @@ func (m *JobManagerT) AbortJob(jobId string) (found bool, err error) {
 
 		// If this fails, the connection to the node dropped during the kill request.
 		// In this case, drop the node and execute same behavior as if the job was queued .
-
 		node.Lock.Lock()
 		err = node.Data.Conn.WriteMessage(websocket.BinaryMessage, abortMsg)
 		node.Lock.Unlock()
@@ -108,10 +107,10 @@ func (m *JobManagerT) AbortJob(jobId string) (found bool, err error) {
 		if err != nil {
 			errMsg := fmt.Sprintf(
 				"node `%s` dropped connection whilst job should be killed and could not be dropped",
-				IdToString(nodeId),
+				IdToString(nodeID),
 			)
 
-			if !m.DropNode(nodeId) {
+			if !m.DropNode(nodeID) {
 				return false, errors.New(errMsg)
 			}
 

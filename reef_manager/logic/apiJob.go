@@ -35,7 +35,7 @@ func (j *APIJob) MarshalJSON() ([]byte, error) {
 
 func (m *JobManagerT) ListJobs() ([]APIJob, error) {
 	// Do not exclude finished jobs.
-	dbJobs, err := database.ListJobs(nil)
+	dbJobs, err := database.ListJobs(nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func (m *JobManagerT) ListJobs() ([]APIJob, error) {
 }
 
 func (m *JobManagerT) GetJob(id JobId, withLogs bool) (job APIJob, found bool, err error) {
-	raw, found, err := database.GetJob(id)
+	raw, found, err := database.GetJob(id, nil)
 	if err != nil || !found {
 		return job, found, err
 	}
