@@ -73,7 +73,7 @@ export default function Page() {
         <CardHeader>
           <CardTitle>Logs</CardTitle>
         </CardHeader>
-        <CardContent className="grow m-6 mt-0 p-2 bg-stone-950 rounded">
+        <CardContent className="grow m-6 mt-0 p-2 rounded">
           <JobOutput job={job} compact={false}></JobOutput>
         </CardContent>
       </Card>
