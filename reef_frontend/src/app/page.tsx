@@ -46,7 +46,6 @@ import { useJobs } from '@/stores/job.store';
 import { IJobStatus } from '@/types/job';
 import { GetSocket, topicNodes, topicAllJobs } from '@/lib/websocket';
 import { ReefSession, useReefSession } from '@/stores/session.store';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function Home() {
   const { nodes, setNodes } = useNodes();
