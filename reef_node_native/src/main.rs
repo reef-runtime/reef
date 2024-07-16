@@ -10,6 +10,7 @@ use std::{
 use anyhow::{bail, Context, Result};
 use capnp::{message::ReaderOptions, serialize};
 use clap::Parser;
+use log::{debug, info, trace, warn};
 use reef_protocol_node::message_capnp::{MessageFromNodeKind, ResultContentType};
 use tungstenite::{stream::MaybeTlsStream, Message, WebSocket};
 use url::Url;
@@ -77,6 +78,8 @@ impl NodeState {
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
+    env_logger::builder().filter_level(log::LevelFilter::Debug).parse_default_env().init();
+
     //
     // Create connection.
     //
@@ -89,14 +92,12 @@ fn main() -> anyhow::Result<()> {
     connect_url.set_path(reef_wasm_interface::NODE_REGISTER_PATH);
     connect_url.set_scheme(scheme).unwrap();
 
-    println!("Connecting to {}...", &connect_url);
-
-    env_logger::init();
+    info!("Connecting to {}...", &connect_url);
 
     let (mut socket, response) = tungstenite::connect(connect_url).with_context(|| "Websocket connection")?;
 
-    println!("Connected to the manager");
-    println!("Registration response HTTP code: {}", response.status());
+    info!("Connected to the manager");
+    trace!("Registration response HTTP code: {}", response.status());
 
     //
     // Perform handshake.
@@ -115,7 +116,7 @@ fn main() -> anyhow::Result<()> {
     let node_info =
         handshake::perform(&node_name, num_workers as u16, &mut socket).with_context(|| "handshake failed")?;
 
-    println!("==> Handshake successful: node '{}' is connected.", hex::encode(node_info.node_id));
+    info!("==> Handshake successful: node '{}' is connected.", hex::encode(node_info.node_id));
 
     // switch to non blocking after handshake
     match socket.get_mut() {
@@ -155,6 +156,7 @@ fn main() -> anyhow::Result<()> {
         let since_last_ping = Instant::now().duration_since(last_ping);
         if since_last_ping >= ping_wait_duration {
             last_ping = Instant::now();
+            trace!("sending WS ping");
             socket.send(Message::Ping(vec![])).with_context(|| "sending WS ping")?;
         }
 
@@ -171,7 +173,7 @@ fn main() -> anyhow::Result<()> {
                 }
                 match msg {
                     Ok(FromWorkerMessage::Log(log)) => {
-                        println!("recv log: [{}:{}] '{}'", job.worker_index, log.kind, log.content,);
+                        trace!("recv log: [{}:{}] '{}'", job.worker_index, log.kind, log.content,);
 
                         job.logs_to_be_flushed.push(log);
                     }
@@ -217,11 +219,11 @@ fn main() -> anyhow::Result<()> {
 
             let job_result = match thread_res {
                 Ok((content_type, contents)) => {
-                    println!("==> Job has executed successfully!");
+                    info!("==> Job has executed successfully!");
                     JobResult { success: true, content_type, contents }
                 }
                 Err(err) => {
-                    println!("==> Job failed: {err:?}");
+                    info!("==> Job failed: {err:?}");
                     JobResult {
                         success: false,
                         content_type: ResultContentType::StringPlain,
@@ -276,7 +278,7 @@ impl NodeState {
             Message::Binary(bin) => handle_binary(&bin)?,
             Message::Ping(data) => {
                 if !data.is_empty() {
-                    println!("[warning] ping data is not empty: {data:?}")
+                    warn!("ping data is not empty: {data:?}")
                 }
                 Action::Pong
             }
@@ -288,14 +290,15 @@ impl NodeState {
         match action {
             Action::StartJob(request) => {
                 if let Err(err) = self.start_job(request, manager_url) {
-                    // TODO: replace with `real` logger.
-                    eprintln!("Failed to start job: {err}");
+                    warn!("Failed to start job: {err}");
                 }
             }
             Action::AbortJob(job_id) => {
                 self.abort_job(&job_id)?;
             }
-            Action::Pong => {}
+            Action::Pong => {
+                trace!("sending WS pong");
+            }
             Action::Disconnect => bail!("disconnected: connection lost"),
         }
 
@@ -318,7 +321,7 @@ impl NodeState {
             bail!("requested illegal worker index");
         }
 
-        println!(
+        info!(
             "==> Starting job with id '{:?}' on worker {} with program: [{}]{:?}...",
             request.job_id,
             request.worker_index,
@@ -332,7 +335,7 @@ impl NodeState {
 
         let state = if request.interpreter_state.is_empty() { None } else { Some(request.interpreter_state) };
 
-        println!("Fetching dataset '{}'...", request.dataset_id);
+        debug!("Fetching dataset '{}'...", request.dataset_id);
 
         let url = format!("{}api/dataset/{}", manager_url, request.dataset_id);
         let resp = reqwest::blocking::get(url)?;

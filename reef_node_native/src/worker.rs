@@ -9,6 +9,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use anyhow::Context;
+use log::debug;
 use tungstenite::Message;
 
 use reef_interpreter::{
@@ -124,7 +125,7 @@ impl WorkerSignal {
 
 pub(crate) fn spawn_worker_thread(signal: Arc<AtomicU8>, job_id: String, data: WorkerData) -> JobThreadHandle {
     thread::spawn(move || -> Result<ReefJobOutput, reef_interpreter::Error> {
-        println!("Instantiating WASM interpreter...");
+        debug!("Instantiating WASM interpreter...");
 
         let sleep_until = Rc::new(Cell::new(Instant::now()));
         let job_output = Rc::new(RefCell::new((ResultContentType::Bytes, Vec::new())));
@@ -144,7 +145,7 @@ pub(crate) fn spawn_worker_thread(signal: Arc<AtomicU8>, job_id: String, data: W
         // This is not being re-allocated inside the hotloop for performance gains.
         let mut serialized_state = Vec::with_capacity(PAGE_SIZE * 2);
 
-        println!("Executing '{job_id}'...");
+        debug!("Executing '{job_id}'...");
 
         let res = loop {
             // Check for signal from manager thread.
@@ -157,7 +158,7 @@ pub(crate) fn spawn_worker_thread(signal: Arc<AtomicU8>, job_id: String, data: W
                     let mut writer = std::io::Cursor::new(&mut serialized_state);
                     exec_handle.serialize(&mut writer, &job_output.borrow().1)?;
 
-                    println!("Serialized {} bytes for state of {}.", serialized_state.len(), job_id);
+                    debug!("Serialized {} bytes for state of {}.", serialized_state.len(), job_id);
 
                     sender.send(FromWorkerMessage::State(serialized_state.clone())).unwrap();
                 }

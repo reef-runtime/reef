@@ -1,7 +1,9 @@
 use anyhow::{bail, Context, Result};
 use capnp::{message::ReaderOptions, serialize};
-use reef_protocol_node::message_capnp::{self, message_to_node, MessageFromNodeKind, MessageToNodeKind};
+use log::debug;
 use tungstenite::Message;
+
+use reef_protocol_node::message_capnp::{self, message_to_node, MessageFromNodeKind, MessageToNodeKind};
 
 use crate::WSConn;
 
@@ -46,7 +48,7 @@ pub(crate) fn perform(node_name: &str, num_workers: u16, socket: &mut WSConn) ->
 
         match kind {
             MessageToNodeKind::InitHandShake => {
-                println!("received handshake initializer...");
+                debug!("received handshake initializer...");
                 break;
             }
             MessageToNodeKind::Ping => {}
