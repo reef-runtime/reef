@@ -50,12 +50,14 @@ const JobOutput: FC<JobOutputProps> = ({ job, compact }) => {
             </span>
             <span
               className={classNames({
-                'text-red-800':
-                  log.kind == ILogKind.LogKindSystem && !isDarkTheme,
-                'text-red-300':
-                  log.kind == ILogKind.LogKindSystem && isDarkTheme,
-                'text-blue-800': log.kind !== ILogKind.LogKindSystem,
-                'dark:text-blue-300': log.kind !== ILogKind.LogKindSystem,
+                'text-red-800': log.kind == ILogKind.LogKindSystem && !isDarkTheme,
+                'text-red-300': log.kind == ILogKind.LogKindSystem && isDarkTheme,
+                'text-yellow-800':
+                  log.kind == ILogKind.LogKindNode && !isDarkTheme,
+                'text-yellow-300':
+                  log.kind == ILogKind.LogKindNode && isDarkTheme,
+                'text-blue-800': log.kind === ILogKind.LogKindProgram,
+                'dark:text-blue-300': log.kind === ILogKind.LogKindProgram,
               })}
             >
               {' '}
