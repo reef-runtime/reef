@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from 'react';
 
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
 
 import JobProgress from '@/components/job-progress';
 import JobOutput from '@/components/job-output';
@@ -12,7 +15,6 @@ import { useJobs } from '@/stores/job.store';
 import { IJob, IJobResultContentType, IJobStatus } from '@/types/job';
 import { GetSocket, topicSingleJob } from '@/lib/websocket';
 import { useReefSession } from '@/stores/session.store';
-import { Button } from '@/components/ui/button';
 
 export default function Page() {
   const { jobs, setJobs } = useJobs();
@@ -42,7 +44,6 @@ export default function Page() {
     sock.unsubscribeAll();
 
     sock.subscribe(topicSingleJob(jobId), (res) => {
-      console.dir(res.data);
       setJobs([res.data]);
 
       setJob(res.data);
@@ -56,7 +57,7 @@ export default function Page() {
   }
 
   const killJob = async () => {
-    let killResponse = await fetch('/api/jobs/abort', {
+    let killResponse = await fetch('/api/job/abort', {
       method: 'DELETE',
       body: JSON.stringify({
         id: job.id,
@@ -70,12 +71,38 @@ export default function Page() {
   return (
     <main className="flex flex-col-reverse xl:flex-row p-4 gap-4 w-full xl:h-full">
       <Card className="grow flex flex-col">
-        <CardHeader>
-          <CardTitle>Logs</CardTitle>
-        </CardHeader>
-        <CardContent className="grow m-6 mt-0 p-2 dark:bg-stone-950 rounded overflow-hidden">
-          <JobOutput job={job} compact={false}></JobOutput>
-        </CardContent>
+        <Tabs
+          defaultValue="logs"
+          className="grow overflow-hidden flex flex-col"
+        >
+          <CardHeader>
+            <TabsList className="p-0 max-w-min">
+              <TabsTrigger value="logs" className="rounded py-2">
+                <CardTitle>Logs</CardTitle>
+              </TabsTrigger>
+              <TabsTrigger value="result" className="rounded py-2">
+                <CardTitle>Result</CardTitle>
+              </TabsTrigger>
+            </TabsList>
+          </CardHeader>
+
+          <Separator />
+
+          <TabsContent value="logs" className="grow my-6 overflow-hidden">
+            <CardContent className="h-full m-6 mt-0 p-2 dark:bg-stone-950 rounded ">
+              <JobOutput job={job} compact={false}></JobOutput>
+            </CardContent>
+          </TabsContent>
+          <TabsContent value="result" className="mt-6">
+            <CardContent className="grow">
+              {job.result ? (
+                <div>Job results here</div>
+              ) : (
+                <div>No Results available yet.</div>
+              )}
+            </CardContent>
+          </TabsContent>
+        </Tabs>
       </Card>
 
       <Card className="w-full xl:w-[400px]">

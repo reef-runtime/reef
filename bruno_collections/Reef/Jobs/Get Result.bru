@@ -1,17 +1,17 @@
 meta {
   name: Get Result
   type: http
-  seq: 6
+  seq: 1
 }
 
 get {
-  url: {{url}}/api/result/<ID>
+  url: {{url}}/api/job/result/
   body: json
   auth: none
 }
 
 body:json {
   {
-    "id": "testid"
+    "id": "47d7de5f11cff2796636cc38b9a87338ec8a28e7d5e18334f1905848be614092"
   }
 }
