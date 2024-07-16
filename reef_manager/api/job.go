@@ -184,14 +184,9 @@ func AbortOrCancelJob(ctx *gin.Context) {
 }
 
 func GetResult(ctx *gin.Context) {
-	var id IdBody
+	jobID := ctx.Param(jobIDUrlParam)
 
-	if err := ctx.ShouldBindJSON(&id); err != nil {
-		badRequest(ctx, err.Error())
-		return
-	}
-
-	result, found, err := database.GetResult(id.Id)
+	result, found, err := database.GetResult(jobID)
 	if !found {
 		respond(
 			ctx,

@@ -93,7 +93,7 @@ func ship(logger *logrus.Logger) error {
 	apiGroup.GET("/templates", api.GetTemplates)
 	apiGroup.GET("/jobs", api.GetJobs)
 	apiGroup.GET("/job/:job_id", api.GetJob)
-	apiGroup.GET("/job/result", api.GetResult)
+	apiGroup.GET("/job/result/:job_id", api.GetResult)
 	apiGroup.POST("/jobs/submit", api.SubmitJob)
 	apiGroup.DELETE("/job/abort", api.AbortOrCancelJob)
 
