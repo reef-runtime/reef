@@ -104,7 +104,6 @@ export class ReefWebsocket {
 
   private sync() {
     if (!this.isReady) {
-      console.log('Socket not ready, waiting...');
       return;
     }
 
@@ -117,14 +116,12 @@ export class ReefWebsocket {
         topics: topicUn,
       })
     );
-    console.log('Sent websocket sync.');
   }
 
   subscribe<K extends TopicKind>(
     topic: Topic<K>,
     callback: OnMessageCallBack<K>
   ) {
-    console.dir(this);
     this.callbacks.set(JSON.stringify(topic), callback);
     this.sync();
   }
