@@ -1,8 +1,10 @@
 package logic
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"capnproto.org/go/capnp/v3"
 	"github.com/gorilla/websocket"
@@ -193,6 +195,7 @@ func (m *JobManagerT) StartJobOnFreeNode(job LockedValue[Job]) (couldStart bool,
 
 	// Set the new status and worker node of this job.
 	job.Lock.Lock()
+	job.Data.LastRuntimeIncrement = time.Now()
 	job.Data.Status = StatusStarting
 	job.Data.WorkerNodeID = &nodeID
 	job.Lock.Unlock()

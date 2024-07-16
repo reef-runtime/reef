@@ -18,10 +18,11 @@ import (
 )
 
 type Config struct {
-	DatasetPath      string `env:"REEF_DATASETS_PATH"   env-required:"true"`
-	Port             uint16 `env:"REEF_MANAGER_PORT"    env-required:"true"`
-	TemplatesDirPath string `env:"REEF_TEMPLATES_PATH"  env-required:"true"`
-	AdminToken       string `env:"REEF_ADMIN_TOKEN"     env-required:"true"`
+	DatasetPath      string `env:"REEF_DATASETS_PATH"        env-required:"true"`
+	Port             uint16 `env:"REEF_MANAGER_PORT"         env-required:"true"`
+	TemplatesDirPath string `env:"REEF_TEMPLATES_PATH"       env-required:"true"`
+	AdminToken       string `env:"REEF_ADMIN_TOKEN"          env-required:"true"`
+	MaxJobRuntime    uint64 `env:"REEF_JOB_MAX_RUNTIME_SECS" env-required:"true"`
 	Database         database.DatabaseConfig
 	CompilerConfig   logic.CompilerConfig
 }
@@ -49,7 +50,13 @@ func ship(logger *logrus.Logger) error {
 		return errors.New("database error")
 	}
 
-	if err := logic.Init(logger, config.CompilerConfig, config.DatasetPath, config.TemplatesDirPath); err != nil {
+	if err := logic.Init(
+		logger,
+		config.CompilerConfig,
+		config.DatasetPath,
+		config.TemplatesDirPath,
+		config.MaxJobRuntime,
+	); err != nil {
 		logger.Fatalf("Initializing logic package failed: %s", err.Error())
 		return errors.New("system error")
 	}

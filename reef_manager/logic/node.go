@@ -324,6 +324,7 @@ func newJobManager(
 	compiler *CompilerManager,
 	triggerUIUpdates chan DataCollectionMsg,
 	refreshData chan WebSocketTopic,
+	maxJobRuntimeSecs uint64,
 ) JobManagerT {
 	return JobManagerT{
 		Templates:            templates,
@@ -332,6 +333,7 @@ func newJobManager(
 		NonFinishedJobs:      newLockedMap[JobId, LockedValue[Job]](),
 		SendUIUpdatesTo:      triggerUIUpdates,
 		RequestToRefreshData: refreshData,
+		MaxJobRuntimeSecs:    maxJobRuntimeSecs,
 	}
 }
 

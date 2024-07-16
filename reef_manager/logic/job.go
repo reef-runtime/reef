@@ -24,6 +24,8 @@ type JobManagerT struct {
 	SendUIUpdatesTo chan DataCollectionMsg
 	// UI manager will send data into this channel once it receives some updates.
 	RequestToRefreshData chan WebSocketTopic
+	// If a job's active execution time is high that this value, the job is killed.
+	MaxJobRuntimeSecs uint64
 }
 
 var JobManager JobManagerT
@@ -65,6 +67,12 @@ type Job struct {
 	Status           JobStatus `json:"status"`
 	Logs             []database.JobLog
 	InterpreterState []byte
+	//
+	// `RuntimeSeconds += since(LastRuntimeIncrement)`
+	// This is executed periodically to keep the runtime of the job up to date..
+	//
+	LastRuntimeIncrement time.Time
+	RuntimeSeconds       uint64
 }
 
 func (m *JobManagerT) SubmitJob(
@@ -134,12 +142,14 @@ func (m *JobManagerT) SubmitJob(
 	}
 
 	job := Job{
-		Data:             jobTableData,
-		Progress:         0,
-		Status:           StatusQueued,
-		Logs:             make([]database.JobLog, 0),
-		InterpreterState: nil,
-		WorkerNodeID:     nil,
+		Data:                 jobTableData,
+		WorkerNodeID:         nil,
+		Progress:             0,
+		Status:               StatusQueued,
+		Logs:                 make([]database.JobLog, 0),
+		InterpreterState:     nil,
+		LastRuntimeIncrement: time.Now(),
+		RuntimeSeconds:       0,
 	}
 
 	m.NonFinishedJobs.Insert(idString, NewLockedValue(job))
@@ -177,6 +187,7 @@ func (m *JobManagerT) ParkJob(jobId string) error {
 	// Set worker node Id to `nil`.
 
 	job.Lock.Lock()
+	job.Data.LastRuntimeIncrement = time.Now()
 	job.Data.WorkerNodeID = nil
 	job.Lock.Unlock()
 
@@ -241,18 +252,20 @@ func (m *JobManagerT) Init() error {
 			},
 
 			// Set job to queued.
-			Progress:         0,
-			Status:           StatusQueued,
-			Logs:             make([]database.JobLog, 0),
-			InterpreterState: nil,
-			WorkerNodeID:     nil,
+			Progress:             0,
+			Status:               StatusQueued,
+			Logs:                 make([]database.JobLog, 0),
+			InterpreterState:     nil,
+			WorkerNodeID:         nil,
+			LastRuntimeIncrement: time.Now(),
+			RuntimeSeconds:       0,
 		}
 
 		m.NonFinishedJobs.Insert(dbJob.Job.Id, NewLockedValue(job))
 	}
 
 	// Launch job queue daemon.
-	go m.JobQueueDaemon()
+	go m.JobManagerDaemon()
 
 	// Launch goroutine to listen to data refresh requests.
 	go m.ListenToRefreshRequests()

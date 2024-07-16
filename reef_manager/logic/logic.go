@@ -132,7 +132,13 @@ func ReadTemplates(templatesDir string, m *DatasetManagerT) ([]Template, error) 
 	return templates, nil
 }
 
-func Init(logger *logrus.Logger, compilerConfig CompilerConfig, datasetDirPath string, templatesDirPath string) error {
+func Init(
+	logger *logrus.Logger,
+	compilerConfig CompilerConfig,
+	datasetDirPath string,
+	templatesDirPath string,
+	maxJobRuntimeSecs uint64,
+) error {
 	log = logger
 	log.Trace("Initializing logic package...")
 
@@ -165,6 +171,7 @@ func Init(logger *logrus.Logger, compilerConfig CompilerConfig, datasetDirPath s
 		&compiler,
 		UIManager.FromDatasources,
 		UIManager.TriggerDataSourceChan,
+		maxJobRuntimeSecs,
 	)
 	if err := JobManager.Init(); err != nil {
 		return err
