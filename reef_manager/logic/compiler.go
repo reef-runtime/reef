@@ -133,7 +133,11 @@ func (c *CompilerManager) getCached(hash string) ([]byte, error) {
 	log.Debugf("[compiler] Loaded cached artifact `%s`", filePath)
 
 	if len(file) == 0 {
-		panic("Tried to read empty Wasm cache file")
+		log.Warnf("Tried to read empty Wasm cache file, removing file")
+		if err := os.Remove(filePath); err != nil {
+			return nil, fmt.Errorf("whilst removing empty cache file")
+		}
+		return nil, nil
 	}
 
 	return file, nil

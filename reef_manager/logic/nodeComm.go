@@ -155,16 +155,54 @@ func (m *JobManagerT) findFreeNode() (nodeID NodeId, workerIdx uint16, found boo
 	return nodeID, 0, false
 }
 
+// nolint:funlen
 func (m *JobManagerT) StartJobOnFreeNode(job LockedValue[Job]) (couldStart bool, err error) {
 	// Load the WasmCode from storage again.
 	job.Lock.RLock()
 	wasmID := job.Data.Data.WasmId
+	jobID := job.Data.Data.Id
 	job.Lock.RUnlock()
 
-	wasmCode, err := m.Compiler.getCached(wasmID)
-	if err != nil {
-		log.Errorf("failed to park job `%s`: could not load job's Wasm from cache", err.Error())
+	wasmCode, wasmError := m.Compiler.getCached(wasmID)
+
+	if wasmError == nil && len(wasmCode) == 0 {
+		log.Warnf("Will not start job `%s`: cached Wasm code is empty", jobID)
+		wasmError = errors.New("empty Wasm code")
+	}
+
+	// nolint:nestif
+	if wasmError != nil {
+		eMsg := fmt.Sprintf(
+			"Failed to start job `%s`: could not load job's Wasm from cache: %s",
+			jobID,
+			wasmError.Error(),
+		)
+		log.Error(eMsg)
+
+		if err := database.AddLog(database.JobLog{
+			Kind:    database.LogKindSystem,
+			Created: time.Now(),
+			Content: eMsg,
+			JobId:   jobID,
+		}); err != nil {
+			return false, err
+		}
+
+		found, err := m.AbortJob(jobID)
+		if err != nil {
+			log.Errorf("Could not abort job `%s`, which has broken Wasm code: %s", jobID, err.Error())
+			return false, nil
+		}
+
+		if !found {
+			log.Warnf("Could not abort job `%s`, which has broken Wasm code: not found", jobID)
+		}
+
 		return false, err
+	}
+
+	if len(wasmCode) == 0 {
+		panic("This case is excluded")
 	}
 
 	nodeID, workerIndex, nodeFound := m.findFreeNode()
@@ -176,10 +214,6 @@ func (m *JobManagerT) StartJobOnFreeNode(job LockedValue[Job]) (couldStart bool,
 	if !nodeFound {
 		return false, nil
 	}
-
-	job.Lock.RLock()
-	jobID := job.Data.Data.Id
-	job.Lock.RUnlock()
 
 	log.Debugf("[node] Found free worker index %d on node `%s`", workerIndex, IdToString(nodeID))
 
