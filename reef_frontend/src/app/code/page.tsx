@@ -53,9 +53,7 @@ import { useTemplates } from '@/stores/templates.store';
 import { useDatasets } from '@/stores/datasets.store';
 
 import { GetSocket, topicSingleJob } from '@/lib/websocket';
-import { displayJobStatus, IJob, IJobStatus } from '@/types/job';
-import { Progress } from '@/components/ui/progress';
-import { displayLogKind, ILogKind } from '@/types/log';
+import { displayJobStatus, IJob } from '@/types/job';
 import JobOutput from '@/components/job-output';
 import JobProgress from '@/components/job-progress';
 import DocsPage from '@/components/docs-page';
@@ -66,7 +64,6 @@ const SOURCE_CODE_KEY = 'source_code';
 const TEMPLATE_KEY = 'template_id';
 
 interface CompileRes {
-  success: boolean;
   message: string;
   error: string;
 }
@@ -85,11 +82,7 @@ const schema = z.object({
 
 export default function Page() {
   const { toast } = useToast();
-  const [response, setResponse] = useState<CompileRes>({
-    success: false,
-    message: '',
-    error: '',
-  });
+  const [compileError, setCompileError] = useState<CompileRes | null>(null);
 
   const { datasets, fetchDatasets, uploadDataset } = useDatasets();
 
@@ -160,6 +153,12 @@ export default function Page() {
       return;
     }
 
+    setJobId(null);
+    setCompileError({
+      error: 'compiling...',
+      message: '',
+    });
+
     const res = await fetch('/api/jobs/submit', {
       method: 'POST',
       headers: {
@@ -170,7 +169,7 @@ export default function Page() {
 
     if (res.status != 200) {
       const compileRes = (await res.json()) as CompileRes;
-      setResponse(compileRes);
+      setCompileError(compileRes);
 
       toast({
         title: 'Error',
@@ -180,6 +179,7 @@ export default function Page() {
     }
 
     const submitRes = (await res.json()) as SubmitRes;
+    setCompileError(null);
     setJobId(submitRes.id);
   };
 
@@ -274,12 +274,13 @@ export default function Page() {
   const [job, setJob] = useState<IJob | null>(null);
 
   useEffect(() => {
-    if (!jobId) {
-      return;
-    }
-
     const sock = GetSocket();
     sock.unsubscribeAll();
+
+    if (!jobId) {
+      setJob(null);
+      return;
+    }
 
     sock.subscribe(topicSingleJob(jobId), (res) => {
       // console.dir(res.data);
@@ -575,8 +576,8 @@ export default function Page() {
                 <Card className="w-full grow flex flex-col bg-background px-4 py-3 font-mono text-[0.9rem] overflow-hidden">
                   <div className="flex flex-wrap justify-between gap-30">
                     <span className="font-bold whitespace-nowrap">
-                      {response.message
-                        ? response.message.toUpperCase()
+                      {compileError?.message
+                        ? compileError.message.toUpperCase()
                         : 'JOB STATUS'}
                     </span>
                     {job ? (
@@ -591,9 +592,9 @@ export default function Page() {
 
                   <Separator className="mt-2 mb-3"></Separator>
 
-                  {response.message && response.message != '' ? (
+                  {compileError ? (
                     <div className="grow overflow-auto whitespace-pre">
-                      {response.error}
+                      {compileError.error}
                     </div>
                   ) : (
                     <React.Fragment>
