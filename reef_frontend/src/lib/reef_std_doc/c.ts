@@ -112,6 +112,13 @@ const librarySection: DocSection = {
         'Use this one instead of the one from malloc.h.',
       ],
     },
+    {
+      signature: 'void *memcpy(void *destination, void *source, size_t num);',
+      description: [
+        'Copies the values of num bytes from the location pointed to by source directly to the memory block pointed to by destination.',
+        'Use this one instead of the one from string.h.',
+      ],
+    },
   ],
 };
 
