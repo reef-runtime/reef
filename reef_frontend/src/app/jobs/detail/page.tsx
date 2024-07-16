@@ -9,13 +9,20 @@ import { Separator } from '@/components/ui/separator';
 
 import JobProgress from '@/components/job-progress';
 import JobOutput from '@/components/job-output';
-import JobStatusIcon from '@/components/job-status';
+import JobStatusIcon, { colorClassForJob } from '@/components/job-status';
 
 import { useJobs } from '@/stores/job.store';
-import { IJob, IJobResultContentType, IJobStatus } from '@/types/job';
+import {
+  displayJobStatus,
+  displayResultContentType,
+  IJob,
+  IJobResultContentType,
+  IJobStatus,
+} from '@/types/job';
 import { GetSocket, topicSingleJob } from '@/lib/websocket';
 import { useReefSession } from '@/stores/session.store';
 import { humanFileSize } from '@/lib/utils';
+import classNames from 'classnames';
 
 export default function Page() {
   const { jobs, setJobs } = useJobs();
@@ -106,9 +113,12 @@ export default function Page() {
               <TabsTrigger value="logs" className="rounded py-2">
                 <CardTitle>Logs</CardTitle>
               </TabsTrigger>
-              <TabsTrigger value="result" className="rounded py-2">
-                <CardTitle>Result</CardTitle>
-              </TabsTrigger>
+
+              {job.result ? (
+                <TabsTrigger value="result" className="rounded py-2">
+                  <CardTitle>Result</CardTitle>
+                </TabsTrigger>
+              ) : null}
             </TabsList>
           </CardHeader>
 
@@ -124,42 +134,45 @@ export default function Page() {
               {job.result ? (
                 <div className="space-y-2">
                   <div>
-                    <h4 className="font-bold">Result Success</h4>
-                    <p>{job.result.success ? 'Yes' : 'No'}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-bold">Result Created</h4>
+                    <h2 className="font-bold text-xl my-1">Finished At</h2>
                     <p>{new Date(job.result.created).toLocaleString()}</p>
                   </div>
                   <div>
-                    <h4 className="font-bold">Result Content Type</h4>
-                    <p>{IJobResultContentType[job.result.contentType]}</p>
+                    <h2 className="font-bold text-xl my-1">Content Type</h2>
+                    <p>{displayResultContentType(job.result.contentType)}</p>
                   </div>
                   <div>
-                    <h4 className="font-bold">Length</h4>
-                    <p>
-                      {resultContent
-                        ? `${humanFileSize(resultContent.byteLength)}`
-                        : 'Unknown'}
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="font-bold">Byte Length</h4>
-                    <p>
+                    <h2 className="font-bold text-xl my-1">Result Size</h2>
+                    <div className="flex gap-3">
                       {resultContent
                         ? `${resultContent.byteLength} Bytes`
                         : 'Unknown'}
-                    </p>
+
+                      {(function () {
+                        if (
+                          !resultContent ||
+                          resultContent.byteLength <= 1024
+                        ) {
+                          return null;
+                        }
+
+                        return (
+                          <span className="text-muted-foreground">
+                            ({humanFileSize(resultContent.byteLength)})
+                          </span>
+                        );
+                      })()}
+                    </div>
                   </div>
                   {resultContent ? (
                     <div>
-                      <h4 className="font-bold">Content</h4>
+                      <h2 className="font-bold text-xl my-1">Contents</h2>
                       {jobResultContent(job, resultContent)}
                     </div>
                   ) : null}
                 </div>
               ) : (
-                <div>No Results available yet.</div>
+                <div>No Result available yet.</div>
               )}
             </CardContent>
           </TabsContent>
@@ -168,9 +181,13 @@ export default function Page() {
 
       <Card className="w-full xl:w-[400px]">
         <CardHeader>
-          <CardTitle className="flex space-x-2 items-center">
+          <CardTitle className="flex justify-between space-x-2 items-center">
             <span>Job Details</span>
-            <JobStatusIcon job={job} />
+            <span
+              className={`text-secondary py-1 px-2 text-base rounded ${colorClassForJob(job)}`}
+            >
+              {displayJobStatus(job)}
+            </span>
           </CardTitle>
         </CardHeader>
         <CardContent className="grow space-y-4">
@@ -195,9 +212,16 @@ export default function Page() {
           </div>
           <div>
             <h4 className="font-bold">Progress</h4>
-            <p className="overflow-hidden text-ellipsis">
-              {Math.floor(job.progress * 10000) / 100}%
-            </p>
+            <div className="flex justify-between">
+              <p className="overflow-hidden text-ellipsis">
+                {Math.floor(job.progress * 10000) / 100}%
+              </p>
+              {job.status === IJobStatus.StatusRunning ? (
+                <JobStatusIcon job={job}></JobStatusIcon>
+              ) : (
+                ''
+              )}
+            </div>
           </div>
 
           {(job.owner === session.id || session.isAdmin) &&
@@ -230,10 +254,10 @@ const jobResultContent = (job: IJob, resultContent: ArrayBuffer) => {
     return (
       <a
         href={getDownloadUrl(resultContent, 'application/binary')}
-        download="result.bin"
+        download={`${job.id}_result.bin`}
         className="underline"
       >
-        Download Result
+        <Button>Download Result</Button>
       </a>
     );
   } else {
@@ -245,7 +269,7 @@ const jobResultContent = (job: IJob, resultContent: ArrayBuffer) => {
     let str = decoder.decode(resultContent);
     return (
       <>
-        <div className="my-2 p-2 dark:bg-stone-950 rounded font-mono">
+        <div className="my-2 p-2 dark:bg-stone-950 rounded font-mono whitespace-pre">
           {str}
         </div>
         <a
