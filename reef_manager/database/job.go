@@ -42,7 +42,7 @@ type JobWithResult struct {
 
 type Result struct {
 	Success     bool        `json:"success"`
-	JobId       string      `json:"jobId"`
+	JobID       string      `json:"jobId"`
 	Content     []byte      `json:"content"`
 	ContentType ContentType `json:"contentType"`
 	// This together with `submitted` on the job can be used to calculate the total time required for a job.
@@ -175,7 +175,7 @@ func ListJobs(idFilter *string, usernameFilter *string) ([]JobWithResult, error)
 		if resultContent != nil && resultSuccess.Valid && resultContentType.Valid && resultCreated.Valid {
 			jobWithResult.Result = &Result{
 				Success:     resultSuccess.Bool,
-				JobId:       jobWithResult.Job.Id,
+				JobID:       jobWithResult.Job.Id,
 				Content:     resultContent,
 				ContentType: ContentType(resultContentType.Int16),
 				Created:     resultCreated.Time,
@@ -217,7 +217,7 @@ func GetJob(jobId string, usernameFilter *string) (job JobWithResult, found bool
 
 func SaveResult(result Result) error {
 	query := db.builder.Insert(ResultTableName).Values(
-		result.JobId,
+		result.JobID,
 		result.Success,
 		result.Content,
 		result.ContentType,
@@ -238,7 +238,7 @@ func GetResult(jobId string) (result Result, found bool, err error) {
 		Where(fmt.Sprintf("%s.job_id=?", ResultTableName), jobId).
 		QueryRow()
 	err = res.Scan(
-		&result.JobId,
+		&result.JobID,
 		&result.Success,
 		&result.Content,
 		&result.ContentType,

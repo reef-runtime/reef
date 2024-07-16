@@ -83,7 +83,7 @@ func (m *JobManagerT) processResultWithLockingOps(nodeId NodeId, result JobResul
 
 	if err := database.SaveResult(database.Result{
 		Success:     result.Success,
-		JobId:       result.JobId,
+		JobID:       result.JobId,
 		Content:     result.Contents,
 		ContentType: database.ContentType(result.ContentType),
 		Created:     time.Now(),

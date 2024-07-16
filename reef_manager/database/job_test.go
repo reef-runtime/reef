@@ -43,7 +43,7 @@ func TestJobResults(t *testing.T) {
 
 	res := Result{
 		Success:     false,
-		JobId:       jobID,
+		JobID:       jobID,
 		Content:     []byte{1, 2, 3},
 		ContentType: Bytes,
 		Created:     now,
@@ -58,5 +58,5 @@ func TestJobResults(t *testing.T) {
 
 	assert.Equal(t, result.ContentType, Bytes)
 	assert.Equal(t, result.Content, []byte{1, 2, 3})
-	assert.Equal(t, result.JobId, jobID)
+	assert.Equal(t, result.JobID, jobID)
 }

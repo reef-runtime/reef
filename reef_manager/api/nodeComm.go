@@ -71,6 +71,7 @@ func MessageToNodeAssignId(nodeId logic.NodeId) ([]byte, error) {
 	return msg.Marshal()
 }
 
+//nolint:funlen
 func performHandshake(conn *logic.WSConn) (logic.Node, error) {
 	initMsg, err := MessageToNodeEmptyMessage(node.MessageToNodeKind_initHandShake)
 	if err != nil {
@@ -102,6 +103,7 @@ func performHandshake(conn *logic.WSConn) (logic.Node, error) {
 
 	decodedEnclosingMsg, err := node.ReadRootMessageFromNode(unmarshaledRaw)
 	if err != nil {
+		// nolint:goconst
 		return logic.Node{}, fmt.Errorf("could not read handshake response: %s", err.Error())
 	}
 
@@ -110,12 +112,17 @@ func performHandshake(conn *logic.WSConn) (logic.Node, error) {
 	switch kind {
 	case node.MessageFromNodeKind_handshakeResponse:
 		log.Tracef("Received handshakeResponse")
+	case node.MessageFromNodeKind_jobStateSync, node.MessageFromNodeKind_jobResult:
+		fallthrough
 	default:
 		return logic.Node{}, fmt.Errorf("received illegal/unexpected message kind from node during handshake: %d", kind)
 	}
 
 	if decodedEnclosingMsg.Body().Which() != node.MessageFromNode_body_Which_handshakeResponse {
-		return logic.Node{}, fmt.Errorf("received illegal body kind from node during handshake: %d", decodedEnclosingMsg.Body().Which())
+		return logic.Node{}, fmt.Errorf(
+			"received illegal body kind from node during handshake: %d",
+			decodedEnclosingMsg.Body().Which(),
+		)
 	}
 
 	handshakeResponse, err := decodedEnclosingMsg.Body().HandshakeResponse()

@@ -161,7 +161,7 @@ func (m *JobManagerT) abortQueuedJob(jobID string, logMessage string) (found boo
 
 	if err := database.SaveResult(database.Result{
 		Success:     false,
-		JobId:       jobID,
+		JobID:       jobID,
 		Content:     []byte(jobAbortMessage),
 		ContentType: database.StringPlain,
 		Created:     time.Now(),

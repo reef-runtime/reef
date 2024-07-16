@@ -4,7 +4,6 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 
 	"github.com/gin-contrib/sessions"
@@ -16,6 +15,10 @@ import (
 	"github.com/reef-runtime/reef/reef_manager/logic"
 	"github.com/sirupsen/logrus"
 )
+
+//
+// Configuration via environment variables.
+//
 
 type Config struct {
 	DatasetPath      string `env:"REEF_DATASETS_PATH"        env-required:"true"`
@@ -32,52 +35,16 @@ var migrations embed.FS
 
 const embedPath = "database/migrations"
 
-func ship(logger *logrus.Logger) error {
-	//
-	// Database connection.
-	//
-	var config Config
+//
+// HTTP server.
+//
 
-	if err := cleanenv.ReadEnv(&config); err != nil {
-		help, helpErr := cleanenv.GetDescription(&config, nil)
-		if helpErr != nil {
-			return err
-		}
-
-		return fmt.Errorf("configuration error: %s", help)
-	}
-
-	if err := database.Init(logger, config.Database, migrations, embedPath); err != nil {
-		logger.Fatalf("Initializing database failed: %s", err.Error())
-		return errors.New("database error")
-	}
-
-	if err := logic.Init(
-		logger,
-		config.CompilerConfig,
-		config.DatasetPath,
-		config.TemplatesDirPath,
-		config.MaxJobRuntime,
-	); err != nil {
-		logger.Fatalf("Initializing logic package failed: %s", err.Error())
-		return errors.New("system error")
-	}
-
-	// TODO: put HTTP stuff into separate file.
-
-	//
-	// HTTP server.
-	//
+func httpServe(logger *logrus.Logger, config *Config) error {
 	r := gin.Default()
-
-	r.GET("/", func(ctx *gin.Context) {
-		ctx.String(http.StatusOK, "REEF")
-	})
 
 	//
 	// Authentication.
 	//
-
 	store := cookie.NewStore([]byte("fooaabababab"))
 	r.Use(sessions.Sessions(api.SessionName, store))
 
@@ -133,12 +100,49 @@ func ship(logger *logrus.Logger) error {
 	return nil
 }
 
+func sail(logger *logrus.Logger) error {
+	//
+	// Database connection.
+	//
+	var config Config
+
+	if err := cleanenv.ReadEnv(&config); err != nil {
+		help, helpErr := cleanenv.GetDescription(&config, nil)
+		if helpErr != nil {
+			return err
+		}
+
+		return fmt.Errorf("configuration error: %s", help)
+	}
+
+	if err := database.Init(logger, config.Database, migrations, embedPath); err != nil {
+		logger.Fatalf("Initializing database failed: %s", err.Error())
+		return errors.New("database error")
+	}
+
+	//
+	// Logic layer initialization.
+	//
+	if err := logic.Init(
+		logger,
+		config.CompilerConfig,
+		config.DatasetPath,
+		config.TemplatesDirPath,
+		config.MaxJobRuntime,
+	); err != nil {
+		logger.Fatalf("Initializing logic package failed: %s", err.Error())
+		return errors.New("system error")
+	}
+
+	return httpServe(logger, &config)
+}
+
 func main() {
 	logger := newLogger()
 	// Suppress noise.
 	logger.SetLevel(logrus.DebugLevel)
 
-	if err := ship(logger); err != nil {
+	if err := sail(logger); err != nil {
 		logger.Errorf("Failed to start sailing: %s", err.Error())
 		os.Exit(1)
 	}
