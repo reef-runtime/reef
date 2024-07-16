@@ -57,7 +57,7 @@ export default function Page() {
 
   function copyPostInstallInstructions() {
     const binary = 'reef_node_native';
-    const command = ` chmod +x ${binary} && ./${binary}`;
+    const command = `chmod +x ${binary} \n ./${binary} ${url}`;
     navigator.clipboard.writeText(command);
     toast({
       title: 'Copied',
