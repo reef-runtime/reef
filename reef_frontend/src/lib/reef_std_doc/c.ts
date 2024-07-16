@@ -87,7 +87,7 @@ const librarySection: DocSection = {
       description: [
         'Calculates the length of NULL-terminated string.',
         'As an argument you have to pass a pointer to the char array.',
-        'As the result you get the lenghth as a size_t value.',
+        'As the result you get the length as a size_t value.',
       ],
     },
     {
@@ -108,7 +108,7 @@ const librarySection: DocSection = {
     {
       signature: 'void free(void *ptr);',
       description: [
-        'Free the memory refernced by the given pointer. Acts like the `free` function from the C standard library.',
+        'Free the memory referenced by the given pointer. Acts like the `free` function from the C standard library.',
         'Use this one instead of the one from malloc.h.',
       ],
     },
