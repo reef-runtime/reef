@@ -190,6 +190,76 @@
             doCheck = false;
           });
 
+        # =============
+        # Reef Compiler
+        # =============
+
+        compilerRustToolchain =
+          pkgs.pkgsBuildHost.rust-bin.stable.latest.minimal.override
+          {
+            targets = ["wasm32-unknown-unknown"];
+          };
+        compilerCraneLib = (crane.mkLib pkgs).overrideToolchain compilerRustToolchain;
+        compilerCargoArtifacts = craneLib.buildDepsOnly {
+          nativeBuildInputs = [
+            compilerRustToolchain
+          ];
+
+          strictDeps = true;
+
+          src = ./reef_compiler/lang_templates/rust;
+          pname = "reef_compiler_placeholder";
+          version = "0.1.0";
+
+          CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
+        };
+
+        reefCompilerToolchain = with pkgs; [
+          bashInteractive
+
+          gnumake
+          coreutils
+          gnused
+          gcc
+          binaryen
+
+          llvmPackages_18.clang-unwrapped
+          llvmPackages_18.bintools-unwrapped
+          compilerRustToolchain
+        ];
+
+        langTemplates =
+          pkgs.stdenv.mkDerivation
+          {
+            name = "reef_lang_templates";
+            src = ./reef_compiler/lang_templates;
+            buildInputs = [pkgs.zstd];
+            buildPhase = ''
+              mkdir rust/target
+              cd rust/target
+              cp ${compilerCargoArtifacts}/target.tar.zst .
+              tar --use-compress-program=unzstd -xvf target.tar.zst
+              rm target.tar.zst
+              cd ../..
+            '';
+            installPhase = ''
+              mkdir -p $out
+              cp -R . $out/
+            '';
+          };
+
+        # Wrap reef_compiler_bin in shell script to correctly include lang templates
+        # and runtime compiler tools that are required.
+        reef_compiler = pkgs.writeShellApplication {
+          name = "reef_compiler";
+
+          runtimeInputs = reefCompilerToolchain ++ [reef_compiler_bin];
+
+          text = ''
+            ${reef_compiler_bin}/bin/reef_compiler --lang-templates ${langTemplates} "$@"
+          '';
+        };
+
         # ===============
         # JS/Npm Packages
         # ===============
@@ -285,7 +355,7 @@
           };
         };
 
-        job_templates =
+        jobTemplates =
           pkgs.stdenv.mkDerivation
           {
             name = "reef_job_templates";
@@ -296,47 +366,20 @@
               cp -R . $out/job_templates
             '';
           };
-
         reef_manager_image = pkgs.dockerTools.streamLayeredImage {
           name = "reef_manager";
           tag = "latest";
-          contents = [reef_manager job_templates container_tmp];
+          contents = [reef_manager jobTemplates container_tmp];
           config = {
             Cmd = ["bin/reef_manager"];
           };
         };
 
-        # Wrap reef_compiler_bin in shell script to correctly include lang templates
-        # and runtime compiler tools that are required.
-        reef_compiler = pkgs.writeShellApplication {
-          name = "reef_compiler";
-
-          runtimeInputs = with pkgs; [
-            bashInteractive
-
-            gnumake
-            coreutils
-            gnused
-            llvmPackages_18.clang-unwrapped
-            llvmPackages_18.bintools-unwrapped
-            (pkgs.pkgsBuildHost.rust-bin.stable.latest.minimal.override
-              {
-                targets = ["wasm32-unknown-unknown"];
-              })
-            binaryen
-
-            reef_compiler_bin
-          ];
-
-          text = ''
-            ${reef_compiler_bin}/bin/reef_compiler --lang-templates ${./reef_compiler/lang_templates} "$@"
-          '';
-        };
         reef_compiler_image = pkgs.dockerTools.streamLayeredImage {
           name = "reef_compiler";
           tag = "latest";
 
-          contents = [reef_compiler container_tmp];
+          contents = [reef_compiler container_tmp pkgs.cacert];
           config = {
             Cmd = ["bin/reef_compiler" "--build-path" "/tmp"];
           };
@@ -429,6 +472,8 @@
           inherit reef_caddy_image reef_manager_image reef_compiler_image;
           # Container images for node.
           inherit reef_node_native_image;
+
+          inherit langTemplates compilerCargoArtifacts;
         };
 
         apps = {

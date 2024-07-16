@@ -13,6 +13,8 @@ OUT_FILE:=output.wasm
 HASH:=placeholder
 CRATE:=reef_$(HASH)
 
+.PHONY: prepare target
+
 prepare:
 	$(SED) -i "s/$(SED_PACKAGE_PLACEHOLDER)/$(CRATE)/g" Cargo.toml
 
