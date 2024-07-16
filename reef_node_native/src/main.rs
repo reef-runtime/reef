@@ -41,25 +41,21 @@ struct Args {
     // Name to be sent to the manager (default is the hostname + extra infos)
     node_name: Option<String>,
 
-    #[arg(short = 's', long)]
-    // Whether to use https to connect to the manager.
-    tls: bool,
-
     #[arg(short = 'm', long)]
     // How many milliseconds to wait before syncs.
-    sync_delay_millis: Option<usize>,
+    sync_delay_millis: Option<u64>,
 
     #[arg(short = 'p', long)]
     // How many milliseconds to wait before pings.
-    ping_delay_millis: Option<usize>,
+    ping_delay_millis: Option<u64>,
 
     #[arg(short = 'w', long)]
     // How many concurrent workers to offer, default is the number of CPUs.
     num_workers: Option<usize>,
 }
 
-const SYNC_DELAY_MILLIS: usize = 5000;
-const PING_DELAY_MILLIS: usize = 10000;
+const SYNC_DELAY_MILLIS: u64 = 5000;
+const PING_DELAY_MILLIS: u64 = 10000;
 
 struct NodeState(Vec<Job>);
 
@@ -83,9 +79,9 @@ fn main() -> anyhow::Result<()> {
     //
     // Create connection.
     //
-    let scheme = match args.tls {
-        true => "wss",
-        false => "ws",
+    let scheme = match args.manager_url.scheme() {
+        "https" => "wss",
+        _ => "ws",
     };
 
     let mut connect_url = args.manager_url.clone();
@@ -123,6 +119,9 @@ fn main() -> anyhow::Result<()> {
         MaybeTlsStream::Plain(stream) => {
             stream.set_nonblocking(true).unwrap();
         }
+        MaybeTlsStream::Rustls(stream) => {
+            stream.sock.set_nonblocking(true).unwrap();
+        }
         _ => {
             panic!("Unknown stream type!");
         }
@@ -130,10 +129,14 @@ fn main() -> anyhow::Result<()> {
 
     let mut state = NodeState::new(num_workers);
 
-    let sync_wait_duration = Duration::from_millis(args.sync_delay_millis.unwrap_or(SYNC_DELAY_MILLIS) as u64);
+    let sync_wait_duration = Duration::from_millis(args.sync_delay_millis.unwrap_or(SYNC_DELAY_MILLIS));
 
-    let ping_wait_duration = Duration::from_millis(args.ping_delay_millis.unwrap_or(PING_DELAY_MILLIS) as u64);
+    let ping_wait_duration = Duration::from_millis(args.ping_delay_millis.unwrap_or(PING_DELAY_MILLIS));
     let mut last_ping = Instant::now();
+
+    //
+    // Main Loop.
+    //
 
     let mut worked;
     loop {
