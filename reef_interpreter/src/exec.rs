@@ -50,7 +50,7 @@ impl ExecHandle {
 
     /// Take the current execution state and serialize it
     pub fn serialize<W: Write>(&mut self, writer: W, extra_data: &[u8]) -> Result<()> {
-        let encoder = flate2::write::GzEncoder::new(writer, flate2::Compression::none());
+        let encoder = flate2::write::GzEncoder::new(writer, flate2::Compression::best());
         self.serialize_raw(encoder, extra_data)?;
         Ok(())
     }
