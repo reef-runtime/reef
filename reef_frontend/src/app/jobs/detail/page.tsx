@@ -184,7 +184,7 @@ export default function Page() {
           <CardTitle className="flex justify-between space-x-2 items-center">
             <span>Job Details</span>
             <span
-              className={`text-secondary py-1 px-2 text-base rounded ${colorClassForJob(job)}`}
+              className={`text-primary dark:text-secondary py-1 px-2 text-base rounded ${colorClassForJob(job)}`}
             >
               {displayJobStatus(job)}
             </span>
