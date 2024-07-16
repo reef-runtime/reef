@@ -599,8 +599,8 @@ export default function Page() {
           <DialogHeader>
             <DialogTitle>Reef Standard Library Documentation</DialogTitle>
             <DialogDescription>
-              Here you can read about the variuos functions that you can use in
-              the programs you sumbit to Reef.
+              Here you can read about the various functions that you can use in
+              the programs you submit to Reef.
             </DialogDescription>
           </DialogHeader>
           <Tabs defaultValue="c" className="grow overflow-hidden flex flex-col">

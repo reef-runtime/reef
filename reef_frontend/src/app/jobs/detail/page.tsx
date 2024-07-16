@@ -264,7 +264,7 @@ const jobResultContent = (job: IJob, resultContent: ArrayBuffer) => {
     // Text/JSON
     const isText = type === IJobResultContentType.ContentTypeStringPlain;
 
-    // TODO: json fromatting
+    // TODO: json formatting.
     let decoder = new TextDecoder();
     let str = decoder.decode(resultContent);
     return (

@@ -103,7 +103,7 @@ export default function Page() {
           <CardContent className="overflow-hidden space-y-2">
             <p>
               Running the Native Reef Node locally allows you to unleash the
-              full potential of your hardware and therfore contribute more ot
+              full potential of your hardware and therefore contribute more to
               the Reef network.
             </p>
             <p className="pb-4">
