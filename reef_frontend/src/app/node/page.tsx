@@ -20,14 +20,20 @@ import init, {
 } from '@/lib/node_web_generated/reef_node_web';
 import { CopyIcon } from 'lucide-react';
 import JobProgress from '@/components/job-progress';
+import classNames from 'classnames';
+import { jobCogSpinner } from '@/components/job-status';
+import JobOutput from '@/components/job-output';
+import { IJobStatus } from '@/types/job';
+import { ILogEntry, ILogKind } from '@/types/log';
+import { Separator } from '@/components/ui/separator';
 
-const STATE_SYNC_MILLIS = 5000;
+const STATE_SYNC_MILLIS = 1000;
 
 interface NodeState {
   nodeId?: string;
   jobId?: string;
   progress: number;
-  logs: string[];
+  logs: ILogEntry[];
 }
 
 export default function Page() {
@@ -68,11 +74,11 @@ export default function Page() {
   if (!nodeState) {
     return (
       <main className="h-full w-full flex flex-col xl:flex-row p-4 gap-4">
-        <Card className="h-full w-full">
+        <Card className="w-full">
           <CardHeader>
             <CardTitle>Join with Node Web</CardTitle>
           </CardHeader>
-          <CardContent className="h-full overflow-hidden space-y-4">
+          <CardContent className="overflow-hidden space-y-4">
             Easily join the Reef Network from your browser with no further
             setup.
             <br />
@@ -90,11 +96,11 @@ export default function Page() {
           </CardContent>
         </Card>
 
-        <Card className="h-full w-full">
+        <Card className="w-full">
           <CardHeader>
             <CardTitle>Join with Node Native</CardTitle>
           </CardHeader>
-          <CardContent className="h-full overflow-hidden space-y-2">
+          <CardContent className="overflow-hidden space-y-2">
             <p>
               Running the Native Reef Node locally allows you to unleash the
               full potential of your hardware and therfore contribute more ot
@@ -141,51 +147,120 @@ export default function Page() {
     );
   }
 
+  //
+  // Node native is running.
+  //
+
   return (
-    <main className="p-4 h-full w-full">
-      <Card className="h-full w-full relative">
+    <main className="h-full flex flex-col xl:flex-row p-4 gap-4 xl:max-h-dvh">
+      <Card className="flex flex-col w-full xl:overflow-hidden">
         <CardHeader>
           <CardTitle>Node Web</CardTitle>
         </CardHeader>
-        <CardContent className="h-full overflow-hidden space-y-4">
+        <CardContent className='flex flex-col justify-between'>
           <div>
-            <h4 className="font-bold">Node ID</h4>
-            <p className="overflow-hidden text-ellipsis">
-              {nodeState.nodeId ?? 'connecting...'}
-            </p>
-          </div>
-          <div>
-            <h4 className="font-bold">Status</h4>
-            <p className="overflow-hidden text-ellipsis">
-              {nodeState.jobId ? `Running Job ${nodeState.jobId}` : 'Idle'}
-            </p>
-          </div>
-          {nodeState.jobId ? (
-            <Fragment>
-              <div>
-                <h4 className="font-bold">Progress</h4>
-                <div className="overflow-hidden text-ellipsis">
-                  {Math.floor(nodeState.progress * 10000) / 100}%
-                  <JobProgress progress={nodeState.progress} className="mt-1" />
+            <div>
+              <h3 className="font-bold text-xl">Node ID</h3>
+              <p className="overflow-hidden text-ellipsis my-2 p-2 dark:bg-stone-950 rounded font-mono">
+                {nodeState.nodeId ?? 'connecting...'}
+              </p>
+            </div>
+            <div>
+              <h3 className="font-bold text-xl">Status</h3>
+              <p className="overflow-hidden text-ellipsis">
+                {nodeState.jobId ? (
+                  <div>
+                    <div className="flex gap-3 items-center">
+                      <span className="text-lg">Executing Job</span>
+                      {jobCogSpinner()}
+                    </div>
+
+                    <p className="overflow-hidden text-ellipsis my-2 p-2 dark:bg-stone-950 rounded font-mono">
+                      {nodeState.jobId}
+                    </p>
+                  </div>
+                ) : (
+                  'Idle'
+                )}
+              </p>
+            </div>
+            {(function () {
+              if (!nodeState.jobId) {
+                return null;
+              }
+
+              const floored = Math.floor((nodeState.progress * 10000) / 100);
+
+              return (
+                <div>
+                  <h3 className="font-bold text-xl">Progress</h3>
+
+                  <div className="overflow-hidden text-ellipsis flex flex-col gap-2">
+                    <JobProgress
+                      progress={nodeState.progress}
+                      className="mt-1"
+                    />
+                    <span className="font-mono font-bold">{floored}%</span>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <h4 className="font-bold">Log count</h4>
-                <p className="overflow-hidden text-ellipsis">
-                  {nodeState.logs.length}
-                </p>
-              </div>
-            </Fragment>
-          ) : null}
+              );
+            })()}
+          </div>
+
+          <div>
           <Button
             variant={'destructive'}
             onClick={closeNode}
-            className="absolute bottom-6"
           >
             Disconnect
           </Button>
+          </div>
         </CardContent>
       </Card>
+
+      {nodeState.jobId ? (
+        <Card className="flex flex-col w-full xl:overflow-hidden">
+          <CardHeader>
+            <div className="flex justify-between">
+            <CardTitle>{nodeState.jobId ? 'Logs' : 'Waiting...'}</CardTitle>
+            <span className="font-mono font-bold text-xl overflow-hidden text-ellipsis flex gap-3 items-center">
+              <span>Count:</span>
+              <span>{nodeState.logs.length}</span>
+            </span>
+            </div>
+          </CardHeader>
+
+          <CardContent className="m-6 mt-0 p-2 dark:bg-stone-950 rounded overflow-hidden">
+            {(function () {
+              // const logs = nodeState.logs.map((content) => {
+              //   return {
+              //     kind: ILogKind.LogKindNode,
+              //     created: new Date().toISOString(),
+              //     content,
+              //     jobId: nodeState.jobId,
+              //   } as ILogEntry;
+              // });
+
+              return (
+                <JobOutput
+                  compact={false}
+                  job={{
+                    id: nodeState.jobId,
+                    datasetId: '',
+                    wasmId: '',
+                    name: '',
+                    submitted: '',
+                    status: IJobStatus.StatusRunning,
+                    owner: '',
+                    logs: nodeState.logs,
+                    progress: nodeState.progress,
+                  }}
+                ></JobOutput>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      ) : null}
     </main>
   );
 }
@@ -196,7 +271,7 @@ let wasmInit = false;
 async function runNode(
   setNodeState: Dispatch<SetStateAction<NodeState | undefined>>
 ) {
-  // Initialize Wasm
+  // Initialize Wasm, test for browser features.
   try {
     await init();
     new CompressionStream('gzip');
@@ -210,7 +285,7 @@ async function runNode(
   }
   wasmInit = true;
 
-  // Start WebSocket
+  // Start WebSocket.
   if (ws) return;
 
   let connectPath = get_connect_path();
@@ -222,13 +297,13 @@ async function runNode(
   await waitWsOpen(ws);
   console.log('Websocket open');
 
-  // Do handshake
+  // Do handshake.
   while (true) {
     let message = await readWsMessage(ws);
     if (message.kind === NodeMessageKind.InitHandShake) break;
   }
 
-  console.log('Starting Handshake');
+  console.log('Starting Handshake...');
   // TODO: userAgent stuff for better name
   ws.send(serialize_handshake_response(1, 'node@web'));
 
@@ -263,7 +338,7 @@ async function runNode(
     nodeId,
     jobId: undefined as string | undefined,
     progress: 0,
-    logs: [] as string[],
+    logs: [] as ILogEntry[],
     logsFlush: [] as string[],
     lastSync: 0,
   };
@@ -321,13 +396,27 @@ async function runNode(
             message.start_job_data.interpreter_state,
             dataset,
             (log_message: string) => {
-              internalState.logs.push(log_message);
+              internalState.logs.push({
+                kind: ILogKind.LogKindProgram,
+                created: (new Date()).toISOString(),
+                jobId: internalState.jobId ? internalState.jobId : "",
+                content: log_message,
+              });
               internalState.logsFlush.push(log_message);
             },
             (done: number) => {
               internalState.progress = done;
             }
           );
+
+          if (message.start_job_data.interpreter_state && message.start_job_data.interpreter_state.length > 0) {
+              internalState.logs.push({
+                kind: ILogKind.LogKindNode,
+                created: (new Date()).toISOString(),
+                jobId: "",
+                content: `Resuming previously executed job with ${Math.floor(message.start_job_data.progress * 100)}% progress...`,
+              });
+          }
 
           internalState.jobId = message.start_job_data.job_id;
         } catch (e: any) {
