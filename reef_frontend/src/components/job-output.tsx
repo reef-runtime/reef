@@ -13,8 +13,8 @@ interface JobOutputProps {
 }
 
 const JobOutput: FC<JobOutputProps> = ({ job, compact }) => {
-  const { theme } = useTheme()
-  const isDarkTheme = theme === 'dark'
+  const { theme } = useTheme();
+  const isDarkTheme = theme === 'dark';
 
   return !job || (job.logs?.length ?? 0) === 0 ? (
     <div className="h-full flex flex-col justify-center items-center">
@@ -48,12 +48,16 @@ const JobOutput: FC<JobOutputProps> = ({ job, compact }) => {
               {prefix}
               {hour}:{minute}:{second}
             </span>
-            <span className={classNames({
-              "text-red-800": log.kind == ILogKind.LogKindSystem && !isDarkTheme,
-              "text-red-300": log.kind == ILogKind.LogKindSystem && isDarkTheme,
-              "text-blue-800": log.kind !== ILogKind.LogKindSystem,
-              "dark:text-blue-300": log.kind !== ILogKind.LogKindSystem,
-            })}>
+            <span
+              className={classNames({
+                'text-red-800':
+                  log.kind == ILogKind.LogKindSystem && !isDarkTheme,
+                'text-red-300':
+                  log.kind == ILogKind.LogKindSystem && isDarkTheme,
+                'text-blue-800': log.kind !== ILogKind.LogKindSystem,
+                'dark:text-blue-300': log.kind !== ILogKind.LogKindSystem,
+              })}
+            >
               {' '}
               [{displayLogKind(log.kind)}]
             </span>
