@@ -33,17 +33,17 @@ const NAV_ITEMS = [
   {
     title: 'Jobs',
     Icon: FileCog,
-    path: '/jobs',
+    path: '/jobs/',
   },
   {
     title: 'Code',
     Icon: Code,
-    path: '/code',
+    path: '/code/',
   },
   {
     title: 'Node Web',
     Icon: AppWindowMac,
-    path: '/node',
+    path: '/node/',
   },
 ];
 
@@ -54,7 +54,7 @@ export default function RootLayout({
 }>) {
   const currentPath = usePathname();
 
-  const title = NAV_ITEMS.find((item) => item.path == currentPath)?.title;
+  let title = NAV_ITEMS.find((item) => item.path == currentPath)?.title;
 
   return (
     <html lang="en">
