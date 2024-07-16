@@ -78,7 +78,7 @@ fn init_node_inner(
     log_callback: js_sys::Function,
     progress_callback: js_sys::Function,
 ) -> Result<(), reef_interpreter::Error> {
-    let module = parse_bytes(&program)?;
+    let module = parse_bytes(program)?;
 
     let sleep_for = Rc::new(Cell::new(0.0));
     let dataset = Rc::new(dataset);
