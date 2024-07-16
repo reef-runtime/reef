@@ -1,3 +1,6 @@
 [type.po]
-extend-glob = ["go.mod"]
+extend-glob = ["go.mod", "message.capnp.go"]
 check-file = false
+
+[default.extend-identifiers]
+UIUPdateKindNewData = "UIUPdateKindNewData"
