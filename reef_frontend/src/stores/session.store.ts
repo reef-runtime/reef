@@ -8,7 +8,7 @@ export interface ReefSession {
 export const useReefSession = create<{
   session: ReefSession;
   setSession: (newSession: ReefSession) => void;
-  fetchSession: (token: string | null) => Promise<void>;
+  fetchSession: (token: string | null) => Promise<ReefSession>;
 }>((set) => ({
   session: { id: '', isAdmin: false },
   setSession: (session) => set({ session }),
@@ -28,5 +28,6 @@ export const useReefSession = create<{
     const session: ReefSession = await res.json();
 
     set({ session });
+    return session;
   },
 }));

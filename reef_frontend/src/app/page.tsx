@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { AppWindowMac } from 'lucide-react';
+import { AppWindowMac, Terminal } from 'lucide-react';
 
 import {
   Card,
@@ -45,7 +45,8 @@ import { useNodes } from '@/stores/nodes.store';
 import { useJobs } from '@/stores/job.store';
 import { IJobStatus } from '@/types/job';
 import { GetSocket, topicNodes, topicAllJobs } from '@/lib/websocket';
-import { useReefSession } from '@/stores/session.store';
+import { ReefSession, useReefSession } from '@/stores/session.store';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function Home() {
   const { nodes, setNodes } = useNodes();
@@ -92,7 +93,21 @@ export default function Home() {
 
   async function loginHandler(token: string | null) {
     try {
-      await fetchSession(token);
+      const sess: ReefSession = await fetchSession(token);
+
+      if (token) {
+        if (!sess.isAdmin) {
+          toast({
+            title: 'Login Failed',
+            description: 'Backend failure: no admin rights granted',
+          });
+        } else {
+          toast({
+            title: 'Login Success',
+            description: `New admin session id: ${sess.id}`,
+          });
+        }
+      }
     } catch (e: any) {
       toast({
         title: 'Login Failed',
