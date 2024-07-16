@@ -590,7 +590,7 @@ impl Interpreter {
         let offset = i32::from(stack.values.pop()?) as usize;
         let dst = i32::from(stack.values.pop()?) as usize;
 
-        let data = match &instance.datas.get(data_index as usize).ok_or_else(|| Instance::not_found_error("data"))?.data
+        let data = match &instance.data.get(data_index as usize).ok_or_else(|| Instance::not_found_error("data"))?.data
         {
             Some(data) => data,
             None => return Err(Trap::MemoryOutOfBounds { offset: 0, len: 0, max: 0 }.into()),

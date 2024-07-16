@@ -31,7 +31,7 @@ pub struct Instance {
     pub(crate) memories: Vec<MemoryInstance>,
     pub(crate) globals: Vec<GlobalInstance>,
     pub(crate) elements: Vec<ElementInstance>,
-    pub(crate) datas: Vec<DataInstance>,
+    pub(crate) data: Vec<DataInstance>,
 }
 
 impl Instance {
@@ -53,7 +53,7 @@ impl Instance {
             return Err(Error::Trap(trap));
         }
 
-        let data_trapped = instance.init_datas(&addrs.memories, instance.module.data.clone().into())?;
+        let data_trapped = instance.init_data(&addrs.memories, instance.module.data.clone().into())?;
         if let Some(trap) = data_trapped {
             return Err(Error::Trap(trap));
         }
@@ -191,7 +191,7 @@ impl Instance {
     /// Get the data at the actual index in the store
     #[inline]
     pub(crate) fn get_data_mut(&mut self, addr: DataAddr) -> Result<&mut DataInstance> {
-        self.datas.get_mut(addr as usize).ok_or_else(|| Self::not_found_error("data"))
+        self.data.get_mut(addr as usize).ok_or_else(|| Self::not_found_error("data"))
     }
 
     /// Get the global at the actual index in the store
@@ -384,10 +384,10 @@ impl Instance {
     }
 
     /// Add data to the store, returning their addresses in the store
-    pub(crate) fn init_datas(&mut self, mem_addrs: &[MemAddr], datas: Vec<Data>) -> Result<Option<Trap>> {
-        let data_count = self.datas.len();
+    pub(crate) fn init_data(&mut self, mem_addrs: &[MemAddr], data: Vec<Data>) -> Result<Option<Trap>> {
+        let data_count = self.data.len();
         let mut data_addrs = Vec::with_capacity(data_count);
-        for (i, data) in datas.into_iter().enumerate() {
+        for (i, data) in data.into_iter().enumerate() {
             let data_val = match data.kind {
                 DataKind::Active { mem: mem_addr, offset } => {
                     // a. Assert: memidx == 0
@@ -413,7 +413,7 @@ impl Instance {
                 DataKind::Passive => Some(data.data.to_vec()),
             };
 
-            self.datas.push(DataInstance::new(data_val));
+            self.data.push(DataInstance::new(data_val));
             data_addrs.push((i + data_count) as Addr);
         }
 

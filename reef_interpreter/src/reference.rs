@@ -1,4 +1,4 @@
-//! References to parts of instatiated Wasm modules
+//! References to parts of instantiated Wasm modules
 
 use alloc::{
     ffi::CString,
