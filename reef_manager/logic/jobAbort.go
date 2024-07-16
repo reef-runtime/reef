@@ -57,6 +57,8 @@ func MessageToNodeAbortJob(jobId string) ([]byte, error) {
 //
 
 func (m *JobManagerT) AbortJob(jobId string) (found bool, err error) {
+	const abortLogMsg = "This job has been aborted."
+
 	job, found := m.NonFinishedJobs.Get(jobId)
 	if !found {
 		return false, nil
@@ -68,7 +70,7 @@ func (m *JobManagerT) AbortJob(jobId string) (found bool, err error) {
 
 	switch status {
 	case StatusQueued:
-		if found, err := m.abortQueuedJob(jobId); !found || err != nil {
+		if found, err := m.abortQueuedJob(jobId, abortLogMsg); !found || err != nil {
 			return found, err
 		}
 	case StatusStarting, StatusRunning:
@@ -114,13 +116,24 @@ func (m *JobManagerT) AbortJob(jobId string) (found bool, err error) {
 				return false, errors.New(errMsg)
 			}
 
-			if _, err := m.abortQueuedJob(jobId); err != nil {
+			if _, err := m.abortQueuedJob(jobId, abortLogMsg); err != nil {
 				return false, fmt.Errorf("%s: %s", errMsg, err.Error())
 			}
 
 			// If the node could be dropped successfully, consider this a successful abortion.
 			return true, nil
 		}
+
+		// Add log message.
+		if err := database.AddLog(database.JobLog{
+			Kind:    database.LogKindSystem,
+			Created: time.Now(),
+			Content: abortLogMsg,
+			JobId:   jobId,
+		}); err != nil {
+			return false, err
+		}
+
 	case StatusDone:
 		panic("unreachable: a `done` job is never in the list of not-done jobs")
 	}
@@ -131,15 +144,24 @@ func (m *JobManagerT) AbortJob(jobId string) (found bool, err error) {
 	return true, nil
 }
 
-func (m *JobManagerT) abortQueuedJob(jobId string) (found bool, err error) {
-	_, found = m.NonFinishedJobs.Delete(jobId)
+func (m *JobManagerT) abortQueuedJob(jobID string, logMessage string) (found bool, err error) {
+	_, found = m.NonFinishedJobs.Delete(jobID)
 	if !found {
 		return false, nil
 	}
 
+	if err := database.AddLog(database.JobLog{
+		Kind:    database.LogKindSystem,
+		Created: time.Now(),
+		Content: logMessage,
+		JobId:   jobID,
+	}); err != nil {
+		return false, err
+	}
+
 	if err := database.SaveResult(database.Result{
 		Success:     false,
-		JobId:       jobId,
+		JobId:       jobID,
 		Content:     []byte(jobAbortMessage),
 		ContentType: database.StringPlain,
 		Created:     time.Now(),

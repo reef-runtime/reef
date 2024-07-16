@@ -69,9 +69,9 @@ func (h *AuthHandlerT) processAuth(ctx *gin.Context, token *string) *AuthRespons
 		isAdmin = true
 	}
 
+	// Use old session if the user is not an admin.
 	old := extractExistingSession(session)
-
-	if old != nil {
+	if !isAdmin && old != nil {
 		log.Debugf("used old session ID `%s` admin=%v in auth handler", old.Id, old.IsAdmin)
 		return old
 	}
@@ -125,18 +125,23 @@ func (h *AuthHandlerT) ReefAuth() gin.HandlerFunc {
 		session := sessions.Default(ctx)
 		s := extractExistingSession(session)
 
-		if s == nil {
-			var token *string
+		isNewSession := s == nil
 
-			tokenStr, found := ctx.GetQuery(tokenQuery)
-			if found {
-				token = &tokenStr
-			}
+		var token *string
 
+		tokenStr, found := ctx.GetQuery(tokenQuery)
+		if found {
+			token = &tokenStr
+		}
+
+		wantsToAuthenticateWithToken := token != nil
+
+		if isNewSession || wantsToAuthenticateWithToken {
 			newSess := h.processAuth(ctx, token)
 
 			if newSess == nil {
 				ctx.AbortWithStatus(http.StatusUnauthorized)
+				return
 			}
 
 			ctx.Set(SessionName, *newSess)
