@@ -18,15 +18,15 @@ export enum IJobStatus {
 }
 
 export enum IJobResultContentType {
-  // Parse the data as an UTF-8 string and format it as JSON (pretty-print).
-  ContentTypeStringJSON = 0,
-  // Parse the data as an UTF-8 string but don't do anything fancy with it.
-  ContentTypeStringPlain,
   // Parse the data as a 32-bit signed little-endian integer.
   // The server guarantees that the length of the `content` array is always 4 elements (= 32 bits).
-  ContentTypeI32,
+  ContentTypeI32 = 0,
   // Raw binary data, format as HEX with the option to display it as *lossy* UTF-8.
   ContentTypeRawBytes,
+  // Parse the data as an UTF-8 string but don't do anything fancy with it.
+  ContentTypeStringPlain,
+  // Parse the data as an UTF-8 string and format it as JSON (pretty-print).
+  ContentTypeStringJSON,
 }
 
 export interface IJobResult {

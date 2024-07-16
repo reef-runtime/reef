@@ -15,6 +15,7 @@ import { useJobs } from '@/stores/job.store';
 import { IJob, IJobResultContentType, IJobStatus } from '@/types/job';
 import { GetSocket, topicSingleJob } from '@/lib/websocket';
 import { useReefSession } from '@/stores/session.store';
+import { humanFileSize } from '@/lib/utils';
 
 export default function Page() {
   const { jobs, setJobs } = useJobs();
@@ -22,6 +23,7 @@ export default function Page() {
 
   const [job, setJob] = useState<IJob | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const [resultContent, setResultContent] = useState<ArrayBuffer | null>(null);
 
   useEffect(() => {
     document.title = `${job?.name} - Reef`;
@@ -51,6 +53,30 @@ export default function Page() {
     });
   }, []);
   /* eslint-enable react-hooks/exhaustive-deps */
+
+  // fetch result if available
+  useEffect(() => {
+    if (!job?.result) {
+      setResultContent(null);
+      return;
+    }
+
+    fetchResultData();
+  }, [job?.result]);
+
+  const fetchResultData = async () => {
+    if (!job?.result) throw 'bug';
+
+    let resultResponse = await fetch(`/api/job/result/${job.id}`);
+    let resultData = await resultResponse.json();
+
+    // convert base64 to arraybuffer
+    let buffer = await (
+      await fetch('data:application/binary;base64,' + resultData.content)
+    ).arrayBuffer();
+
+    setResultContent(buffer);
+  };
 
   if (!initialized || !job) {
     return null;
@@ -96,7 +122,42 @@ export default function Page() {
           <TabsContent value="result" className="mt-6">
             <CardContent className="grow">
               {job.result ? (
-                <div>Job results here</div>
+                <div className="space-y-2">
+                  <div>
+                    <h4 className="font-bold">Result Success</h4>
+                    <p>{job.result.success ? 'Yes' : 'No'}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold">Result Created</h4>
+                    <p>{new Date(job.result.created).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold">Result Content Type</h4>
+                    <p>{IJobResultContentType[job.result.contentType]}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold">Length</h4>
+                    <p>
+                      {resultContent
+                        ? `${humanFileSize(resultContent.byteLength)}`
+                        : 'Unknown'}
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold">Byte Length</h4>
+                    <p>
+                      {resultContent
+                        ? `${resultContent.byteLength} Bytes`
+                        : 'Unknown'}
+                    </p>
+                  </div>
+                  {resultContent ? (
+                    <div>
+                      <h4 className="font-bold">Content</h4>
+                      {jobResultContent(job, resultContent)}
+                    </div>
+                  ) : null}
+                </div>
               ) : (
                 <div>No Results available yet.</div>
               )}
@@ -138,22 +199,6 @@ export default function Page() {
               {Math.floor(job.progress * 10000) / 100}%
             </p>
           </div>
-          {job.result && (
-            <>
-              <div>
-                <h4 className="font-bold">Result Success</h4>
-                <p>{job.result.success ? 'Yes' : 'No'}</p>
-              </div>
-              <div>
-                <h4 className="font-bold">Result Content Type</h4>
-                <p>{IJobResultContentType[job.result.contentType]}</p>
-              </div>
-              <div>
-                <h4 className="font-bold">Result Created</h4>
-                <p>{new Date(job.result.created).toLocaleString()}</p>
-              </div>
-            </>
-          )}
 
           {(job.owner === session.id || session.isAdmin) &&
           job.status !== IJobStatus.StatusDone ? (
@@ -166,3 +211,54 @@ export default function Page() {
     </main>
   );
 }
+
+const getDownloadUrl = (buffer: ArrayBuffer, filetype: string) => {
+  let blob = new Blob([buffer], { type: filetype });
+  return URL.createObjectURL(blob);
+};
+
+const jobResultContent = (job: IJob, resultContent: ArrayBuffer) => {
+  const type = job.result?.contentType;
+  if (type === IJobResultContentType.ContentTypeI32) {
+    // Int
+
+    let view = new DataView(resultContent);
+    return <p>{view.getInt32(0, true)}</p>;
+  } else if (type == IJobResultContentType.ContentTypeRawBytes) {
+    // Binary
+
+    return (
+      <a
+        href={getDownloadUrl(resultContent, 'application/binary')}
+        download="result.bin"
+        className="underline"
+      >
+        Download Result
+      </a>
+    );
+  } else {
+    // Text/JSON
+    const isText = type === IJobResultContentType.ContentTypeStringPlain;
+
+    // TODO: json fromatting
+    let decoder = new TextDecoder();
+    let str = decoder.decode(resultContent);
+    return (
+      <>
+        <div className="my-2 p-2 dark:bg-stone-950 rounded font-mono">
+          {str}
+        </div>
+        <a
+          href={getDownloadUrl(
+            resultContent,
+            isText ? 'application/text' : 'application/json'
+          )}
+          download={isText ? 'result.txt' : 'result.json'}
+          className="underline"
+        >
+          Download Result
+        </a>
+      </>
+    );
+  }
+};

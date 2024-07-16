@@ -59,6 +59,7 @@ import JobProgress from '@/components/job-progress';
 import DocsPage from '@/components/docs-page';
 import { cStdDoc } from '@/lib/reef_std_doc/c';
 import { rustStdDoc } from '@/lib/reef_std_doc/rust';
+import { humanFileSize } from '@/lib/utils';
 
 const SOURCE_CODE_KEY = 'source_code';
 const TEMPLATE_KEY = 'template_id';
@@ -247,27 +248,6 @@ export default function Page() {
   function loadSourceCode(): string | null {
     const code = localStorage.getItem(SOURCE_CODE_KEY);
     return code;
-  }
-
-  // File Size handling
-  const UNITS = ['byte', 'kilobyte', 'megabyte', 'gigabyte'];
-  const BYTES_PER_KB = 1000;
-
-  function humanFileSize(sizeBytes: number | bigint): string {
-    let size = Math.abs(Number(sizeBytes));
-
-    let u = 0;
-    while (size >= BYTES_PER_KB && u < UNITS.length - 1) {
-      size /= BYTES_PER_KB;
-      ++u;
-    }
-
-    return new Intl.NumberFormat([], {
-      style: 'unit',
-      unit: UNITS[u],
-      unitDisplay: 'short',
-      maximumFractionDigits: 1,
-    }).format(size);
   }
 
   const [jobId, setJobId] = useState<string | null>(null);
