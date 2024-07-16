@@ -27,8 +27,10 @@ type Config struct {
 	CompilerConfig   logic.CompilerConfig
 }
 
-//go:embed db/migrations/*.sql
+//go:embed database/migrations/*.sql
 var migrations embed.FS
+
+const embedPath = "database/migrations"
 
 func ship(logger *logrus.Logger) error {
 	//
@@ -45,7 +47,7 @@ func ship(logger *logrus.Logger) error {
 		return fmt.Errorf("configuration error: %s", help)
 	}
 
-	if err := database.Init(logger, config.Database, migrations); err != nil {
+	if err := database.Init(logger, config.Database, migrations, embedPath); err != nil {
 		logger.Fatalf("Initializing database failed: %s", err.Error())
 		return errors.New("database error")
 	}

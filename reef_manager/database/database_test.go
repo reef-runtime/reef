@@ -1,6 +1,7 @@
 package database
 
 import (
+	"embed"
 	"os"
 	"testing"
 	"time"
@@ -8,6 +9,11 @@ import (
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/sirupsen/logrus"
 )
+
+//go:embed migrations/*.sql
+var migrations embed.FS
+
+const embedPath = "migrations"
 
 const deleteTablesGrace = time.Second * 5
 
@@ -36,7 +42,7 @@ func initDB(deleteDatabase bool) error {
 		logger.Fatalf("Reading environment variables failed: %s\n%s", err.Error(), help)
 	}
 
-	if err := Init(logger, dbConfig); err != nil {
+	if err := Init(logger, dbConfig, migrations, embedPath); err != nil {
 		return err
 	}
 

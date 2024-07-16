@@ -86,7 +86,7 @@ func DeleteJob(jobId string) (found bool, err error) {
 
 	affected, err := res.RowsAffected()
 	if err != nil {
-		log.Errorf("Could not delete job: job entry: rows affected: ", err.Error())
+		log.Errorf("Could not delete job: job entry: rows affected: %s", err.Error())
 		return false, err
 	}
 

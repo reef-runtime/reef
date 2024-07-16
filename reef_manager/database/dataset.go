@@ -14,9 +14,9 @@ type Dataset struct {
 	Size uint32 `json:"size"` // Size of the dataset in bytes.
 }
 
-func AddDataset(dataset Dataset) (bool, error) {
+func AddDataset(dataset Dataset) (alreadyExists bool, err error) {
 	var _id string
-	err := db.builder.Select("id").From(DSTableName).Where("id=?", dataset.Id).QueryRow().Scan(&_id)
+	err = db.builder.Select("id").From(DSTableName).Where("id=?", dataset.Id).QueryRow().Scan(&_id)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return false, err
 	}

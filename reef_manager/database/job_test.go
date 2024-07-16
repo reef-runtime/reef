@@ -7,25 +7,43 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var dummyDS = Dataset{
+	Id:   "dummy",
+	Name: "Dummy Dataset",
+	Size: 42,
+}
+
+func AddDummyDS(t *testing.T) {
+	_, err := AddDataset(dummyDS)
+	assert.NoError(t, err)
+}
+
 func TestJobResults(t *testing.T) {
+	AddDummyDS(t)
+
 	now := time.Now()
 
-	const jobId = "testid"
+	const jobID = "testid"
+
+	datasets, err := ListDatasets()
+	assert.NoError(t, err)
+	assert.NotEmpty(t, datasets)
 
 	job := JobTableData{
-		Id:        jobId,
+		Id:        jobID,
 		Name:      "",
 		Submitted: now,
 		WasmId:    "",
-		DatasetId: "",
+		DatasetId: datasets[0].Id,
+		Owner:     "",
 	}
 
-	err := AddJob(job)
+	err = AddJob(job)
 	assert.NoError(t, err)
 
 	res := Result{
 		Success:     false,
-		JobId:       jobId,
+		JobId:       jobID,
 		Content:     []byte{1, 2, 3},
 		ContentType: Bytes,
 		Created:     now,
@@ -34,11 +52,11 @@ func TestJobResults(t *testing.T) {
 	err = SaveResult(res)
 	assert.NoError(t, err)
 
-	result, found, err := GetResult(jobId)
+	result, found, err := GetResult(jobID)
 	assert.NoError(t, err)
 	assert.True(t, found)
 
 	assert.Equal(t, result.ContentType, Bytes)
 	assert.Equal(t, result.Content, []byte{1, 2, 3})
-	assert.Equal(t, result.JobId, jobId)
+	assert.Equal(t, result.JobId, jobID)
 }

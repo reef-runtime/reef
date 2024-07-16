@@ -47,7 +47,7 @@ type DatabaseConfig struct {
 	DBName   string `env:"REEF_DB_NAME" env-required:"true"`
 }
 
-func Init(pLogger *logrus.Logger, config DatabaseConfig, migrations embed.FS) error {
+func Init(pLogger *logrus.Logger, config DatabaseConfig, migrations embed.FS, embedPath string) error {
 	initLogger(pLogger)
 
 	if db.db != nil {
@@ -80,7 +80,7 @@ func Init(pLogger *logrus.Logger, config DatabaseConfig, migrations embed.FS) er
 		return err
 	}
 
-	source, err := iofs.New(migrations, "db/migrations")
+	source, err := iofs.New(migrations, embedPath)
 	if err != nil {
 		return fmt.Errorf("migration ebmed failed: %s", err.Error())
 	}
@@ -116,14 +116,14 @@ func Init(pLogger *logrus.Logger, config DatabaseConfig, migrations embed.FS) er
 }
 
 // // Solely used for testing purposes.
-// func deleteAllTables() error {
-// 	tables := []string{JobTableName}
+func deleteAllTables() error {
+	tables := []string{LogTableName, ResultTableName, JobTableName, DSTableName}
 
-// 	for _, table := range tables {
-// 		if _, err := db.builder.Delete(table).Exec(); err != nil {
-// 			return err
-// 		}
-// 	}
+	for _, table := range tables {
+		if _, err := db.builder.Delete(table).Exec(); err != nil {
+			return err
+		}
+	}
 
-// 	return nil
-// }
+	return nil
+}
