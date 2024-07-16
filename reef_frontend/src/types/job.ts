@@ -29,6 +29,21 @@ export enum IJobResultContentType {
   ContentTypeStringJSON,
 }
 
+export function displayResultContentType(kind: IJobResultContentType): string {
+  switch (kind) {
+    case IJobResultContentType.ContentTypeI32:
+      return '32-bit signed int';
+    case IJobResultContentType.ContentTypeRawBytes:
+      return 'Untyped Bytes';
+    case IJobResultContentType.ContentTypeStringPlain:
+      return 'String';
+    case IJobResultContentType.ContentTypeStringJSON:
+      return 'JSON';
+    default:
+      throw 'Another content type was added without updating this code';
+  }
+}
+
 export interface IJobResult {
   // If this is false, the job result's content-type
   // is guaranteed to be `string-plain`.
