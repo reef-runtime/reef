@@ -119,6 +119,14 @@ const librarySection: DocSection = {
         'Use this one instead of the one from string.h.',
       ],
     },
+    {
+      signature: 'void *memset(void *dest, int value, size_t num)',
+      description: [
+        'The C library memset() function of type void accepts three variable as parameters that copies the character c (an unsigned char) to the first n characters of the string pointed to, by the argument str.',
+        'This function is used to fill a contiguous block of memory with a specific value. It also converts the value of a character to unsigned character and copies it into each of first n character of the object pointed by the given string. If the n is larger than string size, it will be undefined.',
+        'Use this one instead of the one from string.h.',
+      ],
+    },
   ],
 };
 
