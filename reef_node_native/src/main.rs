@@ -10,7 +10,7 @@ use std::{
 use anyhow::{bail, Context, Result};
 use capnp::{message::ReaderOptions, serialize};
 use clap::Parser;
-use log::{debug, info, trace, warn};
+use log::{debug, info, trace, warn, error};
 use reef_protocol_node::message_capnp::{MessageFromNodeKind, ResultContentType};
 use tungstenite::{stream::MaybeTlsStream, Message, WebSocket};
 use url::Url;
@@ -297,7 +297,10 @@ impl NodeState {
                 }
             }
             Action::AbortJob(job_id) => {
-                self.abort_job(&job_id)?;
+                if let Err(e) = self.abort_job(&job_id) {
+                    error!("could not abort job: {e}")
+                }
+                info!("aborted job: `{job_id}`")
             }
             Action::Pong => {
                 trace!("sending WS pong");
