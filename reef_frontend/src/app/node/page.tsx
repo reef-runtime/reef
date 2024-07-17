@@ -29,7 +29,7 @@ import init, {
   NodeMessage,
 } from '@/lib/node_web_generated/reef_node_web';
 
-const STATE_SYNC_MILLIS = 1000;
+const STATE_SYNC_MILLIS = 1337;
 
 interface NodeState {
   nodeId?: string;

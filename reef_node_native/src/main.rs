@@ -10,7 +10,7 @@ use std::{
 use anyhow::{bail, Context, Result};
 use capnp::{message::ReaderOptions, serialize};
 use clap::Parser;
-use log::{debug, info, trace, warn, error};
+use log::{debug, error, info, trace, warn};
 use reef_protocol_node::message_capnp::{MessageFromNodeKind, ResultContentType};
 use tungstenite::{stream::MaybeTlsStream, Message, WebSocket};
 use url::Url;
@@ -54,7 +54,7 @@ struct Args {
     num_workers: Option<usize>,
 }
 
-const SYNC_DELAY_MILLIS: u64 = 5000;
+const SYNC_DELAY_MILLIS: u64 = 1337;
 const PING_DELAY_MILLIS: u64 = 10000;
 
 struct NodeState(Vec<Job>);
@@ -239,7 +239,7 @@ fn main() -> anyhow::Result<()> {
                 .with_context(|| "could not send final job result to manager")?;
         }
 
-        socket.flush()?;
+        flush_nonblocking_ws(&mut socket)?;
 
         if !worked {
             thread::sleep(MAIN_THREAD_SLEEP);
@@ -265,7 +265,7 @@ fn send_job_result(worker_index: u16, res: &JobResult, socket: &mut WSConn) -> a
 
     capnp::serialize::write_message(&mut buffer, &message).with_context(|| "could not encode message")?;
 
-    socket.write(Message::Binary(buffer)).with_context(|| "could not job result")?;
+    write_nonblocking_ws(socket, Message::Binary(buffer))?;
 
     Ok(())
 }
@@ -433,5 +433,38 @@ fn handle_binary(bin_slice: &[u8]) -> Result<Action> {
         }
         (MessageToNodeKind::Ping, body::Which::Empty(_)) => Ok(Action::Pong),
         (_, _) => bail!("Illegal message received instead of Job control."),
+    }
+}
+
+fn write_nonblocking_ws(socket: &mut WSConn, message: Message) -> Result<(), tungstenite::Error> {
+    loop {
+        let messsage_copy = message.clone();
+        match socket.write(messsage_copy) {
+            Ok(_) => {
+                break Ok(());
+            }
+            Err(tungstenite::Error::Io(ref err)) if err.kind() == std::io::ErrorKind::WouldBlock => {
+                thread::sleep(MAIN_THREAD_SLEEP);
+            }
+            Err(err) => {
+                break Err(err);
+            }
+        }
+    }
+}
+
+fn flush_nonblocking_ws(socket: &mut WSConn) -> Result<(), tungstenite::Error> {
+    loop {
+        match socket.flush() {
+            Ok(_) => {
+                break Ok(());
+            }
+            Err(tungstenite::Error::Io(ref err)) if err.kind() == std::io::ErrorKind::WouldBlock => {
+                thread::sleep(MAIN_THREAD_SLEEP);
+            }
+            Err(err) => {
+                break Err(err);
+            }
+        }
     }
 }

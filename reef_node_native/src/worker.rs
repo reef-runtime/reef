@@ -22,7 +22,7 @@ use reef_interpreter::{
 use reef_protocol_node::message_capnp::{MessageFromNodeKind, ResultContentType};
 use reef_wasm_interface::*;
 
-use crate::WSConn;
+use crate::{write_nonblocking_ws, WSConn};
 
 // TODO: use a shared constant for this.
 const TODO_LOG_KIND_DEFAULT: u16 = 0;
@@ -88,7 +88,7 @@ impl Job {
 
         capnp::serialize::write_message(&mut buffer, &message).with_context(|| "could not encode message")?;
 
-        socket.write(Message::Binary(buffer)).with_context(|| "could not send state sync")?;
+        write_nonblocking_ws(socket, Message::Binary(buffer)).with_context(|| "could not send state sync")?;
 
         Ok(())
     }
