@@ -11,12 +11,14 @@ import (
 )
 
 type JobResult struct {
-	JobId       JobId
+	JobID       JobId
 	WorkerIndex uint16
 	Success     bool
 	ContentType node.ResultContentType
 	Contents    []byte
 }
+
+const intResByteCount = 4
 
 func (r JobResult) String() string {
 	var contentTypeStr string
@@ -25,7 +27,11 @@ func (r JobResult) String() string {
 	switch r.ContentType {
 	case node.ResultContentType_i32:
 		contentTypeStr = "i32"
-		content = fmt.Sprint(int(binary.LittleEndian.Uint32(r.Contents)))
+		if len(r.Contents) < intResByteCount {
+			content = "0"
+		} else {
+			content = fmt.Sprint(int(binary.LittleEndian.Uint32(r.Contents)))
+		}
 	case node.ResultContentType_bytes:
 		contentTypeStr = "bytes"
 		content = hex.EncodeToString(r.Contents)
@@ -42,48 +48,54 @@ func (r JobResult) String() string {
 		outcome = "SUCCESS"
 	}
 
-	return fmt.Sprintf("[%s] on %s@%d (%s): %s", outcome, r.JobId, r.WorkerIndex, contentTypeStr, content)
+	return fmt.Sprintf("[%s] on %s@%d (%s): %s", outcome, r.JobID, r.WorkerIndex, contentTypeStr, content)
 }
 
-func (m *JobManagerT) ProcessResult(nodeId NodeId, result JobResult) error {
-	jobId, err := m.processResultWithLockingOps(nodeId, result)
+func (m *JobManagerT) ProcessResult(nodeID NodeId, result JobResult) error {
+	jobID, err := m.processResultWithLockingOps(nodeID, result)
 	if err != nil {
 		return err
 	}
 
-	m.updateSingleJobState(jobId)
+	m.updateSingleJobState(jobID)
 	m.updateNodeState()
 
 	return nil
 }
 
 func (m *JobManagerT) processResultWithLockingOps(nodeId NodeId, result JobResult) (jobId JobId, err error) {
-	node, found := m.Nodes.Get(nodeId)
+	thisNode, found := m.Nodes.Get(nodeId)
 
 	if !found {
 		return "", fmt.Errorf("process result: node Id is illegal: `%s`", IdToString(nodeId))
 	}
 
-	node.Lock.RLock()
-	numWorkers := node.Data.Info.NumWorkers
-	node.Lock.RUnlock()
+	thisNode.Lock.RLock()
+	numWorkers := thisNode.Data.Info.NumWorkers
+	thisNode.Lock.RUnlock()
 
 	if result.WorkerIndex >= numWorkers {
 		return "", fmt.Errorf("process result: worker index is illegal: %d", result.WorkerIndex)
 	}
 
-	_, exists, err := database.GetResult(result.JobId)
+	_, exists, err := database.GetResult(result.JobID)
 	if err != nil {
 		return "", err
 	}
 
 	if exists {
-		return "", fmt.Errorf("result for job `%s` already exists in database", result.JobId)
+		return "", fmt.Errorf("result for job `%s` already exists in database", result.JobID)
+	}
+
+	// If the result is truncated, pad it.
+	if result.ContentType == node.ResultContentType_i32 && len(result.Contents) < intResByteCount {
+		log.Warnf("[node] Got truncated response for 32-bit integer, using zero...")
+		result.Contents = make([]byte, intResByteCount)
 	}
 
 	if err := database.SaveResult(database.Result{
 		Success:     result.Success,
-		JobID:       result.JobId,
+		JobID:       result.JobID,
 		Content:     result.Contents,
 		ContentType: database.ContentType(result.ContentType),
 		Created:     time.Now(),
@@ -91,11 +103,11 @@ func (m *JobManagerT) processResultWithLockingOps(nodeId NodeId, result JobResul
 		return "", fmt.Errorf("process result: DB: %s", err.Error())
 	}
 
-	node.Lock.Lock()
-	jobId = *node.Data.WorkerState[result.WorkerIndex]
+	thisNode.Lock.Lock()
+	jobId = *thisNode.Data.WorkerState[result.WorkerIndex]
 	// Finally, delete the job from the worker.
-	node.Data.WorkerState[result.WorkerIndex] = nil
-	node.Lock.Unlock()
+	thisNode.Data.WorkerState[result.WorkerIndex] = nil
+	thisNode.Lock.Unlock()
 
 	job, found := m.NonFinishedJobs.Delete(jobId)
 	if !found {

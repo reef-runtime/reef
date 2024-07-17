@@ -71,7 +71,7 @@ func parseJobResultFromNode(nodeID logic.NodeId, message node.MessageFromNode) (
 	}
 
 	return logic.JobResult{
-		JobId:       *jobID,
+		JobID:       *jobID,
 		WorkerIndex: workerIndex,
 		Success:     result.Success(),
 		ContentType: result.ContentType(),
