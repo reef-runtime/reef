@@ -21,24 +21,10 @@ var UIManager UISubscriptionsManager
 // UI Update message.
 //
 
-// type UIUpdateMessage interface {
-// 	Kind() UIUpdateKind
-// }
-//
-// type UIUpdateKind uint8
-//
-// const (
-// 	// TODO: is this message kind really required?
-// 	UIUpdateKindClose UIUpdateKind = iota
-// 	UIUPdateKindNewData
-// )
-
 type DataCollectionMsg struct {
 	Topic WebSocketTopic `json:"topic"`
 	Data  any            `json:"data"`
 }
-
-// func (n UIUpdateNewData) Kind() UIUpdateKind { return UIUPdateKindNewData }
 
 //
 // Subscriptions.
@@ -131,13 +117,17 @@ func (m *UISubscriptionsManager) InitConn(ctx *gin.Context) {
 
 	wsConn := NewWSConn(conn)
 
-	conn.SetPongHandler(func(appData string) error {
+	conn.SetPongHandler(func(_ string) error {
 		log.Tracef("RECEIVED PONG!")
 		return nil
 	})
 
-	conn.SetCloseHandler(func(code int, text string) error {
-		// TODO
+	//
+	// The close handler removes this websocket connection from the UI manager.
+	//
+
+	conn.SetCloseHandler(func(_ int, _ string) error {
+		m.dropConn(conn.RemoteAddr())
 		return nil
 	})
 
@@ -169,6 +159,8 @@ func (m *UISubscriptionsManager) connMainLoop(conn *UIConn[ToUIUpdateMsg]) {
 				log.Warnf("[UI] client disconnected without closing message, cannot send status: %s", err.Error())
 			}
 		}
+
+		log.Debugf("[UI] sender goroutine terminated.")
 	}()
 
 	if err := conn.WS.WriteMessage(websocket.PingMessage, []byte("ready")); err != nil {
@@ -177,6 +169,7 @@ func (m *UISubscriptionsManager) connMainLoop(conn *UIConn[ToUIUpdateMsg]) {
 	}
 
 	// Listen to incoming messages.
+outer:
 	for {
 		msgType, message, err := conn.WS.ReadMessageWithTimeout(time.Time{})
 		if err != nil {
@@ -205,7 +198,7 @@ func (m *UISubscriptionsManager) connMainLoop(conn *UIConn[ToUIUpdateMsg]) {
 			log.Debugf("[UI] Client subscribed to `%v`", subscribeMessage.Topics)
 
 			// Subscribe to all topics.
-			// Send initial data (cached from previous update)
+			// Send initial data (cached from previous update).
 			conn.TopicsWithLastUpdate.Clear()
 			for _, topic := range subscribeMessage.Topics {
 				conn.TopicsWithLastUpdate.Insert(topic, time.Time{})
@@ -226,7 +219,9 @@ func (m *UISubscriptionsManager) connMainLoop(conn *UIConn[ToUIUpdateMsg]) {
 				}
 			}
 		case websocket.CloseMessage:
-			break
+			// Already handled in the close handler.
+			time.Sleep(1 * time.Second)
+			break outer
 		}
 	}
 
@@ -268,7 +263,7 @@ func (m *UISubscriptionsManager) sendUIUpdate(update ToUIUpdateMsg) {
 			continue
 		}
 
-		// No change since last time sending and not too much time has passed:
+		// No change since last time sending and not too much time has passed.
 		last, found := m.UpdateCache.Get(update.Topic)
 		if found && time.Since(lastSent) < minUIUpdateDelay && slices.Equal(last.Data, update.Data) {
 			log.Tracef("[UI] Skipping client: no change since last time sending")
@@ -318,6 +313,9 @@ func (m *UISubscriptionsManager) dropConn(addr net.Addr) {
 		log.Tracef("[UI] could not drop client `%s`: it does not exist", addr)
 		return
 	}
+
+	// This should terminate the sender goroutine, as it loops over this channel.
 	close(conn.Chan)
-	log.Debugf("[UI] client `%s` was dropped", addr)
+
+	log.Debugf("[UI] client `%s` was dropped, channel closed", addr)
 }
