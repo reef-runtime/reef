@@ -157,7 +157,7 @@ export default function Page() {
         <CardHeader>
           <CardTitle>Node Web</CardTitle>
         </CardHeader>
-        <CardContent className='flex flex-col justify-between'>
+        <CardContent className="flex flex-col justify-between">
           <div>
             <div>
               <h3 className="font-bold text-xl">Node ID</h3>
@@ -208,12 +208,9 @@ export default function Page() {
           </div>
 
           <div>
-          <Button
-            variant={'destructive'}
-            onClick={closeNode}
-          >
-            Disconnect
-          </Button>
+            <Button variant={'destructive'} onClick={closeNode}>
+              Disconnect
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -222,11 +219,11 @@ export default function Page() {
         <Card className="flex flex-col w-full xl:overflow-hidden">
           <CardHeader>
             <div className="flex justify-between">
-            <CardTitle>{nodeState.jobId ? 'Logs' : 'Waiting...'}</CardTitle>
-            <span className="font-mono font-bold text-xl overflow-hidden text-ellipsis flex gap-3 items-center">
-              <span>Count:</span>
-              <span>{nodeState.logs.length}</span>
-            </span>
+              <CardTitle>{nodeState.jobId ? 'Logs' : 'Waiting...'}</CardTitle>
+              <span className="font-mono font-bold text-xl overflow-hidden text-ellipsis flex gap-3 items-center">
+                <span>Count:</span>
+                <span>{nodeState.logs.length}</span>
+              </span>
             </div>
           </CardHeader>
 
@@ -398,8 +395,8 @@ async function runNode(
             (log_message: string) => {
               internalState.logs.push({
                 kind: ILogKind.LogKindProgram,
-                created: (new Date()).toISOString(),
-                jobId: internalState.jobId ? internalState.jobId : "",
+                created: new Date().toISOString(),
+                jobId: internalState.jobId ? internalState.jobId : '',
                 content: log_message,
               });
               internalState.logsFlush.push(log_message);
@@ -409,13 +406,16 @@ async function runNode(
             }
           );
 
-          if (message.start_job_data.interpreter_state && message.start_job_data.interpreter_state.length > 0) {
-              internalState.logs.push({
-                kind: ILogKind.LogKindNode,
-                created: (new Date()).toISOString(),
-                jobId: "",
-                content: `Resuming previously executed job with ${Math.floor(message.start_job_data.progress * 100)}% progress...`,
-              });
+          if (
+            message.start_job_data.interpreter_state &&
+            message.start_job_data.interpreter_state.length > 0
+          ) {
+            internalState.logs.push({
+              kind: ILogKind.LogKindNode,
+              created: new Date().toISOString(),
+              jobId: '',
+              content: `Resuming previously executed job with ${Math.floor(message.start_job_data.progress * 100)}% progress...`,
+            });
           }
 
           internalState.jobId = message.start_job_data.job_id;
