@@ -25,9 +25,20 @@ export const useDatasets = create<{
       throw new Error('Failed to upload dataset');
     }
 
-    const newDataset = (await res.json()) as IDataset;
-    set((curr) => ({ datasets: [...curr.datasets, newDataset] }));
+    interface UploadRes {
+      id: string;
+    }
 
-    return newDataset;
+    const uploadRes: UploadRes = (await res.json()) as IDataset;
+
+    const newDS: IDataset = {
+      id: uploadRes.id,
+      name: file.name,
+      size: file.size,
+    };
+
+    set((curr) => ({ datasets: [...curr.datasets, newDS] }));
+
+    return newDS;
   },
 }));

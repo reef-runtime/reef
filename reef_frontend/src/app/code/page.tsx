@@ -143,6 +143,7 @@ export default function Page() {
       values.datasetFile.length > 0
     ) {
       const newDataset = await uploadDataset(values.datasetFile[0]);
+      setDataset(newDataset.id);
       form.setValue('datasetId', newDataset.id);
     }
 
@@ -535,6 +536,7 @@ export default function Page() {
 
                                 uploadDataset(file).then((newDataset) => {
                                   form.setValue('datasetId', newDataset.id);
+                                  setDataset(newDataset.id);
                                   toast({
                                     title: 'File Uploaded Successfully',
                                     description: `Created new dataset '${newDataset.id.substring(0, 16)}...'`,
