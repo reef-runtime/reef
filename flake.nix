@@ -273,7 +273,7 @@
             fileset = ./reef_frontend;
           };
 
-          npmDepsHash = "sha256-p5blKotnweTz0qYgZdXO2DSqVRHBUAMkm4e4ED3PTfI=";
+          npmDepsHash = "sha256-x40po3Ou9hAjYmiOqQwlK1BAXyE83RVF3rArFeUISQ8=";
           # npmDepsHash = lib.fakeHash;
 
           npmPackFlags = ["--ignore-scripts"];
