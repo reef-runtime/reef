@@ -1,9 +1,19 @@
 'use client';
 
-import { Dispatch, Fragment, SetStateAction, useEffect, useState } from 'react';
+import { Dispatch, SetStateAction, useEffect, useState } from 'react';
+import UAParser from 'ua-parser-js';
+
 import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { CopyIcon } from 'lucide-react';
+
+import JobProgress from '@/components/job-progress';
+import { jobCogSpinner } from '@/components/job-status';
+import JobOutput from '@/components/job-output';
+
+import { IJobStatus } from '@/types/job';
+import { ILogEntry, ILogKind } from '@/types/log';
 
 import init, {
   get_connect_path,
@@ -18,14 +28,6 @@ import init, {
   NodeMessageKind,
   NodeMessage,
 } from '@/lib/node_web_generated/reef_node_web';
-import { CopyIcon } from 'lucide-react';
-import JobProgress from '@/components/job-progress';
-import classNames from 'classnames';
-import { jobCogSpinner } from '@/components/job-status';
-import JobOutput from '@/components/job-output';
-import { IJobStatus } from '@/types/job';
-import { ILogEntry, ILogKind } from '@/types/log';
-import { Separator } from '@/components/ui/separator';
 
 const STATE_SYNC_MILLIS = 1000;
 
@@ -42,14 +44,20 @@ export default function Page() {
   const [nodeState, setNodeState] = useState<NodeState | undefined>(undefined);
 
   const closeNode = () => {
+    console.log(`%c==> Closing Node.`, 'font-weight:bold;');
+
     setNodeState(undefined);
 
     if (ws) {
-      ws.close();
+      try {
+        ws.close();
+      } catch (_e: any) {}
       ws = undefined;
     }
 
-    if (wasmInit) reset_node();
+    try {
+      if (wasmInit) reset_node();
+    } catch (_e: any) {}
   };
 
   const [url, setUrl] = useState<string>('');
@@ -88,7 +96,7 @@ export default function Page() {
                   progress: 0,
                   logs: [],
                 });
-                runNode(setNodeState);
+                runNode(setNodeState, closeNode);
               }}
             >
               Join now
@@ -227,33 +235,20 @@ export default function Page() {
           </CardHeader>
 
           <CardContent className="m-6 mt-0 p-2 dark:bg-stone-950 rounded overflow-hidden">
-            {(function () {
-              // const logs = nodeState.logs.map((content) => {
-              //   return {
-              //     kind: ILogKind.LogKindNode,
-              //     created: new Date().toISOString(),
-              //     content,
-              //     jobId: nodeState.jobId,
-              //   } as ILogEntry;
-              // });
-
-              return (
-                <JobOutput
-                  compact={false}
-                  job={{
-                    id: nodeState.jobId,
-                    datasetId: '',
-                    wasmId: '',
-                    name: '',
-                    submitted: '',
-                    status: IJobStatus.StatusRunning,
-                    owner: '',
-                    logs: nodeState.logs,
-                    progress: nodeState.progress,
-                  }}
-                ></JobOutput>
-              );
-            })()}
+            <JobOutput
+              compact={false}
+              job={{
+                id: nodeState.jobId,
+                datasetId: '',
+                wasmId: '',
+                name: '',
+                submitted: '',
+                status: IJobStatus.StatusRunning,
+                owner: '',
+                logs: nodeState.logs,
+                progress: nodeState.progress,
+              }}
+            ></JobOutput>
           </CardContent>
         </Card>
       ) : null}
@@ -265,7 +260,8 @@ let ws: WebSocket | undefined;
 let wasmInit = false;
 
 async function runNode(
-  setNodeState: Dispatch<SetStateAction<NodeState | undefined>>
+  setNodeState: Dispatch<SetStateAction<NodeState | undefined>>,
+  closeNode: () => void
 ) {
   // Initialize Wasm, test for browser features.
   try {
@@ -290,6 +286,10 @@ async function runNode(
   ws = new WebSocket(connectPath);
   ws.binaryType = 'arraybuffer';
 
+  ws.addEventListener('close', () => {
+    closeNode();
+  });
+
   await waitWsOpen(ws);
   console.log('Websocket open');
 
@@ -300,8 +300,15 @@ async function runNode(
   }
 
   console.log('Starting Handshake...');
-  // TODO: userAgent stuff for better name
-  ws.send(serialize_handshake_response(1, 'node@web'));
+
+  // userAgent stuff for better name
+  let uaParser = new UAParser(navigator.userAgent);
+  ws.send(
+    serialize_handshake_response(
+      1,
+      `${uaParser.getBrowser().name}@${uaParser.getOS().name}`
+    )
+  );
 
   let nodeId;
   while (true) {

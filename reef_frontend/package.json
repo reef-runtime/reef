@@ -40,12 +40,14 @@
     "split-grid": "^1.0.11",
     "tailwind-merge": "^2.3.0",
     "tailwindcss-animate": "^1.0.7",
+    "ua-parser-js": "^1.0.38",
     "zod": "^3.23.8",
     "zustand": "^4.5.2"
   },
   "devDependencies": {
     "@types/codemirror": "^5.60.15",
     "@types/node": "^20",
+    "@types/ua-parser-js": "^0.7.39",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "eslint": "^8.57.0",
