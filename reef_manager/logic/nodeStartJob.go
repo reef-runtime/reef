@@ -217,8 +217,6 @@ func (m *JobManagerT) StartJobOnFreeNode(job LockedValue[Job]) (couldStart bool,
 //
 
 func (m *JobManagerT) findSuitableNode() (nodeID NodeId, workerIdx uint16, found bool) {
-	fmt.Println("=============== START")
-	defer fmt.Println("=============== END")
 	m.Nodes.Lock.RLock()
 	defer m.Nodes.Lock.RUnlock()
 

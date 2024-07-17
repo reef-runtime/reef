@@ -73,6 +73,7 @@ type Job struct {
 	//
 	LastRuntimeIncrement time.Time
 	RuntimeSeconds       uint64
+	IsBeingAborted       bool
 }
 
 func (m *JobManagerT) SubmitJob(
@@ -150,6 +151,7 @@ func (m *JobManagerT) SubmitJob(
 		InterpreterState:     nil,
 		LastRuntimeIncrement: time.Now(),
 		RuntimeSeconds:       0,
+		IsBeingAborted:       false,
 	}
 
 	m.NonFinishedJobs.Insert(idString, NewLockedValue(job))
@@ -249,6 +251,7 @@ func (m *JobManagerT) Init() error {
 				WasmId:    dbJob.Job.WasmId,
 				DatasetId: dbJob.Job.DatasetId,
 				Submitted: dbJob.Job.Submitted,
+				Owner:     dbJob.Job.Owner,
 			},
 
 			// Set job to queued.
@@ -259,6 +262,7 @@ func (m *JobManagerT) Init() error {
 			WorkerNodeID:         nil,
 			LastRuntimeIncrement: time.Now(),
 			RuntimeSeconds:       0,
+			IsBeingAborted:       false,
 		}
 
 		m.NonFinishedJobs.Insert(dbJob.Job.Id, NewLockedValue(job))

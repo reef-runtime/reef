@@ -120,7 +120,15 @@ func (m *JobManagerT) checkAllowedRuntime() error {
 
 		// This jobs exceeds the maximum allowed runtime.
 		if job.Data.RuntimeSeconds > m.MaxJobRuntimeSecs {
-			jobsToBeKilled = append(jobsToBeKilled, job)
+			if !job.Data.IsBeingAborted {
+				jobsToBeKilled = append(jobsToBeKilled, job)
+				job.Data.IsBeingAborted = true
+			} else {
+				log.Debugf(
+					"Job `%s` has exceeded maximum allowed runtime and is already being aborted, doing nothing...",
+					job.Data.Data.Id,
+				)
+			}
 		}
 
 		job.Data.LastRuntimeIncrement = time.Now()
