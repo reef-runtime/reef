@@ -258,6 +258,17 @@ export default function Page() {
 
   const [isDocsDialogOpen, setIsDocsDialogOpen] = useState(false);
 
+  useEffect(() => {
+    // KEY BINDS.
+    // CTRL + S  => Save current code.
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        return;
+      }
+    });
+  });
+
   return (
     <Form {...form}>
       <form
