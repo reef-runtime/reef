@@ -160,6 +160,10 @@ export default function Page() {
       error: 'compiling...',
       message: '',
     });
+    setCanSubmit(false);
+    setTimeout(() => {
+      setCanSubmit(true);
+    }, 5000);
 
     const res = await fetch('/api/jobs/submit', {
       method: 'POST',
@@ -270,6 +274,7 @@ export default function Page() {
   }, [jobId]);
 
   const [isDocsDialogOpen, setIsDocsDialogOpen] = useState(false);
+  const [canSubmit, setCanSubmit] = useState<boolean>(true);
 
   return (
     <Form {...form}>
@@ -550,7 +555,11 @@ export default function Page() {
                     </div>
                   </CardContent>
 
-                  <Button type="submit" className="rounded-t-none">
+                  <Button
+                    type="submit"
+                    className="rounded-t-none"
+                    disabled={!canSubmit}
+                  >
                     Submit Job
                   </Button>
                 </Card>
