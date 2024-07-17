@@ -134,15 +134,15 @@ export default function Page() {
               {job.result ? (
                 <div className="space-y-2">
                   <div>
-                    <h2 className="font-bold text-xl my-1">Finished At</h2>
+                    <h4 className="font-bold text-lg mt-1">Finished At</h4>
                     <p>{new Date(job.result.created).toLocaleString()}</p>
                   </div>
                   <div>
-                    <h2 className="font-bold text-xl my-1">Content Type</h2>
+                    <h4 className="font-bold text-lg mt-1">Content Type</h4>
                     <p>{displayResultContentType(job.result.contentType)}</p>
                   </div>
                   <div>
-                    <h2 className="font-bold text-xl my-1">Result Size</h2>
+                    <h4 className="font-bold text-lg mt-1">Result Size</h4>
                     <div className="flex gap-3">
                       {resultContent
                         ? `${resultContent.byteLength} Bytes`
@@ -166,7 +166,7 @@ export default function Page() {
                   </div>
                   {resultContent ? (
                     <div>
-                      <h2 className="font-bold text-xl my-1">Contents</h2>
+                      <h4 className="font-bold text-lg mt-1">Contents</h4>
                       {jobResultContent(job, resultContent)}
                     </div>
                   ) : null}
@@ -193,25 +193,25 @@ export default function Page() {
         <CardContent className="grow space-y-4">
           <JobProgress job={job} />
           <div>
-            <h4 className="font-bold">Job ID</h4>
+            <h4 className="font-bold text-lg mt-1">Job ID</h4>
             <p className="overflow-hidden text-ellipsis">{job.id}</p>
           </div>
           <div>
-            <h4 className="font-bold">Job Name</h4>
+            <h4 className="font-bold text-lg mt-1">Job Name</h4>
             <p className="overflow-hidden text-ellipsis">{job.name}</p>
           </div>
           <div>
-            <h4 className="font-bold">Dataset ID</h4>
+            <h4 className="font-bold text-lg mt-1">Dataset ID</h4>
             <p className="overflow-hidden text-ellipsis">{job.datasetId}</p>
           </div>
           <div>
-            <h4 className="font-bold">Submitted</h4>
+            <h4 className="font-bold text-lg mt-1">Submitted</h4>
             <p className="overflow-hidden text-ellipsis">
               {new Date(job.submitted).toLocaleString()}
             </p>
           </div>
           <div>
-            <h4 className="font-bold">Progress</h4>
+            <h4 className="font-bold text-lg mt-1">Progress</h4>
             <div className="flex justify-between">
               <p className="overflow-hidden text-ellipsis">
                 {Math.floor(job.progress * 10000) / 100}%

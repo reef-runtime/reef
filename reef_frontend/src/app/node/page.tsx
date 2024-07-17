@@ -160,13 +160,13 @@ export default function Page() {
         <CardContent className="flex flex-col justify-between">
           <div>
             <div>
-              <h3 className="font-bold text-xl">Node ID</h3>
+              <h4 className="font-bold text-lg mt-1">Node ID</h4>
               <p className="overflow-hidden text-ellipsis my-2 p-2 dark:bg-stone-950 rounded font-mono">
                 {nodeState.nodeId ?? 'connecting...'}
               </p>
             </div>
             <div>
-              <h3 className="font-bold text-xl">Status</h3>
+              <h4 className="font-bold text-lg mt-1">Status</h4>
               <p className="overflow-hidden text-ellipsis">
                 {nodeState.jobId ? (
                   <div>
@@ -193,8 +193,7 @@ export default function Page() {
 
               return (
                 <div>
-                  <h3 className="font-bold text-xl">Progress</h3>
-
+                  <h4 className="font-bold text-lg mt-1">Progress</h4>
                   <div className="overflow-hidden text-ellipsis flex flex-col gap-2">
                     <JobProgress
                       progress={nodeState.progress}
@@ -207,7 +206,7 @@ export default function Page() {
             })()}
           </div>
 
-          <div>
+          <div className="mt-4">
             <Button variant={'destructive'} onClick={closeNode}>
               Disconnect
             </Button>
