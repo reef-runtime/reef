@@ -160,7 +160,7 @@ fn main() -> anyhow::Result<()> {
         if since_last_ping >= ping_wait_duration {
             last_ping = Instant::now();
             trace!("sending WS ping");
-            socket.send(Message::Ping(vec![])).with_context(|| "sending WS ping")?;
+            // socket.send(Message::Ping(vec![])).with_context(|| "sending WS ping")?;
         }
 
         //
@@ -303,7 +303,7 @@ impl NodeState {
                 info!("aborted job: `{job_id}`")
             }
             Action::Pong => {
-                trace!("sending WS pong");
+                trace!("got WS pong");
             }
             Action::Disconnect => bail!("disconnected: connection lost"),
         }
