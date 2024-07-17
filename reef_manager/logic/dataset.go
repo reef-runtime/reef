@@ -100,6 +100,29 @@ func (m *DatasetManagerT) getDatasetPath(id string) (dspath string) {
 	return path.Join(m.DatasetPath, fmt.Sprintf("%s%s", id, dataSetFileEnding))
 }
 
+func (m *DatasetManagerT) validateDatasetExistence() error {
+	datasets, err := database.ListDatasets()
+	if err != nil {
+		return err
+	}
+
+	for _, dataset := range datasets {
+		_, exists, err := m.LoadDataset(dataset.Id)
+		if err != nil {
+			return fmt.Errorf("load dataset `%s`: %s", dataset.Id, err.Error())
+		}
+
+		if !exists {
+			log.Warnf("Deleting corrupt dataset with ID `%s`...", dataset.Id)
+			if _, err := m.DeleteDataset(dataset.Id); err != nil {
+				return fmt.Errorf("whilst cleaning up corrupt dataset with ID `%s`: %s", dataset.Id, err.Error())
+			}
+		}
+	}
+
+	return nil
+}
+
 func newDatasetManager(datasetPath string) (DatasetManagerT, error) {
 	if err := os.MkdirAll(datasetPath, defaultFilePermissions); err != nil {
 		return DatasetManager, fmt.Errorf("could not create dataset dir: %s", err.Error())
@@ -108,6 +131,13 @@ func newDatasetManager(datasetPath string) (DatasetManagerT, error) {
 	m := DatasetManagerT{
 		DatasetPath:    datasetPath,
 		EmptyDatasetID: nil,
+	}
+
+	//
+	// Check that all datasets that are in the DB also exist on in the FS.
+	//
+	if err := m.validateDatasetExistence(); err != nil {
+		return DatasetManagerT{}, fmt.Errorf("validate datasets: %s", err.Error())
 	}
 
 	if err := m.addEmptyDataset(); err != nil {
