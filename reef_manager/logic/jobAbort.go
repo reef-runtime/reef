@@ -57,7 +57,7 @@ func MessageToNodeAbortJob(jobId string) ([]byte, error) {
 //
 
 func (m *JobManagerT) AbortJob(jobId string) (found bool, err error) {
-	const abortLogMsg = "This job has been aborted."
+	const abortLogMsg = "This job will be aborted soon."
 
 	job, found := m.NonFinishedJobs.Get(jobId)
 	if !found {

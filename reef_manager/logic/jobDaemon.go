@@ -136,17 +136,6 @@ func (m *JobManagerT) checkAllowedRuntime() error {
 
 		log.Debugf("Aborting job `%s`: exceeded maximum runtime of %d seconds...", jobID, m.MaxJobRuntimeSecs)
 
-		found, err := m.AbortJob(jobID)
-		if err != nil {
-			log.Errorf("Could not abort job `%s` (which exceeded maximum runtime): %s", jobID, err.Error())
-			continue
-		}
-
-		if !found {
-			log.Debugf("Could not abort job `%s` (which exceeded maximum runtime): job not found anymore", jobID)
-			continue
-		}
-
 		const abortMsg = "Maximum allowed runtime of %d seconds was exceeded, this job will be terminated."
 
 		if err := database.AddLog(database.JobLog{
@@ -156,6 +145,17 @@ func (m *JobManagerT) checkAllowedRuntime() error {
 			JobId:   jobID,
 		}); err != nil {
 			return err
+		}
+
+		found, err := m.AbortJob(jobID)
+		if err != nil {
+			log.Errorf("Could not abort job `%s` (which exceeded maximum runtime): %s", jobID, err.Error())
+			continue
+		}
+
+		if !found {
+			log.Debugf("Could not abort job `%s` (which exceeded maximum runtime): job not found anymore", jobID)
+			continue
 		}
 	}
 
