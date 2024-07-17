@@ -7,8 +7,6 @@ interface JobStatusIconProps {
   job?: IJob | null;
 }
 
-const COLOR_RUNNING = 'orange-400';
-
 export function colorClassForJob(job?: IJob | null): string {
   if (!job) {
     return 'text-gray-300';
@@ -20,7 +18,7 @@ export function colorClassForJob(job?: IJob | null): string {
     case IJobStatus.StatusStarting:
       return 'bg-sky-500';
     case IJobStatus.StatusRunning:
-      return `bg-${COLOR_RUNNING}`;
+      return 'bg-orange-400';
     case IJobStatus.StatusDone:
       return job.result?.success ? 'bg-green-500' : 'bg-red-500';
     default:
@@ -68,7 +66,7 @@ export default JobStatusIcon;
 export function jobCogSpinner() {
   return (
     <div className="w-5 h-5 flex flex-col justify-center items-center">
-      <CogIcon className={`h-5 w-5 animate-spin-slow text-${COLOR_RUNNING}`} />
+      <CogIcon className="h-5 w-5 animate-spin-slow text-orange-400" />
     </div>
   );
 }
