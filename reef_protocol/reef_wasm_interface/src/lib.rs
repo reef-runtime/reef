@@ -40,3 +40,30 @@ pub type ReefResultReturn = ();
 // API definitions
 //
 pub const NODE_REGISTER_PATH: &str = "/api/node/connect";
+
+//
+// Utility
+//
+
+use reef_protocol_node::message_capnp::ResultContentType;
+
+#[derive(Debug)]
+pub struct ContentTypeConvertError;
+
+pub fn num_to_content_type(value: u8) -> Result<ResultContentType, ContentTypeConvertError> {
+    Ok(match value {
+        0 => ResultContentType::I32,
+        1 => ResultContentType::Bytes,
+        2 => ResultContentType::StringPlain,
+        3 => ResultContentType::StringJSON,
+        _ => return Err(ContentTypeConvertError),
+    })
+}
+pub fn content_type_to_num(value: ResultContentType) -> u8 {
+    match value {
+        ResultContentType::I32 => 0,
+        ResultContentType::Bytes => 1,
+        ResultContentType::StringPlain => 2,
+        ResultContentType::StringJSON => 3,
+    }
+}

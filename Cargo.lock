@@ -1054,6 +1054,7 @@ name = "reef_wasm_interface"
 version = "0.0.1"
 dependencies = [
  "reef_interpreter",
+ "reef_protocol_node",
 ]
 
 [[package]]

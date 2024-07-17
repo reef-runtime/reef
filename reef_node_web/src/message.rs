@@ -2,7 +2,7 @@ use capnp::{message::ReaderOptions, serialize};
 use reef_protocol_node::message_capnp::{
     assign_id_message,
     message_to_node::{self, body},
-    MessageFromNodeKind, MessageToNodeKind, ResultContentType,
+    MessageFromNodeKind, MessageToNodeKind,
 };
 use wasm_bindgen::prelude::*;
 
@@ -179,7 +179,7 @@ pub fn serialize_job_state_sync(progress: f32, interpreter_state: &[u8], logs: V
 }
 
 #[wasm_bindgen]
-pub fn serialize_job_result(success: bool, content: &[u8], content_type: u16) -> Vec<u8> {
+pub fn serialize_job_result(success: bool, content: &[u8], content_type: u8) -> Vec<u8> {
     let mut message = capnp::message::Builder::new_default();
     let mut encapsulating_message: reef_protocol_node::message_capnp::message_from_node::Builder = message.init_root();
     encapsulating_message.set_kind(MessageFromNodeKind::JobResult);
@@ -189,13 +189,7 @@ pub fn serialize_job_result(success: bool, content: &[u8], content_type: u16) ->
     job_result.set_worker_index(0);
     job_result.set_success(success);
     job_result.set_contents(content);
-    job_result.set_content_type(match content_type {
-        0 => ResultContentType::I32,
-        1 => ResultContentType::Bytes,
-        2 => ResultContentType::StringPlain,
-        3 => ResultContentType::StringJSON,
-        _ => panic!("Invalid result content type"),
-    });
+    job_result.set_content_type(reef_wasm_interface::num_to_content_type(content_type).expect("invalid content type"));
 
     let mut buffer = vec![];
     capnp::serialize::write_message(&mut buffer, &message).unwrap();

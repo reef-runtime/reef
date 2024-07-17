@@ -132,7 +132,7 @@ pub(crate) fn spawn_worker_thread(signal: Arc<AtomicU8>, job_id: String, data: W
 
         let sender = data.sender.clone();
         // send initial state sync to move job from starting to running
-        sender.send(FromWorkerMessage::State(data.state.clone().unwrap_or(Vec::new()))).unwrap();
+        sender.send(FromWorkerMessage::State(data.state.clone().unwrap_or_default())).unwrap();
 
         let mut exec_handle = match setup_interpreter(data, sleep_until.clone(), job_output.clone()) {
             Ok(handle) => handle,
@@ -156,6 +156,12 @@ pub(crate) fn spawn_worker_thread(signal: Arc<AtomicU8>, job_id: String, data: W
                 WorkerSignal::SAVE_STATE => {
                     serialized_state.clear();
                     let mut writer = std::io::Cursor::new(&mut serialized_state);
+
+                    // this clone should generally be cheap because job output is either not set or
+                    // very short during execution.
+                    let mut extra_data = job_output.borrow().1.clone();
+                    extra_data.push(reef_wasm_interface::content_type_to_num(job_output.borrow().0));
+
                     exec_handle.serialize(&mut writer, &job_output.borrow().1)?;
 
                     debug!("Serialized {} bytes for state of {}.", serialized_state.len(), job_id);
@@ -205,7 +211,7 @@ fn setup_interpreter(
     let module = parse_bytes(&data.program)?;
     let imports = reef_imports(data.sender, sleep_until, job_output.clone(), dataset.clone())?;
 
-    let (mut instance, stack, extra_data) = Instance::instantiate(module, imports, data.state.as_deref())?;
+    let (mut instance, stack, mut extra_data) = Instance::instantiate(module, imports, data.state.as_deref())?;
     if stack.is_some() {
         // reload dataset
         let mut mem = instance.exported_memory_mut("memory")?;
@@ -216,6 +222,8 @@ fn setup_interpreter(
         drop(dataset);
     }
 
+    job_output.borrow_mut().0 = reef_wasm_interface::num_to_content_type(extra_data.pop().unwrap_or(0))
+        .map_err(|_| reef_interpreter::Error::Other("invalid content type in state sync".into()))?;
     job_output.borrow_mut().1 = extra_data;
 
     let entry_fn_handle = instance.exported_func::<ReefMainArgs, ReefMainReturn>(REEF_MAIN_NAME)?;

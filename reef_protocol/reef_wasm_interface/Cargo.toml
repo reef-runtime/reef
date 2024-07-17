@@ -8,3 +8,4 @@ edition.workspace = true
 
 [dependencies]
 reef_interpreter.workspace = true
+reef_protocol_node.workspace = true

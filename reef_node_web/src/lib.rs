@@ -45,7 +45,7 @@ struct NodeState {
 #[derive(Debug, Clone)]
 #[wasm_bindgen(getter_with_clone)]
 pub struct JobOutput {
-    pub content_type: u16,
+    pub content_type: u8,
     pub data: Vec<u8>,
 }
 
@@ -88,7 +88,7 @@ fn init_node_inner(
         reef_imports(log_callback, progress_callback, sleep_for.clone(), dataset.clone(), job_output.clone())?;
 
     let state = if state.is_empty() { None } else { Some(state) };
-    let (mut instance, stack, extra_data) = Instance::instantiate(module, imports, state)?;
+    let (mut instance, stack, mut extra_data) = Instance::instantiate(module, imports, state)?;
     if stack.is_some() {
         // reload dataset
         let mut mem = instance.exported_memory_mut("memory")?;
@@ -99,6 +99,7 @@ fn init_node_inner(
         drop(dataset);
     }
 
+    job_output.borrow_mut().content_type = extra_data.pop().unwrap_or(0);
     job_output.borrow_mut().data = extra_data;
 
     let entry_fn_handle = instance.exported_func::<ReefMainArgs, ReefMainReturn>(REEF_MAIN_NAME)?;
@@ -200,7 +201,7 @@ fn reef_imports(
             let data = mem.load_vec(ptr as usize, len as usize)?;
 
             let content_type = match result_type {
-                0..3 => result_type as u16,
+                0..3 => result_type as u8,
                 _ => return Err(reef_interpreter::Error::Other("invalid ResultContentType".into())),
             };
 
@@ -251,7 +252,11 @@ pub fn serialize_state() -> Vec<u8> {
     // SAFETY: no other call can be running at the same time
     let mut node_state = unsafe { (*NODE_STATE.get()).take().unwrap() };
 
-    node_state.handle.serialize_raw(&mut writer, &node_state.job_output.borrow().data).unwrap();
+    // this clone should generally be cheap because job output is either not set or
+    // very short during execution.
+    let mut extra_data = node_state.job_output.borrow().data.clone();
+    extra_data.push(node_state.job_output.borrow().content_type);
+    node_state.handle.serialize_raw(&mut writer, &extra_data).unwrap();
 
     unsafe { *NODE_STATE.get() = Some(node_state) }
 
