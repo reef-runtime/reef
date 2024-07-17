@@ -1,6 +1,13 @@
 #!make
 SHELL:=/usr/bin/env bash
 
+#
+# Reef manager Makefile.
+# Author: MikMuellerDev
+# This file is part of the reef project and is used to make
+# development work on the manager component easier.
+#
+
 ENV_FILE=../.env
 ENV_FILE2=.env
 
@@ -37,13 +44,13 @@ MIGRATE:=migrate
 MIGRATIONS_DIR:=db/migrations
 
 #
-# Caddy & web
+# Caddy & web configuration.
 #
 
 CADDY_BIN=caddy
 
 #
-# Go stuff.
+# Go-related configuration.
 #
 
 GO_LINT_BIN:=golangci-lint
@@ -85,7 +92,14 @@ dev-db-shell: docker-check
 			-d $(REEF_DB_NAME)
 
 
-# TODO: add target for simplified DB migrations
+#
+# Database-Migration targets.
+#
+# EXAMPLES
+# - Adding a migration:
+#   Execute the following command in the terminal:
+#   `make dev-db-add-migration MIGRATION_NAME=add_job_results`
+#
 
 MIGRATION_NAME = "<error:not-specified>"
 dev-db-add-migration:
