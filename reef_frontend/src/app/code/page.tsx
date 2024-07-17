@@ -48,7 +48,7 @@ import { rust } from '@codemirror/lang-rust';
 import { cpp } from '@codemirror/lang-cpp';
 import { vscodeDark, vscodeLight } from '@uiw/codemirror-theme-vscode';
 
-import { JobLanguage, ITemplate } from '@/types/template';
+import { JobLanguage } from '@/types/template';
 import { useTemplates } from '@/stores/templates.store';
 import { useDatasets } from '@/stores/datasets.store';
 
@@ -61,8 +61,7 @@ import { cStdDoc } from '@/lib/reef_std_doc/c';
 import { rustStdDoc } from '@/lib/reef_std_doc/rust';
 import { humanFileSize } from '@/lib/utils';
 
-const SOURCE_CODE_KEY = 'source_code';
-const TEMPLATE_KEY = 'template_id';
+const EDITOR_STATE_KEY = 'editor_state';
 
 interface CompileRes {
   message: string;
@@ -83,29 +82,15 @@ const schema = z.object({
 
 export default function Page() {
   const { toast } = useToast();
-  const [compileError, setCompileError] = useState<CompileRes | null>(null);
+  const { theme } = useTheme();
+
+  let [columns, setColumns] = useState(`2fr 16px 1fr`);
+  const handleDrag = (_direction: any, _track: any, gridTemplateStyle: any) => {
+    setColumns(gridTemplateStyle);
+  };
 
   const { datasets, fetchDatasets, uploadDataset } = useDatasets();
-
-  const { templates, setTemplates, fetchTemplates } = useTemplates();
-  const [template, setTemplateInternal] = useState<ITemplate>({
-    id: '',
-    name: '',
-    language: 'c',
-    code: '',
-    dataset: '',
-  });
-  const [templateFresh, setTemplateFresh] = useState<boolean>(true);
-
-  function setTemplate(tmpl: ITemplate) {
-    localStorage.setItem(TEMPLATE_KEY, tmpl.id);
-    setTemplateInternal(tmpl);
-  }
-
-  function loadTemplate() {
-    localStorage.removeItem(SOURCE_CODE_KEY);
-    setTemplateFresh(true);
-  }
+  const { templates, fetchTemplates } = useTemplates();
 
   // Load datasets and templates on load.
   /* eslint-disable react-hooks/exhaustive-deps */
@@ -115,16 +100,93 @@ export default function Page() {
   }, []);
   /* eslint-enable react-hooks/exhaustive-deps */
 
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+
+  const [sourceCode, setSourceCodeState] = useState<string>('');
+  // const [name, setName] = useState<string>('');
+  const [language, setLanguage] = useState<JobLanguage>('c');
+  const [datasetId, setDatasetId] = useState<string>('');
+
+  function saveEditorState() {
+    localStorage.setItem(
+      EDITOR_STATE_KEY,
+      JSON.stringify({
+        sourceCode: form.getValues().sourceCode,
+        name: form.getValues().name,
+        language: form.getValues().language,
+        datasetId: form.getValues().datasetId,
+      })
+    );
+  }
+
+  function setSourceCode(newCode: string) {
+    form.setValue('sourceCode', newCode);
+    saveEditorState();
+    setSourceCodeState(newCode);
+  }
+
+  function setEditorState(
+    sourceCode: string,
+    name: string,
+    language: 'c' | 'rust',
+    datasetId: string
+  ) {
+    setSourceCodeState(sourceCode);
+    form.setValue('sourceCode', sourceCode);
+
+    form.setValue('name', name);
+
+    setLanguage(language);
+    form.setValue('language', language);
+
+    setDatasetId(datasetId);
+    form.setValue('datasetId', datasetId);
+  }
+
+  // if the template set after initial page load is completed
+  const [templateLoaded, setTemplateLoaded] = useState<boolean>(false);
+
+  // wait for templates and datasets to load
   useEffect(() => {
-    if (templates.length === 0) {
+    if (templates.length === 0 || datasets.length === 0 || templateLoaded) {
       return;
     }
+    setTemplateLoaded(true);
 
-    setTemplateFresh(true);
+    // try to load previous state from localStorage
+    let state = localStorage.getItem(EDITOR_STATE_KEY);
+    if (state) {
+      let editorState = JSON.parse(state);
+      setEditorState(
+        editorState.sourceCode,
+        editorState.name,
+        editorState.language,
+        editorState.datasetId
+      );
+    } else {
+      let defaultTemplate = templates[0];
+      setEditorState(
+        defaultTemplate.code,
+        defaultTemplate.name,
+        defaultTemplate.language,
+        defaultTemplate.dataset
+      );
+    }
+  }, [templates, datasets, templateLoaded]);
 
-    const tmpl = loadTemplateFromStorage();
-    if (!tmpl) setTemplate(templates[0]);
-  }, [templates]);
+  function loadSelectedTemplate() {
+    let template = templates.find((t) => t.id === selectedTemplateId);
+    if (template) {
+      setEditorState(
+        template.code,
+        template.name,
+        template.language,
+        template.dataset
+      );
+    }
+
+    saveEditorState();
+  }
 
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
@@ -135,23 +197,12 @@ export default function Page() {
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof schema>) => {
-    let datasetId = values.datasetId;
-    if (
-      values.datasetFile &&
-      values.datasetFile instanceof FileList &&
-      values.datasetFile.length > 0
-    ) {
-      const newDataset = await uploadDataset(values.datasetFile[0]);
-      setDataset(newDataset.id);
-      form.setValue('datasetId', newDataset.id);
-    }
+  const [canSubmit, setCanSubmit] = useState<boolean>(true);
+  const [compileError, setCompileError] = useState<CompileRes | null>(null);
 
-    if (!datasetId) {
-      toast({
-        title: 'Error',
-        description: 'No dataset selected',
-      });
+  const onSubmit = async (values: z.infer<typeof schema>) => {
+    if (!values.datasetId) {
+      form.setError('datasetId', { message: 'No Dataset selected' });
       return;
     }
 
@@ -189,72 +240,6 @@ export default function Page() {
     setJobId(submitRes.id);
   };
 
-  const { theme } = useTheme();
-
-  let [columns, setColumns] = useState(`2fr 16px 1fr`);
-
-  const handleDrag = (_direction: any, _track: any, gridTemplateStyle: any) => {
-    setColumns(gridTemplateStyle);
-  };
-
-  useEffect(() => {
-    const loadedCode = loadSourceCode();
-
-    if (!templateFresh) {
-      return;
-    }
-
-    if (!template) {
-      console.log('illegal template selection');
-      return;
-    }
-
-    let usedTemplate = template;
-
-    const loadedTempl = loadTemplateFromStorage();
-    if (loadedTempl) {
-      const searched = templates.find((t) => t.id === loadedTempl);
-      if (searched) usedTemplate = searched;
-    }
-
-    setLanguage(usedTemplate.language);
-    form.setValue('language', usedTemplate.language);
-
-    setDataset(usedTemplate.dataset);
-    form.setValue('datasetId', usedTemplate.dataset);
-
-    if (loadedCode) {
-      setSourceCodeInternal(loadedCode);
-      form.setValue('sourceCode', loadedCode);
-    } else {
-      setSourceCode(usedTemplate.code);
-      form.setValue('sourceCode', usedTemplate.code);
-    }
-
-    form.setValue('name', usedTemplate.name);
-
-    setTemplateFresh(false);
-  }, [template, templateFresh, form]);
-
-  const [language, setLanguage] = useState<JobLanguage>(template.language);
-  const [dataset, setDataset] = useState<string>(template.dataset);
-  const [sourceCode, setSourceCodeInternal] = useState<string>(template.code);
-
-  function setSourceCode(newCode: string) {
-    localStorage.setItem(SOURCE_CODE_KEY, newCode);
-    setSourceCodeInternal(newCode);
-  }
-
-  function loadTemplateFromStorage(): string | null {
-    const tmlp = localStorage.getItem(TEMPLATE_KEY);
-    return tmlp;
-  }
-
-  function loadSourceCode(): string | null {
-    const code = localStorage.getItem(SOURCE_CODE_KEY);
-    return code;
-  }
-
   const [jobId, setJobId] = useState<string | null>(null);
   const [job, setJob] = useState<IJob | null>(null);
 
@@ -268,13 +253,11 @@ export default function Page() {
     }
 
     sock.subscribe(topicSingleJob(jobId), (res) => {
-      // console.dir(res.data);
       setJob(res.data);
     });
   }, [jobId]);
 
   const [isDocsDialogOpen, setIsDocsDialogOpen] = useState(false);
-  const [canSubmit, setCanSubmit] = useState<boolean>(true);
 
   return (
     <Form {...form}>
@@ -296,16 +279,9 @@ export default function Page() {
                     <FormItem>
                       <FormControl>
                         <Select
-                          onValueChange={(newTemplateID) => {
-                            const newT = templates.find(
-                              (t) => t.id == newTemplateID
-                            );
-                            if (!newT) {
-                              throw `Illegal item: ${newT}`;
-                            }
-                            setTemplate(newT);
+                          onValueChange={(newId) => {
+                            setSelectedTemplateId(newId);
                           }}
-                          value={template.id}
                         >
                           <SelectTrigger className="w-[20rem]">
                             <SelectValue placeholder="Select a Template" />
@@ -325,14 +301,14 @@ export default function Page() {
                       </FormControl>
                       <FormMessage />
                     </FormItem>
-
                     <Button
-                      onClick={loadTemplate}
+                      onClick={loadSelectedTemplate}
                       type="button"
                       variant="outline"
                     >
                       Load Template
                     </Button>
+
                     <Button
                       onClick={() => {
                         setIsDocsDialogOpen(true);
@@ -440,7 +416,14 @@ export default function Page() {
                           <FormItem className="grow mt-2">
                             <FormLabel>Job Name</FormLabel>
                             <FormControl>
-                              <Input placeholder="Job Name" {...field} />
+                              <Input
+                                placeholder="Job Name"
+                                {...field}
+                                onChange={(e) => {
+                                  field.onChange(e);
+                                  saveEditorState();
+                                }}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -454,11 +437,12 @@ export default function Page() {
                             <FormLabel>Language</FormLabel>
                             <FormControl>
                               <Select
+                                value={language}
                                 onValueChange={(newLang) => {
                                   field.onChange(newLang);
                                   setLanguage(newLang as JobLanguage);
+                                  saveEditorState();
                                 }}
-                                value={language}
                               >
                                 <SelectTrigger className="w-full">
                                   <SelectValue placeholder="Select a language" />
@@ -485,12 +469,12 @@ export default function Page() {
                             <FormLabel>Select Dataset</FormLabel>
                             <FormControl>
                               <Select
-                                onValueChange={(newDataset) => {
-                                  // console.dir(newDataset);
-                                  field.onChange(newDataset);
-                                  setDataset(newDataset);
+                                onValueChange={(newId) => {
+                                  field.onChange(newId);
+                                  setDatasetId(newId);
+                                  saveEditorState();
                                 }}
-                                value={dataset}
+                                value={datasetId}
                               >
                                 <SelectTrigger className="w-full">
                                   <SelectValue placeholder="Select an Existing Dataset" />
@@ -537,15 +521,15 @@ export default function Page() {
 
                               for (let i = 0; i < fileCnt; i++) {
                                 const file = e.target.files[i];
-                                // console.log(file);
 
                                 uploadDataset(file).then((newDataset) => {
                                   form.setValue('datasetId', newDataset.id);
-                                  setDataset(newDataset.id);
+                                  setDatasetId(newDataset.id);
                                   toast({
                                     title: 'File Uploaded Successfully',
                                     description: `Created new dataset '${newDataset.id.substring(0, 16)}...'`,
                                   });
+                                  saveEditorState();
                                 });
                               }
                             }}
