@@ -3,6 +3,7 @@
 #include "defs.h"
 #include "log.h"
 #include "walloc.h"
+#include "memory.h"
 
 // Wasm Function Imports.
 void reef_progress(float done) __attribute__((__import_module__("reef"), __import_name__("progress"), ));
