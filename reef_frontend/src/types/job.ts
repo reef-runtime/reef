@@ -51,7 +51,8 @@ export interface IJobResult {
   // ID of the corresponding job.
   jobID: string;
   // Untyped, binary data: the `contentType` field describes how the UI should display this data.
-  content: Uint8Array;
+  // This is almost always `null` so that the websocket is not overloaded with data.
+  conent: null;
   // Describes how the `content` field is to be displayed.
   contentType: IJobResultContentType;
   // When the result was created. Can be used to calculate the runtime of a job.

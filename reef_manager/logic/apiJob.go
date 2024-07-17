@@ -18,6 +18,18 @@ type APIJob struct {
 //
 
 func (j *APIJob) MarshalJSON() ([]byte, error) {
+	var result *database.Result
+
+	if j.Job.Result != nil {
+		result = &database.Result{
+			Success:     j.Job.Result.Success,
+			JobID:       j.Job.Job.Id,
+			Content:     nil,
+			ContentType: j.Job.Result.ContentType,
+			Created:     j.Job.Result.Created,
+		}
+	}
+
 	intermediate := map[string]interface{}{
 		"id":        j.Job.Job.Id,
 		"name":      j.Job.Job.Name,
@@ -28,7 +40,7 @@ func (j *APIJob) MarshalJSON() ([]byte, error) {
 		"progress":  j.Progress,
 		"status":    j.Status,
 		"logs":      j.Logs,
-		"result":    j.Job.Result,
+		"result":    result,
 	}
 	return json.Marshal(intermediate)
 }
