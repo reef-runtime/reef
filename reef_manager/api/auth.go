@@ -28,7 +28,7 @@ type AuthRequest struct {
 }
 
 type AuthResponse struct {
-	Id      string `json:"id"`
+	ID      string `json:"id"`
 	IsAdmin bool   `json:"isAdmin"`
 }
 
@@ -72,7 +72,7 @@ func (h *AuthHandlerT) processAuth(ctx *gin.Context, token *string) *AuthRespons
 	// Use old session if the user is not an admin.
 	old := extractExistingSession(session)
 	if !isAdmin && old != nil {
-		log.Debugf("used old session ID `%s` admin=%v in auth handler", old.Id, old.IsAdmin)
+		log.Debugf("used old session ID `%s` admin=%v in auth handler", old.ID, old.IsAdmin)
 		return old
 	}
 
@@ -93,7 +93,7 @@ func (h *AuthHandlerT) processAuth(ctx *gin.Context, token *string) *AuthRespons
 	}
 
 	return &AuthResponse{
-		Id:      id,
+		ID:      id,
 		IsAdmin: isAdmin,
 	}
 }
@@ -109,7 +109,7 @@ func extractExistingSession(session sessions.Session) *AuthResponse {
 	}
 
 	return &AuthResponse{
-		Id:      id.(string),
+		ID:      id.(string),
 		IsAdmin: isAdmin.(bool),
 	}
 }

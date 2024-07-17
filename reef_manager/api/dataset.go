@@ -12,8 +12,8 @@ import (
 const datasetIdURLParam = "id"
 const formFileFieldName = "file"
 
-type IdBody struct {
-	Id string `json:"id"`
+type IDBody struct {
+	ID string `json:"id"`
 }
 
 func GetDatasets(ctx *gin.Context) {
@@ -81,21 +81,21 @@ func UploadDataset(ctx *gin.Context) {
 
 	ctx.JSON(
 		http.StatusOK,
-		IdBody{
-			Id: id,
+		IDBody{
+			ID: id,
 		},
 	)
 }
 
 func DeleteDataset(ctx *gin.Context) {
-	var dataset IdBody
+	var dataset IDBody
 
 	if err := ctx.ShouldBindJSON(&dataset); err != nil {
 		badRequest(ctx, err.Error())
 		return
 	}
 
-	found, err := logic.DatasetManager.DeleteDataset(dataset.Id)
+	found, err := logic.DatasetManager.DeleteDataset(dataset.ID)
 	if err != nil {
 		ctx.Status(http.StatusInternalServerError)
 		return

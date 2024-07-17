@@ -18,8 +18,8 @@ import (
 const compilerServiceDialType = "tcp"
 
 type CompilerConfig struct {
-	IP           string `env:"REEF_COMPILER_IP"            env-required:"true"`
-	Port         uint16 `env:"REEF_COMPILER_PORT"          env-required:"true"`
+	IP           string `env:"REEF_COMPILER_IP"         env-required:"true"`
+	Port         uint16 `env:"REEF_COMPILER_PORT"       env-required:"true"`
 	ArtifactPath string `env:"REEF_COMPILER_CACHE_PATH" env-required:"true"`
 }
 
@@ -30,8 +30,6 @@ type CompilerManager struct {
 }
 
 type CompilationError *string
-
-// var CompilerInstance CompilerManager
 
 //
 // Instance management.
@@ -45,10 +43,6 @@ func NewCompiler(config CompilerConfig) (CompilerManager, error) {
 
 	return comp, nil
 }
-
-// func DestroyCompiler() error {
-// 	return CompilerInstance.destroy()
-// }
 
 //
 // Generic, not specific to the singleton instance.
@@ -177,6 +171,7 @@ type CompileArtifact struct {
 	Hash string
 }
 
+// nolint:funlen
 func (c *CompilerManager) Compile(
 	language JobProgrammingLanguage,
 	programSrc string,

@@ -105,7 +105,7 @@ func SubmitJob(ctx *gin.Context) {
 		submission.SourceCode,
 		submission.Name,
 		submission.DatasetID,
-		session.Id,
+		session.ID,
 	)
 
 	if systemErr != nil {
@@ -121,8 +121,8 @@ func SubmitJob(ctx *gin.Context) {
 
 	ctx.JSON(
 		http.StatusOK,
-		IdBody{
-			Id: id,
+		IDBody{
+			ID: id,
 		},
 	)
 }
@@ -136,7 +136,7 @@ func userHasJobAccess(jobID string, user AuthResponse) (bool, error) {
 		return true, nil
 	}
 
-	hasAccess, err := database.JobHasOwner(jobID, user.Id)
+	hasAccess, err := database.JobHasOwner(jobID, user.ID)
 	if err != nil {
 		return false, err
 	}
@@ -146,26 +146,26 @@ func userHasJobAccess(jobID string, user AuthResponse) (bool, error) {
 
 func AbortOrCancelJob(ctx *gin.Context) {
 	session := extractSession(ctx)
-	var job IdBody
+	var job IDBody
 
 	if err := ctx.ShouldBindJSON(&job); err != nil {
 		badRequest(ctx, err.Error())
 		return
 	}
 
-	hasAccess, err := userHasJobAccess(job.Id, session)
+	hasAccess, err := userHasJobAccess(job.ID, session)
 	if err != nil {
 		ctx.Status(http.StatusInternalServerError)
 		return
 	}
 
 	if !hasAccess {
-		log.Debugf("denied: user `%s` does not have access to job `%s`", session.Id, job.Id)
+		log.Debugf("denied: user `%s` does not have access to job `%s`", session.ID, job.ID)
 		respondErr(ctx, "could not abort job", "this job is not owned by the current user", http.StatusForbidden)
 		return
 	}
 
-	found, err := logic.JobManager.AbortJob(job.Id)
+	found, err := logic.JobManager.AbortJob(job.ID)
 	if err != nil {
 		ctx.Status(http.StatusInternalServerError)
 		return

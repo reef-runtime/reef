@@ -38,8 +38,8 @@ func AddDataset(dataset Dataset) (alreadyExists bool, err error) {
 	return false, nil
 }
 
-func DeleteDataset(datasetId string) (found bool, err error) {
-	res, err := db.builder.Delete(DSTableName).Where("dataset.Id=?", datasetId).Exec()
+func DeleteDataset(datasetID string) (found bool, err error) {
+	res, err := db.builder.Delete(DSTableName).Where("dataset.Id=?", datasetID).Exec()
 	if err != nil {
 		log.Errorf("Could not delete database: executing query failed: %s", err.Error())
 		return false, err
@@ -55,6 +55,7 @@ func DeleteDataset(datasetId string) (found bool, err error) {
 }
 
 func ListDatasets() ([]Dataset, error) {
+	// nolint:goconst
 	baseQuery := db.builder.Select("*").From(DSTableName).OrderBy("name ASC")
 
 	res, err := baseQuery.Query()
@@ -62,6 +63,13 @@ func ListDatasets() ([]Dataset, error) {
 		log.Errorf("Could not list datasets: executing query failed: %s", err.Error())
 		return nil, err
 	}
+
+	if res.Err() != nil {
+		log.Errorf("Could not list datasets: getting rows failed: %s", res.Err())
+		return nil, err
+	}
+
+	defer res.Close()
 
 	datasets := make([]Dataset, 0)
 

@@ -8,13 +8,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const LOG_LEVEL_DEFAULT = logrus.TraceLevel
-const LOG_LEVEL_ENV_VAR = "REEF_LOG_LEVEL"
+const logLevelDefault = logrus.TraceLevel
+const logLevelEnvVarKey = "REEF_LOG_LEVEL"
 
 func newLogger() *logrus.Logger {
-	logLevel := LOG_LEVEL_DEFAULT
+	logLevel := logLevelDefault
 
-	if newLogLevel, newLogLevelOk := os.LookupEnv(LOG_LEVEL_ENV_VAR); newLogLevelOk {
+	if newLogLevel, newLogLevelOk := os.LookupEnv(logLevelEnvVarKey); newLogLevelOk {
 		switch newLogLevel {
 		case "TRACE":
 			logLevel = logrus.TraceLevel
@@ -46,6 +46,7 @@ func newLogger() *logrus.Logger {
 	}
 	var hook *lfshook.LfsHook = lfshook.NewHook(
 		pathMap,
+		// nolint:exhaustruct
 		&logrus.JSONFormatter{PrettyPrint: false},
 	)
 	logger.Hooks.Add(hook)
