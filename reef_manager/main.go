@@ -25,6 +25,7 @@ type Config struct {
 	Port             uint16 `env:"REEF_MANAGER_PORT"         env-required:"true"`
 	TemplatesDirPath string `env:"REEF_TEMPLATES_PATH"       env-required:"true"`
 	AdminToken       string `env:"REEF_ADMIN_TOKEN"          env-required:"true"`
+	SessionSecret    string `env:"REEF_SESSION_SECRET"       env-required:"true"`
 	MaxJobRuntime    uint64 `env:"REEF_JOB_MAX_RUNTIME_SECS" env-required:"true"`
 	Database         database.DatabaseConfig
 	CompilerConfig   logic.CompilerConfig
@@ -45,7 +46,8 @@ func httpServe(logger *logrus.Logger, config *Config) error {
 	//
 	// Authentication.
 	//
-	store := cookie.NewStore([]byte("fooaabababab"))
+	// This is only required so that user sessions are signed securely, use a randome value here.
+	store := cookie.NewStore([]byte(config.SessionSecret))
 	r.Use(sessions.Sessions(api.SessionName, store))
 
 	api.InitAuthHandler(config.AdminToken)

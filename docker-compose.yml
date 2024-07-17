@@ -44,8 +44,9 @@ services:
         environment:
             - "REEF_MANAGER_PORT=${REEF_MANAGER_PORT}"
             - "REEF_LOG_LEVEL=${REEF_LOG_LEVEL}"
-            - "REEF_ADMIN_TOKEN=secret"
+            - "REEF_ADMIN_TOKEN=secret-here"
             - "REEF_JOB_MAX_RUNTIME_SECS=10"
+            - "REEF_SESSION_SECRET=secret-here"
 
             - "REEF_TEMPLATES_PATH=${REEF_TEMPLATES_PATH}"
             - "REEF_DATASETS_PATH=${REEF_DATASETS_PATH}"
