@@ -138,6 +138,7 @@ func Init(
 	datasetDirPath string,
 	templatesDirPath string,
 	maxJobRuntimeSecs uint64,
+	nodesBlackList []string,
 ) error {
 	log = logger
 	log.Trace("Initializing logic package...")
@@ -172,6 +173,7 @@ func Init(
 		UIManager.FromDatasources,
 		UIManager.TriggerDataSourceChan,
 		maxJobRuntimeSecs,
+		nodesBlackList,
 	)
 	if err := JobManager.Init(); err != nil {
 		return err

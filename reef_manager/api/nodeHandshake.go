@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"capnproto.org/go/capnp/v3"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/reef-runtime/reef/reef_manager/logic"
@@ -75,7 +76,10 @@ func HandleNodeConnection(c *gin.Context) {
 
 	wsConn := logic.NewWSConn(conn)
 
-	node, err := performHandshake(wsConn)
+	clientIP := c.ClientIP()
+	spew.Dump(c.Request.Header)
+
+	node, err := performHandshake(wsConn, clientIP)
 	if err != nil {
 		log.Errorf("[node] handshake with `%s` failed: %s", conn.RemoteAddr(), err.Error())
 		return
@@ -101,13 +105,12 @@ func HandleNodeConnection(c *gin.Context) {
 }
 
 //nolint:funlen
-func performHandshake(conn *logic.WSConn) (logic.Node, error) {
+func performHandshake(conn *logic.WSConn, endpointIP string) (logic.Node, error) {
 	initMsg, err := createHandshakeInitMsg()
 	if err != nil {
 		return logic.Node{}, err
 	}
 
-	endpointIP := conn.RemoteAddr()
 	err = conn.WriteMessage(
 		websocket.BinaryMessage,
 		initMsg,
@@ -170,7 +173,7 @@ func performHandshake(conn *logic.WSConn) (logic.Node, error) {
 	//
 
 	newNode := logic.JobManager.ConnectNode(logic.NodeInfo{
-		EndpointIP: endpointIP.String(),
+		EndpointIP: endpointIP,
 		Name:       nodeName,
 		NumWorkers: numWorkers,
 	}, conn)

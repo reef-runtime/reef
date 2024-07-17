@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -325,7 +326,12 @@ func newJobManager(
 	triggerUIUpdates chan DataCollectionMsg,
 	refreshData chan WebSocketTopic,
 	maxJobRuntimeSecs uint64,
+	nodesBlackList []string,
 ) JobManagerT {
+	if len(nodesBlackList) > 0 {
+		log.Warnf("Node blacklist contains candidates: [%s]", strings.Join(nodesBlackList, ", "))
+	}
+
 	return JobManagerT{
 		Templates:            templates,
 		Compiler:             compiler,
@@ -334,6 +340,7 @@ func newJobManager(
 		SendUIUpdatesTo:      triggerUIUpdates,
 		RequestToRefreshData: refreshData,
 		MaxJobRuntimeSecs:    maxJobRuntimeSecs,
+		NodesBlackList:       nodesBlackList,
 	}
 }
 

@@ -26,6 +26,8 @@ type JobManagerT struct {
 	RequestToRefreshData chan WebSocketTopic
 	// If a job's active execution time is high that this value, the job is killed.
 	MaxJobRuntimeSecs uint64
+	// Any nodes with a name contained in that slice will not receive any jobs.
+	NodesBlackList []string
 }
 
 var JobManager JobManagerT

@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -21,14 +22,15 @@ import (
 //
 
 type Config struct {
-	DatasetPath      string `env:"REEF_DATASETS_PATH"        env-required:"true"`
-	Port             uint16 `env:"REEF_MANAGER_PORT"         env-required:"true"`
-	TemplatesDirPath string `env:"REEF_TEMPLATES_PATH"       env-required:"true"`
-	AdminToken       string `env:"REEF_ADMIN_TOKEN"          env-required:"true"`
-	SessionSecret    string `env:"REEF_SESSION_SECRET"       env-required:"true"`
-	MaxJobRuntime    uint64 `env:"REEF_JOB_MAX_RUNTIME_SECS" env-required:"true"`
-	Database         database.DatabaseConfig
-	CompilerConfig   logic.CompilerConfig
+	DatasetPath       string `env:"REEF_DATASETS_PATH"        env-required:"true"`
+	Port              uint16 `env:"REEF_MANAGER_PORT"         env-required:"true"`
+	TemplatesDirPath  string `env:"REEF_TEMPLATES_PATH"       env-required:"true"`
+	AdminToken        string `env:"REEF_ADMIN_TOKEN"          env-required:"true"`
+	SessionSecret     string `env:"REEF_SESSION_SECRET"       env-required:"true"`
+	MaxJobRuntime     uint64 `env:"REEF_JOB_MAX_RUNTIME_SECS" env-required:"true"`
+	NodeNameBlacklist string `env:"REEF_NODES_BLACKLIST"      env-required:"true"`
+	Database          database.DatabaseConfig
+	CompilerConfig    logic.CompilerConfig
 }
 
 //go:embed database/migrations/*.sql
@@ -117,6 +119,15 @@ func sail(logger *logrus.Logger) error {
 		return fmt.Errorf("configuration error: %s", help)
 	}
 
+	//
+	// Parse env variables further.
+	//
+
+	nodesBlackList := make([]string, 0)
+	if err := json.Unmarshal([]byte(config.NodeNameBlacklist), &nodesBlackList); err != nil {
+		return fmt.Errorf("could not parse node blacklist: invalid JSON: %s", err.Error())
+	}
+
 	if err := database.Init(logger, config.Database, migrations, embedPath); err != nil {
 		logger.Fatalf("Initializing database failed: %s", err.Error())
 		return errors.New("database error")
@@ -131,6 +142,7 @@ func sail(logger *logrus.Logger) error {
 		config.DatasetPath,
 		config.TemplatesDirPath,
 		config.MaxJobRuntime,
+		nodesBlackList,
 	); err != nil {
 		logger.Fatalf("Initializing logic package failed: %s", err.Error())
 		return errors.New("system error")

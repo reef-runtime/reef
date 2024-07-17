@@ -47,6 +47,7 @@ services:
             - "REEF_ADMIN_TOKEN=secret-here"
             - "REEF_JOB_MAX_RUNTIME_SECS=10"
             - "REEF_SESSION_SECRET=secret-here"
+            - "REEF_NODES_BLACKLIST=[]"
 
             - "REEF_TEMPLATES_PATH=${REEF_TEMPLATES_PATH}"
             - "REEF_DATASETS_PATH=${REEF_DATASETS_PATH}"

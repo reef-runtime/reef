@@ -3,6 +3,7 @@ package logic
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"capnproto.org/go/capnp/v3"
@@ -226,7 +227,7 @@ func (m *JobManagerT) findSuitableNode() (nodeID NodeId, workerIdx uint16, found
 
 	for _, node := range m.Nodes.Map {
 		node.Lock.RLock()
-		score, isPossible := node.Data.calculateNodeSuitabilityScore()
+		score, isPossible := m.calculateNodeSuitabilityScore(node.Data)
 		node.Lock.RUnlock()
 
 		if isPossible {
@@ -260,11 +261,24 @@ func (m *JobManagerT) findSuitableNode() (nodeID NodeId, workerIdx uint16, found
 	return nodeID, 0, false
 }
 
-func (n Node) calculateNodeSuitabilityScore() (score uint8, isPossible bool) {
+func (m *JobManagerT) calculateNodeSuitabilityScore(node *Node) (score uint8, isPossible bool) {
+	//
+	// Check that this node is not blacklisted.
+	//
+
+	if slices.Contains[[]string](m.NodesBlackList, node.Info.Name) {
+		log.Debugf(
+			"Node `%s` is blacklisted (name: `%s`); excluded from candidates",
+			IdToString(node.Id),
+			node.Info.Name,
+		)
+		return 0, false
+	}
+
 	const oneHundred = 100
 
 	amountFreeWorkers := 0
-	for _, worker := range n.WorkerState {
+	for _, worker := range node.WorkerState {
 		if worker == nil {
 			amountFreeWorkers++
 		}
@@ -274,6 +288,6 @@ func (n Node) calculateNodeSuitabilityScore() (score uint8, isPossible bool) {
 		return 0, false
 	}
 
-	percentFree := float32(amountFreeWorkers) / float32(n.Info.NumWorkers)
+	percentFree := float32(amountFreeWorkers) / float32(node.Info.NumWorkers)
 	return uint8(percentFree * oneHundred), true
 }
