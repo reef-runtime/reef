@@ -52,6 +52,7 @@ pub mod reef {
         unsafe { result(result_type, data.as_ptr(), data.len()) }
     }
 
+    #[derive(Debug, Clone)]
     pub struct ReefOutput {
         pub content_type: i32,
         pub data: Vec<u8>,
@@ -62,6 +63,7 @@ pub mod reef {
             ReefOutput { content_type: 0, data: 0i64.to_le_bytes().to_vec() }
         }
     }
+
     macro_rules! impl_result_from_int {
         ($int: ty) => {
             impl From<$int> for ReefOutput {
@@ -82,15 +84,30 @@ pub mod reef {
             ReefOutput { content_type: 1, data: value }
         }
     }
+
     impl From<String> for ReefOutput {
         fn from(value: String) -> Self {
             ReefOutput { content_type: 2, data: value.into_bytes() }
         }
     }
+    impl From<&'static str> for ReefOutput {
+        fn from(value: &'static str) -> Self {
+            ReefOutput { content_type: 2, data: value.to_string().into_bytes() }
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct JsonOutput(pub String);
+
+    impl From<JsonOutput> for ReefOutput {
+        fn from(value: JsonOutput) -> Self {
+            ReefOutput { content_type: 3, data: value.0.into_bytes() }
+        }
+    }
 
     pub mod prelude {
         // Reef
-        pub use super::{reef_log, reef_progress, reef_sleep, ReefOutput};
+        pub use super::{reef_log, reef_progress, reef_sleep, JsonOutput, ReefOutput};
 
         // Dynamic borrow checking
         pub use std::cell::{Cell, RefCell};
