@@ -13,8 +13,8 @@ var log *logrus.Logger
 
 type TemplateDataset struct {
 	// Path relative from the manifest, to the dataset file.
-	Path string `json:"datasetPath"`
-	Name string `json:"datasetName"`
+	Path string `json:"path"`
+	Name string `json:"name"`
 }
 
 type TemplateManifest struct {
