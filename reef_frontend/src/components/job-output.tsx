@@ -42,7 +42,7 @@ const JobOutput: FC<JobOutputProps> = ({ job, compact }) => {
         return (
           <div
             key={index}
-            className="font-mono text-xs text-black dark:text-white"
+            className="font-mono whitespace-pre text-xs text-black dark:text-white"
           >
             <span className="text-emerald-600 dark:text-green-500">
               {prefix}
