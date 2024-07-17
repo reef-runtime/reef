@@ -1,5 +1,5 @@
 CLANG:=clang
-CLANG_ARGS:=-Ofast -flto -static
+CLANG_ARGS:=-Ofast -flto -static -Wno-incompatible-library-redeclaration
 LINKER_ARGS:=-Wl,--no-entry -Wl,--export-all -Wl,--lto-O3
 TARGET=wasm32
 
