@@ -40,6 +40,7 @@ services:
         volumes:
             - "reef-cache-data:/${REEF_COMPILER_CACHE_PATH}"
             - "reef-dataset-data:/${REEF_DATASETS_PATH}"
+            - "./reef_templates:/${REEF_TEMPLATES_PATH}"
         environment:
             - "REEF_MANAGER_PORT=${REEF_MANAGER_PORT}"
             - "REEF_LOG_LEVEL=${REEF_LOG_LEVEL}"

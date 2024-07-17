@@ -49,6 +49,14 @@ DOCKER_REGISTRY:=docker.io/mikmuellerdev
 DOCKER:=docker
 DOCKER_COMPOSE:=docker-compose
 
+#
+# Configuration for automatic cloning of example jobs.
+#
+
+GIT=git
+EXAMPLES_REPO=https://github.com/reef-runtime/examples
+LOCAL_EXAMPLES_DIR=reef_templates
+
 
 #
 # Predefined component names, do not modify these.
@@ -90,6 +98,20 @@ push-containers: env
 #
 
 up:
+	if [ ! -d $(LOCAL_EXAMPLES_DIR) ]; then \
+		if [ $(EXAMPLES_REPO) = "" ]; then \
+			echo "NOTE: no example repository specified, skipping local clone."; \
+		else \
+			echo "Cloning job examples..."; \
+			$(GIT) clone $(EXAMPLES_REPO) $(LOCAL_EXAMPLES_DIR); \
+			echo "Cloned remote job examples locally"; \
+		fi \
+	else \
+		echo "Updating job examples..."; \
+		cd $(LOCAL_EXAMPLES_DIR) && $(GIT) pull; \
+		echo "Updated local job examples"; \
+	fi \
+
 	PORT=$(PORT) $(DOCKER_COMPOSE) up
 down:
 	PORT=$(PORT) $(DOCKER_COMPOSE) down

@@ -10,3 +10,6 @@ target/
 
 # Nix output
 result
+
+# Local clone of examples
+reef_templates
