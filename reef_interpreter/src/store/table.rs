@@ -135,12 +135,12 @@ mod tests {
 
         match table_instance.get_wasm_val(0) {
             Ok(WasmValue::RefFunc(_)) => {}
-            _ => assert!(false, "get_wasm_val failed to return the correct WasmValue"),
+            _ => panic!("get_wasm_val failed to return the correct WasmValue"),
         }
 
         match table_instance.get_wasm_val(999) {
             Err(Error::Trap(Trap::UndefinedElement { .. })) => {}
-            _ => assert!(false, "get_wasm_val failed to handle undefined element correctly"),
+            _ => panic!("get_wasm_val failed to handle undefined element correctly"),
         }
     }
 

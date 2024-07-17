@@ -72,7 +72,7 @@ impl Compiler {
         // Calculate Hash
         let mut hasher = Sha256::new();
         hasher.update(file_buf.as_bytes());
-        hasher.update(&language.to_string());
+        hasher.update(language.to_string());
         let hash = hex::encode(hasher.finalize());
 
         let mut job_path = self.build_path.clone();
@@ -103,14 +103,14 @@ impl Compiler {
         // Create dirs
         fs::create_dir_all(job_path)?;
 
-        if fs::remove_dir_all(&job_path).is_ok() {
+        if fs::remove_dir_all(job_path).is_ok() {
             println!("Cleaned up compilation context at '{}'", job_path.display());
         }
 
         // Own copy implementation because we need to fix write perms while copying
         println!("Copying '{}' to '{}'...", template_path.display(), job_path.display());
-        for entry in walkdir::WalkDir::new(&template_path).into_iter().filter_map(|e| e.ok()) {
-            let relative_path = match entry.path().strip_prefix(&template_path) {
+        for entry in walkdir::WalkDir::new(template_path).into_iter().filter_map(|e| e.ok()) {
+            let relative_path = match entry.path().strip_prefix(template_path) {
                 Ok(rp) => rp,
                 Err(_) => panic!("strip_prefix failed. this is a probably a bug."),
             };
@@ -126,7 +126,9 @@ impl Compiler {
                 fs::copy(entry.path(), &target_path)?;
             }
 
+            // this is intended for container use where there is only one user anyways
             let mut perms = fs::metadata(&target_path)?.permissions();
+            #[allow(clippy::permissions_set_readonly_false)]
             perms.set_readonly(false);
             fs::set_permissions(&target_path, perms)?;
         }
@@ -138,12 +140,8 @@ impl Compiler {
         fs::write(input_file_path, file_buf)?;
 
         let mut cmd = Command::new("make");
-        let cmd_args = cmd
-            .arg(format!("HASH={hash}"))
-            .arg(format!("OUT_FILE={OUTPUT_FILE}"))
-            .arg("-C")
-            .arg(&job_path)
-            .arg("build");
+        let cmd_args =
+            cmd.arg(format!("HASH={hash}")).arg(format!("OUT_FILE={OUTPUT_FILE}")).arg("-C").arg(job_path).arg("build");
 
         println!("Running command {cmd_args:?}...");
 

@@ -103,7 +103,6 @@ export default function Page() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
 
   const [sourceCode, setSourceCodeState] = useState<string>('');
-  // const [name, setName] = useState<string>('');
   const [language, setLanguage] = useState<JobLanguage>('c');
   const [datasetId, setDatasetId] = useState<string>('');
 
