@@ -388,9 +388,9 @@
         reef_node_native_image = pkgs.dockerTools.streamLayeredImage {
           name = "reef_node_native";
           tag = "latest";
-          contents = [reef_node_native];
+          contents = [reef_node_native pkgs.bash pkgs.cacert];
           config = {
-            Cmd = ["bin/reef_node_native"];
+            Cmd = ["bin/bash" "-c" ''"/bin/reef_node_native" "$REEF_URL"''];
           };
         };
       in {

@@ -65,7 +65,8 @@ LOCAL_EXAMPLES_DIR=reef_templates
 REEF_CADDY_IMAGE_TAG:=reef_caddy
 REEF_MANAGER_IMAGE_TAG:=reef_manager
 REEF_COMPILER_IMAGE:=reef_compiler
-CONTAINER_TAGS:="$(REEF_CADDY_IMAGE_TAG) $(REEF_MANAGER_IMAGE_TAG) $(REEF_COMPILER_IMAGE)"
+REEF_NODE_NATIVE_IMAGE:=reef_node_native
+CONTAINER_TAGS:="$(REEF_CADDY_IMAGE_TAG) $(REEF_MANAGER_IMAGE_TAG) $(REEF_COMPILER_IMAGE) $(REEF_NODE_NATIVE_IMAGE)"
 
 ################################### BEGIN TARGETS ##################################
 
@@ -77,9 +78,7 @@ build-containers: env
 	echo "$(CONTAINER_TAGS)"
 	for image in "$(CONTAINER_TAGS)"; do \
 		echo "Building '$$image'" && \
-		$(NIX) $(NIX_ARGS) build ".#$${image}_image" && ./result | $(DOCKER) load && \
-		echo "Renaming '$$image' to $(DOCKER_REGISTRY)/$${image}"&& \
-		$(DOCKER) tag "$${image}" "$(DOCKER_REGISTRY)/$${image}" || exit 1; \
+		$(NIX) $(NIX_ARGS) build ".#$${image}_image" && ./result | $(DOCKER) load || exit 1; \
 	done
 
 #
@@ -89,6 +88,8 @@ build-containers: env
 push-containers: env
 	echo "$(CONTAINER_TAGS)"
 	for image in "$(CONTAINER_TAGS)"; do \
+		echo "Renaming '$$image' to $(DOCKER_REGISTRY)/$${image}" && \
+		$(DOCKER) tag "$${image}" "$(DOCKER_REGISTRY)/$${image}" && \
 		echo "Pushing image: '$(DOCKER_REGISTRY)/$$image'" && \
 		$(DOCKER) push "$(DOCKER_REGISTRY)/$$image" || exit 1; \
 	done
