@@ -17,16 +17,19 @@ const GROUPS = [
   {
     title: 'Queued',
     filter: (job: IJob) => job.status === IJobStatus.StatusQueued,
+    states: [IJobStatus.StatusQueued]
   },
   {
     title: 'Starting / Running',
     filter: (job: IJob) =>
       job.status === IJobStatus.StatusStarting ||
       job.status === IJobStatus.StatusRunning,
+    states: [IJobStatus.StatusStarting, IJobStatus.StatusRunning]
   },
   {
     title: 'Done',
     filter: (job: IJob) => job.status === IJobStatus.StatusDone,
+    states: [IJobStatus.StatusDone]
   },
 ];
 
@@ -56,7 +59,18 @@ export default function Page() {
           </CardHeader>
           <CardContent className="overflow-hidden">
             {(() => {
-              const groupJobs = jobs.filter(group.filter);
+              const isDoneGroup = group.states.includes(IJobStatus.StatusDone)
+              const sortFunc = isDoneGroup ? (a: IJob, b: IJob) => {
+                const dateA = new Date(a.result!.created).getTime()
+                const dateB = new Date(b.result!.created).getTime()
+                return dateA > dateB ? -1 : 1
+              } : (a: IJob, b: IJob) => {
+                const dateA = new Date(a.submitted).getTime()
+                const dateB = new Date(b.submitted).getTime()
+                return dateA > dateB ? -1 : 1
+              }
+
+              const groupJobs = jobs.filter(group.filter).sort(sortFunc);
               if (groupJobs.length > 0) {
                 return (
                   <ScrollArea className="rounded-md">
