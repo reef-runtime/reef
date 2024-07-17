@@ -27,9 +27,10 @@ const Progress = React.forwardRef<
         style={{
           transform: `translateX(-${100 - (value || 0)}%)`,
           background: isDarkMode
-            ? 'linear-gradient(90deg, rgba(188,255,212,1) 0%, rgba(143,149,255,1) 65%, rgba(255,158,253,1) 100%)'
+            ? 'linear-gradient(90deg, rgba(170,220,200, 1) 0%, rgba(143,149,255,1) 65%, rgba(255,158,253,1) 100%)'
             : 'linear-gradient(90deg, rgba(85,255,206,1) 0%, rgba(113,94,252,1) 50%, rgba(249,176,225,1) 100%)',
-          opacity: isDarkMode ? '' : '80%',
+          opacity: isDarkMode ? '100%' : '80%',
+          filter: isDarkMode ? 'saturate(65%) brightness(65%)' : ''
         }}
       />
     </ProgressPrimitive.Root>
