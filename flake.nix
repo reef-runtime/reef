@@ -390,7 +390,7 @@
           tag = "latest";
           contents = [reef_node_native pkgs.bash pkgs.cacert];
           config = {
-            Cmd = ["bin/bash" "-c" ''"/bin/reef_node_native" "$REEF_URL"''];
+            Cmd = ["bin/bash" "-c" ''"/bin/reef_node_native" "$REEF_URL" -w "$REEF_WORKERS"''];
           };
         };
       in {
