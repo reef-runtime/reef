@@ -317,6 +317,9 @@ export default function Home() {
             const groupJobs = jobs.filter(
               (job) => job.status === IJobStatus.StatusDone
             ).sort((a: IJob, b: IJob) => {
+                    if (!a.result || !b.result) {
+                        return 1
+                    }
                     const dateA = new Date(a.result!.created).getTime();
                     const dateB = new Date(b.result!.created).getTime();
                     return dateA > dateB ? -1 : 1;
