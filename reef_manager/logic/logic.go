@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -74,7 +75,12 @@ func ReadTemplates(templatesDir string, m *DatasetManagerT) ([]Template, error) 
 		}
 
 		var manifestStruct TemplateManifest
-		if err := json.Unmarshal(manifestString, &manifestStruct); err != nil {
+
+		buf := bytes.NewBuffer(manifestString)
+		decoder := json.NewDecoder(buf)
+		decoder.DisallowUnknownFields()
+
+		if err := decoder.Decode(&manifestStruct); err != nil {
 			return nil, fmt.Errorf("unmarshal `%s`: %s", manifestPath, err.Error())
 		}
 
