@@ -21,9 +21,10 @@ type TemplateManifest struct {
 	Name string `json:"name"`
 	// Path relative from the manifest, to the code file.
 	CodePath string `json:"codePath"`
-	// Uses the empty dataset if this is `nil`.
-	Dataset  *TemplateDataset `json:"dataset"`
-	Language string           `json:"language"`
+	// Uses the empty dataset if this is empty.
+	// The first dataset out of this list is the default one.
+	Datasets []TemplateDataset `json:"datasets"`
+	Language string            `json:"language"`
 }
 
 type Template struct {
@@ -97,18 +98,22 @@ func ReadTemplates(templatesDir string, m *DatasetManagerT) ([]Template, error) 
 		//
 		dsID := *m.EmptyDatasetID
 
-		if manifestStruct.Dataset != nil {
-			dsPath := path.Join(templatesDir, manifestStruct.Dataset.Path)
+		if len(manifestStruct.Datasets) > 0 {
+			dsID = manifestStruct.Datasets[0].Path
+		}
+
+		for _, dataset := range manifestStruct.Datasets {
+			dsPath := path.Join(templatesDir, dataset.Path)
 			dsFile, err := os.ReadFile(dsPath)
 			if err != nil {
 				return nil, fmt.Errorf("read DS file `%s` specified in `%s`: %s", dsPath, manifestPath, err.Error())
 			}
 
-			dsID, err = m.AddDataset(manifestStruct.Dataset.Name, dsFile)
+			dsID, err = m.AddDataset(dataset.Name, dsFile)
 			if err != nil {
 				return nil, fmt.Errorf(
 					"create DS `%s` specified in `%s`: %s",
-					manifestStruct.Dataset.Name,
+					dataset.Name,
 					manifestPath, err.Error(),
 				)
 			}

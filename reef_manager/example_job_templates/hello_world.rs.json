@@ -1,6 +1,6 @@
 {
     "name": "[Rust] Hello World!",
     "codePath": "hello_world.rs",
-    "dataset": null,
+    "datasets": [],
     "language": "rust"
 }

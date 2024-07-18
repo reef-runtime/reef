@@ -1,9 +1,11 @@
 {
     "name": "[C] Hello World!",
     "codePath": "hello_world.c",
-    "dataset": {
-        "path": "./foo.txt",
-        "name": "Foo.txt"
-    },
+    "datasets": [
+        {
+            "path": "./foo.txt",
+            "name": "Foo.txt"
+        }
+    ],
     "language": "c"
 }
