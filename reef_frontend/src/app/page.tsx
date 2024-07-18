@@ -43,7 +43,7 @@ import WorkerListItem from '@/components/worker-list-item';
 
 import { useNodes } from '@/stores/nodes.store';
 import { useJobs } from '@/stores/job.store';
-import { IJobStatus } from '@/types/job';
+import { IJob, IJobStatus } from '@/types/job';
 import { GetSocket, topicNodes, topicAllJobs } from '@/lib/websocket';
 import { ReefSession, useReefSession } from '@/stores/session.store';
 
@@ -256,7 +256,7 @@ export default function Home() {
                         {(function () {
                           let unit = 'min';
                           let duration =
-                            (Date.now() - new Date(node.lastPing).getTime()) /
+                            (Math.abs(Date.now() - new Date(node.lastPing).getTime())) /
                             60000;
 
                           if (duration < 1) {
@@ -316,7 +316,11 @@ export default function Home() {
           {(() => {
             const groupJobs = jobs.filter(
               (job) => job.status === IJobStatus.StatusDone
-            );
+            ).sort((a: IJob, b: IJob) => {
+                    const dateA = new Date(a.result!.created).getTime();
+                    const dateB = new Date(b.result!.created).getTime();
+                    return dateA > dateB ? -1 : 1;
+            });
             if (groupJobs.length > 0) {
               return (
                 <ScrollArea className="rounded-md h-full">
