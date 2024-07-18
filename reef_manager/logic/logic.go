@@ -104,24 +104,24 @@ func ReadTemplates(templatesDir string, m *DatasetManagerT) ([]Template, error) 
 		//
 		dsID := *m.EmptyDatasetID
 
-		if len(manifestStruct.Datasets) > 0 {
-			dsID = manifestStruct.Datasets[0].Path
-		}
-
-		for _, dataset := range manifestStruct.Datasets {
+		for idx, dataset := range manifestStruct.Datasets {
 			dsPath := path.Join(templatesDir, dataset.Path)
 			dsFile, err := os.ReadFile(dsPath)
 			if err != nil {
 				return nil, fmt.Errorf("read DS file `%s` specified in `%s`: %s", dsPath, manifestPath, err.Error())
 			}
 
-			dsID, err = m.AddDataset(dataset.Name, dsFile)
+			newDSID, err := m.AddDataset(dataset.Name, dsFile)
 			if err != nil {
 				return nil, fmt.Errorf(
 					"create DS `%s` specified in `%s`: %s",
 					dataset.Name,
 					manifestPath, err.Error(),
 				)
+			}
+
+			if idx == 0 {
+				dsID = newDSID
 			}
 		}
 

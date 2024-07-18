@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"capnproto.org/go/capnp/v3"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/reef-runtime/reef/reef_manager/logic"
@@ -77,7 +76,6 @@ func HandleNodeConnection(c *gin.Context) {
 	wsConn := logic.NewWSConn(conn)
 
 	clientIP := c.ClientIP()
-	spew.Dump(c.Request.Header)
 
 	node, err := performHandshake(wsConn, clientIP)
 	if err != nil {

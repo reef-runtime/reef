@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -101,8 +100,6 @@ func (h *AuthHandlerT) processAuth(ctx *gin.Context, token *string) *AuthRespons
 func extractExistingSession(session sessions.Session) *AuthResponse {
 	id := session.Get(sessionIDField)
 	isAdmin := session.Get(isAdminField)
-
-	spew.Dump(id, isAdmin)
 
 	if id == nil || isAdmin == nil {
 		return nil
