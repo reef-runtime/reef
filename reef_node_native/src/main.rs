@@ -437,23 +437,16 @@ fn handle_binary(bin_slice: &[u8]) -> Result<Action> {
 }
 
 fn write_nonblocking_ws(socket: &mut WSConn, message: Message) -> Result<(), tungstenite::Error> {
-    loop {
-        let message_copy = message.clone();
-        match socket.write(message_copy) {
-            Ok(_) => {
-                break Ok(());
-            }
-            Err(tungstenite::Error::Io(ref err)) if err.kind() == std::io::ErrorKind::WouldBlock => {
-                thread::sleep(MAIN_THREAD_SLEEP);
-            }
-            Err(err) => {
-                break Err(err);
-            }
-        }
+    match socket.write(message) {
+        Ok(_) => Ok(()),
+        // We should be able to safely ignore send error because the data is already in the out_buffer.
+        Err(tungstenite::Error::Io(ref err)) if err.kind() == std::io::ErrorKind::WouldBlock => Ok(()),
+        Err(err) => Err(err),
     }
 }
 
 fn flush_nonblocking_ws(socket: &mut WSConn) -> Result<(), tungstenite::Error> {
+    // retry flushing if it failed last time due to WouldBlock
     loop {
         match socket.flush() {
             Ok(_) => {
