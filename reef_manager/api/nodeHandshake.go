@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"net"
 
 	"capnproto.org/go/capnp/v3"
 	"github.com/gin-gonic/gin"
@@ -75,9 +76,26 @@ func HandleNodeConnection(c *gin.Context) {
 
 	wsConn := logic.NewWSConn(conn)
 
-	clientIP := c.ClientIP()
+	forwardedIP := c.ClientIP()
 
-	node, err := performHandshake(wsConn, clientIP)
+	remoteAddr := wsConn.RemoteAddr()
+
+	var port uint16
+
+	switch remoteAddr.(type) {
+	case *net.UDPAddr:
+		// port = uint16(addr.Port)
+		port = uint16(remoteAddr.(*net.UDPAddr).Port)
+	case *net.TCPAddr:
+		// p.SrcIP = addr.IP.String()
+		// p.SrcPort = uint(addr.Port)
+		// port = uint16(addr.Port)
+		port = uint16(remoteAddr.(*net.TCPAddr).Port)
+	}
+
+	nodeIP := fmt.Sprintf("%s:%d", forwardedIP, port)
+
+	node, err := performHandshake(wsConn, nodeIP)
 	if err != nil {
 		log.Errorf("[node] handshake with `%s` failed: %s", conn.RemoteAddr(), err.Error())
 		return
