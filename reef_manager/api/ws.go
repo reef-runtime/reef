@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"net"
 	"time"
 
@@ -121,8 +120,6 @@ func (m *UISubscriptionsManager) connMainLoop(conn UIConn[UIUpdateNewData]) {
 
 		switch msgType {
 		case websocket.TextMessage:
-			fmt.Printf("text: %s\n", string(message))
-
 			var subscribeMessage WebSocketSubscribeMessage
 			if err := json.Unmarshal(message, &subscribeMessage); err != nil {
 				log.Debugf("[UI] Client sent illegal subscribe message: %s", err.Error())

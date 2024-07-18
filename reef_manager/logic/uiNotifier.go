@@ -179,8 +179,6 @@ outer:
 
 		switch msgType {
 		case websocket.TextMessage:
-			fmt.Printf("text: %s\n", string(message))
-
 			var subscribeMessage WebSocketSubscribeMessage
 			if err := json.Unmarshal(message, &subscribeMessage); err != nil {
 				log.Debugf("[UI] Client sent illegal subscribe message: JSON: %s", err.Error())
