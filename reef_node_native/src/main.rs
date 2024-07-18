@@ -438,8 +438,8 @@ fn handle_binary(bin_slice: &[u8]) -> Result<Action> {
 
 fn write_nonblocking_ws(socket: &mut WSConn, message: Message) -> Result<(), tungstenite::Error> {
     loop {
-        let messsage_copy = message.clone();
-        match socket.write(messsage_copy) {
+        let message_copy = message.clone();
+        match socket.write(message_copy) {
             Ok(_) => {
                 break Ok(());
             }
