@@ -266,7 +266,7 @@ func (m *JobManagerT) calculateNodeSuitabilityScore(node *Node) (score uint8, is
 	// Check that this node is not blacklisted.
 	//
 
-	if slices.Contains[[]string](m.NodesBlackList, node.Info.Name) {
+	if slices.Contains(m.NodesBlackList, node.Info.Name) {
 		log.Debugf(
 			"Node `%s` is blacklisted (name: `%s`); excluded from candidates",
 			IdToString(node.Id),
@@ -284,10 +284,21 @@ func (m *JobManagerT) calculateNodeSuitabilityScore(node *Node) (score uint8, is
 		}
 	}
 
+	//
+	// No free workers, score is always 0.
+	//
+
 	if amountFreeWorkers == 0 {
 		return 0, false
 	}
 
+	//
+	// The amount of workers is added to the free percentage.
+	// -> Prefer nodes with many workers.
+	//
+
 	percentFree := float32(amountFreeWorkers) / float32(node.Info.NumWorkers)
-	return uint8(percentFree * oneHundred), true
+	percentInt := uint16(percentFree * oneHundred)
+	thisScore := uint8(percentInt + node.Info.NumWorkers)
+	return thisScore, true
 }
