@@ -61,7 +61,11 @@ import { cStdDoc } from '@/lib/reef_std_doc/c';
 import { rustStdDoc } from '@/lib/reef_std_doc/rust';
 import { humanFileSize } from '@/lib/utils';
 
+import { useReefSession } from '@/stores/session.store';
+
 const EDITOR_STATE_KEY = 'editor_state';
+
+const RATE_LIMITING_WAIT_MS = 5000;
 
 interface CompileRes {
   message: string;
@@ -199,6 +203,11 @@ export default function Page() {
   const [canSubmit, setCanSubmit] = useState<boolean>(true);
   const [compileError, setCompileError] = useState<CompileRes | null>(null);
 
+  const { session, fetchSession } = useReefSession();
+  useEffect(() => {
+    fetchSession(null);
+  }, []);
+
   const onSubmit = async (values: z.infer<typeof schema>) => {
     if (!values.datasetId) {
       form.setError('datasetId', { message: 'No Dataset selected' });
@@ -210,10 +219,13 @@ export default function Page() {
       error: 'compiling...',
       message: '',
     });
-    setCanSubmit(false);
-    setTimeout(() => {
-      setCanSubmit(true);
-    }, 5000);
+
+    if (!session.isAdmin) {
+      setCanSubmit(false);
+      setTimeout(() => {
+        setCanSubmit(true);
+      }, RATE_LIMITING_WAIT_MS);
+    }
 
     const res = await fetch('/api/jobs/submit', {
       method: 'POST',
