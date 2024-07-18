@@ -188,7 +188,7 @@ func ListJobs(idFilter *string, usernameFilter *string) ([]JobWithResult, error)
 	return jobs, nil
 }
 
-func JobHasOwner(jobID string, owner string) (true bool, err error) {
+func JobHasOwner(jobID string, owner string) (isTrue bool, err error) {
 	_, found, err := GetJob(jobID, &owner)
 	if err != nil {
 		log.Errorf("job has owner: query failed: %s", err.Error())
@@ -198,8 +198,8 @@ func JobHasOwner(jobID string, owner string) (true bool, err error) {
 	return found, nil
 }
 
-func GetJob(jobId string, usernameFilter *string) (job JobWithResult, found bool, err error) {
-	jobs, err := ListJobs(&jobId, usernameFilter)
+func GetJob(jobID string, usernameFilter *string) (job JobWithResult, found bool, err error) {
+	jobs, err := ListJobs(&jobID, usernameFilter)
 	if err != nil {
 		return job, false, err
 	}

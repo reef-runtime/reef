@@ -27,8 +27,8 @@ import (
 // )
 
 type UIUpdateNewData struct {
-	Topic WebSocketTopic
-	Data  any
+	Topic WebSocketTopic `json:"topic"`
+	Data  any            `json:"data"`
 }
 
 //
