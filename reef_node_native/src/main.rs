@@ -159,8 +159,8 @@ fn main() -> anyhow::Result<()> {
         let since_last_ping = Instant::now().duration_since(last_ping);
         if since_last_ping >= ping_wait_duration {
             last_ping = Instant::now();
-            trace!("sending WS ping");
-            // socket.send(Message::Ping(vec![])).with_context(|| "sending WS ping")?;
+            trace!("sending WS ping...");
+            socket.send(Message::Ping(vec![])).with_context(|| "sending WS ping")?;
         }
 
         //
