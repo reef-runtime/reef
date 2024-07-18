@@ -166,6 +166,11 @@ export default function Page() {
         editorState.language,
         editorState.datasetId
       );
+      //hack, but it works
+      setTimeout(() => {
+        setDatasetId(editorState.datasetId);
+        form.setValue('datasetId', editorState.datasetId);
+      });
     } else {
       let defaultTemplate = templates[0];
       setEditorState(
@@ -176,6 +181,12 @@ export default function Page() {
       );
     }
   }, [templates, datasets, templateLoaded]);
+
+  useEffect(() => {
+    return () => {
+      setTemplateLoaded(false);
+    };
+  }, []);
 
   function loadSelectedTemplate() {
     let template = templates.find((t) => t.id === selectedTemplateId);
@@ -494,7 +505,7 @@ export default function Page() {
                                 onValueChange={(newId) => {
                                   field.onChange(newId);
                                   setDatasetId(newId);
-                                  saveEditorState();
+                                  // saveEditorState();
                                 }}
                                 value={datasetId}
                               >
