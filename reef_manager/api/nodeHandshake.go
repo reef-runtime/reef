@@ -82,15 +82,11 @@ func HandleNodeConnection(c *gin.Context) {
 
 	var port uint16
 
-	switch remoteAddr.(type) {
+	switch addr := remoteAddr.(type) {
 	case *net.UDPAddr:
-		// port = uint16(addr.Port)
-		port = uint16(remoteAddr.(*net.UDPAddr).Port)
+		port = uint16(addr.Port)
 	case *net.TCPAddr:
-		// p.SrcIP = addr.IP.String()
-		// p.SrcPort = uint(addr.Port)
-		// port = uint16(addr.Port)
-		port = uint16(remoteAddr.(*net.TCPAddr).Port)
+		port = uint16(addr.Port)
 	}
 
 	nodeIP := fmt.Sprintf("%s:%d", forwardedIP, port)
