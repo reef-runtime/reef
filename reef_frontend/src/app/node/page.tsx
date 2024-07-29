@@ -399,6 +399,10 @@ async function runNode(
             message.start_job_data.interpreter_state,
             dataset,
             (log_message: string) => {
+              if (internalState.logsFlush.length >= 0x400 - 1) {
+                throw 'aborting job due to excessive logs';
+              }
+
               internalState.logs.push({
                 kind: ILogKind.LogKindProgram,
                 created: new Date().toISOString(),
@@ -446,7 +450,7 @@ async function runNode(
 
     let sleepDuration = 0.01;
 
-    // Only perform if job is running
+    // Only run if job is running
     if (internalState.jobId) {
       // State sync
       if (internalState.lastSync + STATE_SYNC_MILLIS < Date.now()) {
@@ -481,6 +485,7 @@ async function runNode(
         internalState.lastSync = Date.now();
       }
 
+      // actually execute Wasm
       let result;
       try {
         // TODO: benchmark what works best

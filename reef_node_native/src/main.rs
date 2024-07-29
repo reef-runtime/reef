@@ -176,7 +176,12 @@ fn main() -> anyhow::Result<()> {
                 }
                 match msg {
                     Ok(FromWorkerMessage::Log(log)) => {
-                        trace!("recv log: [{}:{}] '{}'", job.worker_index, log.kind, log.content,);
+                        trace!("recv log: [{}:{}] '{}'", job.worker_index, log.kind, log.content);
+
+                        if job.logs_to_be_flushed.len() >= 0x400 - 1 {
+                            debug!("Aborting job '{}' due to excessive logs.", job.job_id);
+                            job.signal_to_worker.store(WorkerSignal::ABORT, Ordering::Relaxed);
+                        }
 
                         job.logs_to_be_flushed.push(log);
                     }

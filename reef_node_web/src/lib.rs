@@ -130,11 +130,20 @@ fn reef_imports(
             let mem = ctx.exported_memory("memory")?;
             let log_string = mem.load_string(ptr as usize, len as usize)?;
 
+            if log_string.len() > 0x400 {
+                return Err(reef_interpreter::Error::Other(
+                    "reef/log: log message longer than 0x400 bytes, aborting".into(),
+                ));
+            }
+
             let this = JsValue::null();
             let log_string = JsValue::from(log_string);
-            let _ = log_callback.call1(&this, &log_string);
-
-            Ok(())
+            log_callback.call1(&this, &log_string).map(|_| ()).map_err(|err| {
+                reef_interpreter::Error::Other(format!(
+                    "reef/log: {}",
+                    err.as_string().unwrap_or("log js callback error".into()),
+                ))
+            })
         }),
     )?;
 

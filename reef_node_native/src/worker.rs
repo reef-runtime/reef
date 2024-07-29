@@ -25,7 +25,7 @@ use reef_wasm_interface::*;
 use crate::{write_nonblocking_ws, WSConn};
 
 // TODO: use a shared constant for this.
-const TODO_LOG_KIND_DEFAULT: u16 = 0;
+const LOG_KIND_DEFAULT: u16 = 0;
 
 const ITERATION_CYCLES: usize = 0x10000;
 
@@ -249,9 +249,13 @@ fn reef_imports(
             let mem = ctx.exported_memory("memory")?;
             let log_string = mem.load_string(ptr as usize, len as usize)?;
 
-            sender_log
-                .send(FromWorkerMessage::Log(ReefLog { content: log_string, kind: TODO_LOG_KIND_DEFAULT }))
-                .unwrap();
+            if log_string.len() > 0x400 {
+                return Err(reef_interpreter::Error::Other(
+                    "reef/log: log message longer than 0x400 bytes, aborting".into(),
+                ));
+            }
+
+            sender_log.send(FromWorkerMessage::Log(ReefLog { content: log_string, kind: LOG_KIND_DEFAULT })).unwrap();
 
             Ok(())
         }),
@@ -281,7 +285,7 @@ fn reef_imports(
             sleep_until.set(
                 Instant::now()
                     .checked_add(Duration::from_secs_f32(seconds))
-                    .ok_or_else(|| reef_interpreter::Error::Other("reef/sleep: Invalid time.".into()))?,
+                    .ok_or_else(|| reef_interpreter::Error::Other("reef/sleep: invalid time".into()))?,
             );
 
             Err(reef_interpreter::Error::PauseExecution)
