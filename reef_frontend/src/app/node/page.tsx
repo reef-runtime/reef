@@ -126,7 +126,7 @@ export default function Page() {
             </p>
 
             <div className="flex justify-between font-mono bg-stone-950  p-4 rounded w-full">
-              <span className="text-background dark:text-foreground">
+              <span className="text-slate-50">
                 chmod +x ./reef_node_native
                 <br />
                 ./reef_node_native &quot;{url}&quot;
@@ -169,7 +169,7 @@ export default function Page() {
           <div>
             <div>
               <h4 className="font-bold text-lg mt-1">Node ID</h4>
-              <p className="overflow-hidden text-ellipsis my-2 p-2 dark:bg-stone-950 rounded font-mono">
+              <p className="overflow-hidden text-ellipsis my-2 p-2 bg-stone-950 text-slate-50 rounded font-mono">
                 {nodeState.nodeId ?? 'connecting...'}
               </p>
             </div>
@@ -183,7 +183,7 @@ export default function Page() {
                       {jobCogSpinner()}
                     </div>
 
-                    <p className="overflow-hidden text-ellipsis my-2 p-2 dark:bg-stone-950 rounded font-mono">
+                    <p className="overflow-hidden text-ellipsis my-2 p-2 bg-stone-950 text-slate-50 rounded font-mono">
                       {nodeState.jobId}
                     </p>
                   </div>
