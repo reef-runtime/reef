@@ -178,12 +178,14 @@ fn main() -> anyhow::Result<()> {
                     Ok(FromWorkerMessage::Log(log)) => {
                         trace!("recv log: [{}:{}] '{}'", job.worker_index, log.kind, log.content);
 
-                        if job.logs_to_be_flushed.len() >= 0x400 - 1 {
+                        if job.logs_to_be_flushed.len() >= 0x400 - 1
+                            && job.signal_to_worker.load(Ordering::Relaxed) != WorkerSignal::ABORT
+                        {
                             debug!("Aborting job '{}' due to excessive logs.", job.job_id);
                             job.signal_to_worker.store(WorkerSignal::ABORT, Ordering::Relaxed);
+                        } else {
+                            job.logs_to_be_flushed.push(log);
                         }
-
-                        job.logs_to_be_flushed.push(log);
                     }
                     Ok(FromWorkerMessage::Progress(new)) => {
                         job.progress = new;
